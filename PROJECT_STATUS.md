@@ -16,8 +16,8 @@
 | التفويض والتعيين | Completed but Not Tested | طلب/قبول/رفض/إلغاء وتعيين موظفي المكتب. |
 | RBAC وعزل الشركات | Completed but Not Tested | فحوص خادمية على كل API؛ اختبارات الوحدة نجحت، اختبار PostgreSQL لم يُشغّل. |
 | Audit log | Completed but Not Tested | يسجل العمليات الأساسية ويعرضها للمكتب. |
-| نشر GitHub | Pending | ينفذ بعد بوابة الجودة النهائية. |
-| نشر Vercel | Pending | ينشر كواجهة عامة فقط إن لم تتوفر الخدمات الخارجية. |
+| نشر GitHub | Completed & Tested | `main` مرفوع وظهور الملفات والـcommit تحقق عبر GitHub API. |
+| نشر Vercel | Partially Completed | Production READY والواجهة 200؛ وظائف الحسابات معطلة لغياب PostgreSQL وSMTP والتخزين الخاص. |
 
 ## نتائج مثبتة حاليًا
 
@@ -28,6 +28,9 @@
 - Database integration tests: 2 SKIPPED بسبب عدم توفر PostgreSQL.
 - `npm audit`: صفر ثغرات معروفة بعد ترقية Next.js.
 - Migration SQL: مولدة، غير مطبقة على قاعدة فعلية بعد.
+- GitHub ↔ Vercel: الربط مفعل، وpush إلى `main` أنشأ Production deployment تلقائيًا.
+- Production URL: `https://money-coder-commercial-accounting.vercel.app`.
+- Production smoke: الصفحة 200، و`/api/health` يعيد 503/degraded بصدق، والتسجيل غير المهيأ يعيد 503.
 
 ## عوائق خارجية
 

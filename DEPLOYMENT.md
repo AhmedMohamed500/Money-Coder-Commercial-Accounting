@@ -1,5 +1,12 @@
 # Deployment Guide
 
+## حالة النشر الحالية
+
+- Project: `money-coder-commercial-accounting`
+- Production: `https://money-coder-commercial-accounting.vercel.app`
+- Git integration: متصل بالمستودع الرسمي؛ فرع `main` أنشأ نشرًا إنتاجيًا تلقائيًا.
+- الواجهة العامة تعمل، لكن لا توجد Project Environment Variables حاليًا؛ لذلك قاعدة البيانات والبريد والتخزين الخاص غير متاحة.
+
 ## GitHub
 
 المستودع الرسمي الوحيد: `https://github.com/AhmedMohamed500/Money-Coder-Commercial-Accounting.git`، والفرع الإنتاجي `main`. افحص `git status` و`git diff --cached` قبل الدفع، ولا ترفع `.env` أو `storage/`.
