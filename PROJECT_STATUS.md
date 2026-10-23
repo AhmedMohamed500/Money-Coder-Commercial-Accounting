@@ -6,7 +6,7 @@
 
 | الجزء | الحالة | ملاحظات |
 |---|---|---|
-| Landing page وRTL | Completed & Tested | فحص Playwright فعلي عند 390/768/1440px دون overflow أفقي، وRTL مؤكد. |
+| Landing page وRTL | Completed & Tested | إعادة تصميم Atelier Finance كاملة؛ فحص Playwright فعلي عند 390/768/1280/1440/1920px دون overflow أفقي أو أخطاء متصفح، وRTL مؤكد. |
 | التسجيل والدخول والجلسات | Completed but Not Tested | الكود وقاعدة البيانات والهجرات موجودة؛ PostgreSQL المحلية لم تعمل بسبب تعطل Docker Desktop على الجهاز. |
 | تأكيد البريد والاستعادة | Completed but Not Tested | مسار محلي آمن وروابط أحادية الاستخدام؛ SMTP غير مهيأ. |
 | ملف مكتب المحاسبة | Completed but Not Tested | تعديل الملف، إحصاءات حقيقية، فريق ودعوات وتفويضات. |
@@ -24,7 +24,8 @@
 - TypeScript: PASS.
 - Production build: PASS.
 - Unit tests: 6 PASS.
-- Responsive visual smoke: PASS على Mobile وTablet وDesktop.
+- Responsive visual smoke: PASS على 390 و768 و1280 و1440 و1920 بكسل، مع لقطات كاملة ولقطات مراجعة للأقسام الرئيسية.
+- Landing visual system: لوحة Plum/Ivory/Lilac/Gold، Alexandria للعناوين وIBM Plex Sans Arabic للنصوص، و`prefers-reduced-motion` مدعوم.
 - Database integration tests: 2 SKIPPED بسبب عدم توفر PostgreSQL.
 - `npm audit`: صفر ثغرات معروفة بعد ترقية Next.js.
 - Migration SQL: مولدة، غير مطبقة على قاعدة فعلية بعد.
