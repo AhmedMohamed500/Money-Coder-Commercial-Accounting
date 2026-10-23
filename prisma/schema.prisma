@@ -1,0 +1,388 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrganizationType {
+  ACCOUNTING_OFFICE
+  COMMERCIAL_COMPANY
+}
+
+enum MembershipRole {
+  OFFICE_OWNER
+  OFFICE_MANAGER
+  OFFICE_ACCOUNTANT
+  COMPANY_OWNER
+  COMPANY_MANAGER
+  COMPANY_ACCOUNTANT
+  REVIEWER
+  VIEWER
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+}
+
+enum EngagementStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  REVOKED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum FileKind {
+  LOGO
+  LEGAL_DOCUMENT
+  TAX_DOCUMENT
+  OTHER
+}
+
+enum InventoryMethod {
+  PERIODIC
+  PERPETUAL
+}
+
+model User {
+  id                   String                   @id @default(uuid()) @db.Uuid
+  email                String                   @unique
+  passwordHash         String
+  displayName          String
+  emailVerifiedAt      DateTime?
+  failedLoginAttempts  Int                      @default(0)
+  lockedUntil          DateTime?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  deletedAt            DateTime?
+  memberships          OrganizationMembership[]
+  invitationsSent      Invitation[]             @relation("InvitationSender")
+  auditEvents          AuditEvent[]
+  verificationTokens   EmailVerificationToken[]
+  passwordResetTokens  PasswordResetToken[]
+  sessions             Session[]
+  engagementAssignments EngagementStaff[]
+
+  @@index([deletedAt])
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model Organization {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  type               OrganizationType
+  legalName          String
+  tradeName          String?
+  englishName        String?
+  onboardingStatus   String                   @default("DRAFT")
+  createdById        String                   @db.Uuid
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  deletedAt          DateTime?
+  memberships        OrganizationMembership[]
+  profile            OrganizationProfile?
+  addresses          OrganizationAddress[]
+  legalDetails       CompanyLegalDetails?
+  contacts           CompanyContact[]
+  bankAccounts       CompanyBankAccount[]
+  accountingSettings CompanyAccountingSettings?
+  fiscalYears        CompanyFiscalYear[]
+  documents          CompanyDocument[]
+  files              FileAsset[]
+  officeEngagements  OfficeCompanyEngagement[] @relation("OfficeEngagements")
+  companyEngagements OfficeCompanyEngagement[] @relation("CompanyEngagements")
+  invitations        Invitation[]
+  auditEvents        AuditEvent[]
+
+  @@index([type, deletedAt])
+  @@index([createdById])
+}
+
+model OrganizationMembership {
+  id             String           @id @default(uuid()) @db.Uuid
+  userId         String           @db.Uuid
+  organizationId String           @db.Uuid
+  role           MembershipRole
+  status         MembershipStatus @default(ACTIVE)
+  permissions    Json             @default("[]")
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  deletedAt      DateTime?
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staffLinks     EngagementStaff[]
+
+  @@unique([userId, organizationId])
+  @@index([organizationId, status, deletedAt])
+}
+
+model OrganizationProfile {
+  id                   String       @id @default(uuid()) @db.Uuid
+  organizationId       String       @unique @db.Uuid
+  responsiblePerson    String?
+  businessActivity     String?
+  legalEntityType      String?
+  activityStartDate    DateTime?
+  website              String?
+  phone                 String?
+  publicEmail           String?
+  logoFileId            String?      @unique @db.Uuid
+  registrationProgress Int          @default(0)
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  logoFile              FileAsset?   @relation("OrganizationLogo", fields: [logoFileId], references: [id], onDelete: SetNull)
+}
+
+model OrganizationAddress {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  type           String       @default("LEGAL")
+  countryCode    String
+  governorate    String?
+  city           String?
+  addressLine    String
+  postalCode     String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, type])
+  @@index([organizationId])
+}
+
+model CompanyLegalDetails {
+  id                     String       @id @default(uuid()) @db.Uuid
+  organizationId         String       @unique @db.Uuid
+  commercialRegisterNo   String?
+  registrationAuthority  String?
+  taxRegistrationNo      String?
+  taxOffice               String?
+  vatRegistered           Boolean      @default(false)
+  taxCardNumber           String?
+  legalRepresentative    String?
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([taxRegistrationNo])
+  @@index([commercialRegisterNo])
+}
+
+model CompanyContact {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  type           String
+  name           String
+  title          String?
+  email          String?
+  phone          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, type])
+}
+
+model CompanyBankAccount {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  bankName       String
+  branchName     String?
+  accountName    String
+  accountNumber  String
+  iban           String?
+  currency       String       @default("EGP")
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, accountNumber])
+  @@index([organizationId, deletedAt])
+}
+
+model CompanyAccountingSettings {
+  id                   String          @id @default(uuid()) @db.Uuid
+  organizationId       String          @unique @db.Uuid
+  baseCurrency         String          @default("EGP")
+  fiscalYearStartMonth Int             @default(1)
+  fiscalYearStartDay   Int             @default(1)
+  fiscalYearEndMonth   Int             @default(12)
+  fiscalYearEndDay     Int             @default(31)
+  openingBalanceDate   DateTime?
+  inventoryMethod      InventoryMethod @default(PERIODIC)
+  taxSettings          Json            @default("{}")
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  organization         Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model CompanyFiscalYear {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  name           String
+  startsAt       DateTime
+  endsAt         DateTime
+  isClosed       Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, startsAt, endsAt])
+  @@index([organizationId, isClosed])
+}
+
+model FileAsset {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @db.Uuid
+  uploadedById   String            @db.Uuid
+  kind           FileKind
+  originalName   String
+  storageKey     String            @unique
+  mimeType       String
+  sizeBytes      Int
+  sha256         String
+  storageProvider String
+  createdAt      DateTime          @default(now())
+  deletedAt      DateTime?
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  companyDocument CompanyDocument?
+  logoFor         OrganizationProfile? @relation("OrganizationLogo")
+
+  @@index([organizationId, deletedAt])
+}
+
+model CompanyDocument {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  fileAssetId    String       @unique @db.Uuid
+  category       String
+  title          String
+  expiresAt      DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fileAsset      FileAsset    @relation(fields: [fileAssetId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, category, deletedAt])
+}
+
+model OfficeCompanyEngagement {
+  id                    String           @id @default(uuid()) @db.Uuid
+  officeOrganizationId  String           @db.Uuid
+  companyOrganizationId String           @db.Uuid
+  requestedById         String           @db.Uuid
+  status                EngagementStatus @default(PENDING)
+  permissions           Json             @default("[]")
+  acceptedAt            DateTime?
+  revokedAt             DateTime?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  office                Organization     @relation("OfficeEngagements", fields: [officeOrganizationId], references: [id], onDelete: Cascade)
+  company               Organization     @relation("CompanyEngagements", fields: [companyOrganizationId], references: [id], onDelete: Cascade)
+  staff                 EngagementStaff[]
+
+  @@unique([officeOrganizationId, companyOrganizationId])
+  @@index([companyOrganizationId, status])
+  @@index([officeOrganizationId, status])
+}
+
+model EngagementStaff {
+  id           String                     @id @default(uuid()) @db.Uuid
+  engagementId String                     @db.Uuid
+  membershipId String                     @db.Uuid
+  userId       String                     @db.Uuid
+  permissions  Json                       @default("[]")
+  createdAt    DateTime                   @default(now())
+  engagement   OfficeCompanyEngagement    @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  membership   OrganizationMembership     @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  user         User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([engagementId, membershipId])
+  @@index([userId, engagementId])
+}
+
+model Invitation {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @db.Uuid
+  email          String
+  role           MembershipRole
+  permissions    Json             @default("[]")
+  tokenHash      String           @unique
+  status         InvitationStatus @default(PENDING)
+  invitedById    String           @db.Uuid
+  expiresAt      DateTime
+  createdAt      DateTime         @default(now())
+  acceptedAt     DateTime?
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy      User             @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, status])
+  @@index([email, status])
+}
+
+model AuditEvent {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String?       @db.Uuid
+  actorUserId    String?       @db.Uuid
+  action         String
+  entityType     String
+  entityId       String?
+  metadata       Json          @default("{}")
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime      @default(now())
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  actor           User?         @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([actorUserId, createdAt])
+}

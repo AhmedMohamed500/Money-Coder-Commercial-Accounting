@@ -1,0 +1,5 @@
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { passwordSchema } from "@/lib/schemas";
+import { hashPassword, sha256 } from "@/lib/security";
+export async function POST(request: Request) { const body = await request.json().catch(()=>null); const password = passwordSchema.safeParse(body?.password); if (!password.success || typeof body?.token !== "string") return NextResponse.json({ error: password.error?.issues[0]?.message || "الطلب غير صالح." }, { status: 400 }); const record = await db.passwordResetToken.findUnique({ where: { tokenHash: sha256(body.token) } }); if (!record || record.usedAt || record.expiresAt <= new Date()) return NextResponse.json({ error: "الرابط غير صالح أو منتهي." }, { status: 400 }); await db.$transaction([db.user.update({ where: { id: record.userId }, data: { passwordHash: await hashPassword(password.data), failedLoginAttempts: 0, lockedUntil: null } }), db.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }), db.session.updateMany({ where: { userId: record.userId, revokedAt: null }, data: { revokedAt: new Date() } })]); return NextResponse.json({ ok: true }); }

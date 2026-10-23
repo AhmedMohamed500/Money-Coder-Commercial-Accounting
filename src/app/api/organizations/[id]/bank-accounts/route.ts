@@ -1,0 +1,6 @@
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { authorizeOrganization, getSessionUser } from "@/lib/auth";
+import { bankAccountSchema } from "@/lib/schemas";
+import { writeAudit } from "@/lib/audit";
+export async function POST(request: Request,{params}:{params:Promise<{id:string}>}) { const user=await getSessionUser(); const {id}=await params; if(!user||!(await authorizeOrganization(user.id,id,"organization:edit"))) return NextResponse.json({error:"غير مصرح."},{status:403}); const org=await db.organization.findUnique({where:{id}}); if(org?.type!=="COMMERCIAL_COMPANY") return NextResponse.json({error:"الحسابات البنكية مخصصة للشركات."},{status:400}); const parsed=bankAccountSchema.safeParse(await request.json().catch(()=>null)); if(!parsed.success) return NextResponse.json({error:parsed.error.issues[0]?.message},{status:400}); const account=await db.companyBankAccount.create({data:{organizationId:id,...parsed.data,branchName:parsed.data.branchName||null,iban:parsed.data.iban?.toUpperCase()||null}}).catch(()=>null); if(!account) return NextResponse.json({error:"رقم الحساب موجود مسبقًا لهذا الكيان."},{status:409}); await writeAudit({organizationId:id,actorUserId:user.id,action:"BANK_ACCOUNT_CREATED",entityType:"CompanyBankAccount",entityId:account.id,request}); return NextResponse.json(account,{status:201}); }

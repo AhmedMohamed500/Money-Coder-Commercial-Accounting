@@ -1,0 +1,31 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# tests / builds
+/coverage
+/.next
+/out
+/dist
+
+# local runtime data and uploads
+/.data
+/storage
+
+# environment and deployment metadata
+.env
+.env.*
+!.env.example
+.vercel
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+*.tsbuildinfo
+/test-artifacts
+/.edge-test
+
+# generated Prisma client
+/src/generated/prisma

@@ -1,0 +1,4 @@
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { sha256 } from "@/lib/security";
+export async function GET(request: Request) { const url = new URL(request.url); const token = url.searchParams.get("token"); if (!token) return NextResponse.redirect(new URL("/auth/verified?status=invalid", url)); const record = await db.emailVerificationToken.findUnique({ where: { tokenHash: sha256(token) } }); if (!record || record.usedAt || record.expiresAt <= new Date()) return NextResponse.redirect(new URL("/auth/verified?status=invalid", url)); await db.$transaction([db.user.update({ where: { id: record.userId }, data: { emailVerifiedAt: new Date() } }), db.emailVerificationToken.update({ where: { id: record.id }, data: { usedAt: new Date() } })]); return NextResponse.redirect(new URL("/auth/verified?status=ok", url)); }

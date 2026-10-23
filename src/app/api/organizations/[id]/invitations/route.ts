@@ -1,0 +1,8 @@
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { authorizeOrganization, getSessionUser } from "@/lib/auth";
+import { emailSchema } from "@/lib/schemas";
+import { randomToken, sha256 } from "@/lib/security";
+import { z } from "zod";
+const schema=z.object({email:emailSchema,role:z.enum(["OFFICE_MANAGER","OFFICE_ACCOUNTANT","COMPANY_MANAGER","COMPANY_ACCOUNTANT","REVIEWER","VIEWER"])});
+export async function POST(request:Request,{params}:{params:Promise<{id:string}>}) { const user=await getSessionUser(); const {id}=await params; if(!user||!(await authorizeOrganization(user.id,id,"members:manage"))) return NextResponse.json({error:"غير مصرح."},{status:403}); const parsed=schema.safeParse(await request.json().catch(()=>null)); if(!parsed.success) return NextResponse.json({error:"بيانات الدعوة غير صالحة."},{status:400}); const org=await db.organization.findUnique({where:{id}}); if(!org) return NextResponse.json({error:"الكيان غير موجود."},{status:404}); if((org.type==="ACCOUNTING_OFFICE")!==parsed.data.role.startsWith("OFFICE_")&& !["REVIEWER","VIEWER"].includes(parsed.data.role)) return NextResponse.json({error:"الدور لا يناسب نوع الكيان."},{status:400}); const token=randomToken(); const invite=await db.invitation.create({data:{organizationId:id,email:parsed.data.email,role:parsed.data.role,tokenHash:sha256(token),invitedById:user.id,expiresAt:new Date(Date.now()+7*24*60*60_000)}}); const origin=process.env.APP_URL||new URL(request.url).origin; return NextResponse.json({id:invite.id,message:"تم إنشاء الدعوة.",...(process.env.NODE_ENV!=="production"?{devInvitationUrl:`${origin}/api/invitations/accept?token=${encodeURIComponent(token)}`}:{})},{status:201}); }
