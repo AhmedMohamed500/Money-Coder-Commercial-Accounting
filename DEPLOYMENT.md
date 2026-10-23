@@ -19,6 +19,8 @@
 
 المتغيرات المطلوبة لتشغيل الوظائف الكاملة: `DATABASE_URL`, `AUTH_SECRET`, `APP_URL`, `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`. متغيرا n8n اختياريان وغير مطلوبين في Phase 1.
 
+ملف `.vercelignore` يمنع رفع ملفات `.env` المحلية ضمن artifact؛ أضف القيم من إعدادات Project Environment Variables فقط.
+
 إن لم تتوفر قاعدة البيانات والبريد، يمكن نشر Landing Page فقط. التسجيل يعاد بـ503 صريحًا ولا يمثل وظيفة متاحة. `/api/health` يعرض `degraded` دون كشف أسرار.
 
 ## المستندات
