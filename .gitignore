@@ -26,6 +26,7 @@ Thumbs.db
 *.tsbuildinfo
 /test-artifacts
 /.edge-test
+/.cache/local-postgres
 
 # generated Prisma client
 /src/generated/prisma

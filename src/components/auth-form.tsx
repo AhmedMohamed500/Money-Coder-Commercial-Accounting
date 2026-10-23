@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-type Mode = "login" | "register" | "forgot" | "reset";
+type Mode = "login" | "register" | "forgot" | "reset" | "resend-verification";
 
 export function AuthForm({ mode, token }: { mode: Mode; token?: string }) {
   const router = useRouter();
@@ -42,8 +42,9 @@ export function AuthForm({ mode, token }: { mode: Mode; token?: string }) {
     {(mode === "login" || mode === "register" || mode === "reset") && <label className="label">{mode === "reset" ? "كلمة المرور الجديدة" : "كلمة المرور"}<input className="input" name="password" type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} required minLength={mode === "login" ? 1 : 10}/><span className="text-xs font-normal text-slate-500">{mode !== "login" && "10 أحرف على الأقل، تتضمن حرفًا كبيرًا وصغيرًا ورقمًا."}</span></label>}
     {error && <p className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700" role="alert">{error}</p>}
     {notice && <p className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700" role="status">{notice}</p>}
-    <button className="btn-primary" disabled={busy}>{busy ? "جارٍ التنفيذ…" : mode === "login" ? "تسجيل الدخول" : mode === "register" ? "إنشاء الحساب" : mode === "forgot" ? "إرسال رابط الاستعادة" : "تحديث كلمة المرور"}</button>
+    <button className="btn-primary" disabled={busy}>{busy ? "جارٍ التنفيذ…" : mode === "login" ? "تسجيل الدخول" : mode === "register" ? "إنشاء الحساب" : mode === "forgot" ? "إرسال رابط الاستعادة" : mode === "resend-verification" ? "إرسال رابط تأكيد جديد" : "تحديث كلمة المرور"}</button>
     {mode === "login" && <div className="flex justify-between text-sm"><Link className="text-blue-700" href="/auth/forgot-password">نسيت كلمة المرور؟</Link><Link className="font-bold" href="/auth/register">حساب جديد</Link></div>}
+    {mode === "register" && <Link className="text-center text-sm font-bold text-teal-700" href="/auth/resend-verification">لديك حساب ولم يصلك رابط التأكيد؟</Link>}
     {mode !== "login" && <Link className="text-center text-sm font-bold text-blue-700" href="/auth/login">العودة إلى تسجيل الدخول</Link>}
   </form>;
 }

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { randomToken, sha256 } from "@/lib/security";
 import type { Permission } from "@/lib/permissions";
-import { mergePermissions } from "@/lib/permissions";
+import { intersectPermissions, mergePermissions } from "@/lib/permissions";
 
 const COOKIE_NAME = "money_coder_session";
 const SESSION_DAYS = 7;
@@ -61,16 +61,22 @@ export async function authorizeOrganization(userId: string, organizationId: stri
   });
   if (membership && mergePermissions(membership.role, membership.permissions).includes(permission)) return membership;
 
-  const assignment = await db.engagementStaff.findFirst({
+  const assignments = await db.engagementStaff.findMany({
     where: {
       userId,
-      engagement: { companyOrganizationId: organizationId, status: "ACTIVE", revokedAt: null },
-      membership: { status: "ACTIVE", deletedAt: null },
+      engagement: { companyOrganizationId: organizationId, status: "ACTIVE", revokedAt: null, company: { deletedAt: null } },
+      membership: {
+        userId,
+        status: "ACTIVE",
+        deletedAt: null,
+        organization: { deletedAt: null },
+      },
     },
-    include: { membership: true },
+    include: { membership: true, engagement: { select: { officeOrganizationId: true, permissions: true } } },
   });
-  if (assignment) {
-    const allowed = Array.isArray(assignment.permissions) ? assignment.permissions : [];
+  for (const assignment of assignments) {
+    if (assignment.membership.organizationId !== assignment.engagement.officeOrganizationId) continue;
+    const allowed = intersectPermissions(assignment.permissions, assignment.engagement.permissions);
     if (allowed.includes(permission)) return assignment.membership;
   }
   return null;

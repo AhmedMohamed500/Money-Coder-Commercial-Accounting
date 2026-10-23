@@ -2,4 +2,18 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { sha256 } from "@/lib/security";
-export async function GET(request:Request) { const user=await getSessionUser(); const url=new URL(request.url); if(!user) return NextResponse.redirect(new URL(`/auth/login?next=${encodeURIComponent(url.pathname+url.search)}`,url)); const token=url.searchParams.get("token"); if(!token) return NextResponse.redirect(new URL("/dashboard?invite=invalid",url)); const invitation=await db.invitation.findUnique({where:{tokenHash:sha256(token)}}); if(!invitation||invitation.status!=="PENDING"||invitation.expiresAt<=new Date()||invitation.email!==user.email) return NextResponse.redirect(new URL("/dashboard?invite=invalid",url)); const permissions=Array.isArray(invitation.permissions)?invitation.permissions.filter((item):item is string=>typeof item==="string"):[]; await db.$transaction([db.organizationMembership.upsert({where:{userId_organizationId:{userId:user.id,organizationId:invitation.organizationId}},create:{userId:user.id,organizationId:invitation.organizationId,role:invitation.role,permissions},update:{role:invitation.role,status:"ACTIVE",permissions,deletedAt:null}}),db.invitation.update({where:{id:invitation.id},data:{status:"ACCEPTED",acceptedAt:new Date()}})]); return NextResponse.redirect(new URL("/dashboard?invite=accepted",url)); }
+export async function GET(request:Request) {
+  const user=await getSessionUser(); const url=new URL(request.url);
+  if(!user) return NextResponse.redirect(new URL(`/auth/login?next=${encodeURIComponent(url.pathname+url.search)}`,url));
+  const token=url.searchParams.get("token");
+  if(!token) return NextResponse.redirect(new URL("/dashboard?invite=invalid",url));
+  const invitation=await db.invitation.findUnique({where:{tokenHash:sha256(token)}});
+  if(!invitation||invitation.status!=="PENDING"||invitation.expiresAt<=new Date()||invitation.email!==user.email) return NextResponse.redirect(new URL("/dashboard?invite=invalid",url));
+  const permissions=Array.isArray(invitation.permissions)?invitation.permissions.filter((item):item is string=>typeof item==="string"):[];
+  await db.$transaction([
+    db.organizationMembership.upsert({where:{userId_organizationId:{userId:user.id,organizationId:invitation.organizationId}},create:{userId:user.id,organizationId:invitation.organizationId,role:invitation.role,permissions},update:{role:invitation.role,status:"ACTIVE",permissions,deletedAt:null}}),
+    db.invitation.update({where:{id:invitation.id},data:{status:"ACCEPTED",acceptedAt:new Date()}}),
+    db.auditEvent.create({data:{organizationId:invitation.organizationId,actorUserId:user.id,action:"INVITATION_ACCEPTED",entityType:"Invitation",entityId:invitation.id}}),
+  ]);
+  return NextResponse.redirect(new URL("/dashboard?invite=accepted",url));
+}

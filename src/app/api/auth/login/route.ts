@@ -5,8 +5,14 @@ import { verifyPassword } from "@/lib/security";
 import { createSession } from "@/lib/auth";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { databaseConfigured } from "@/lib/config";
+import { databaseFailureResponse } from "@/lib/api-errors";
 
 export async function POST(request: Request) {
+  try { return await loginRequest(request); }
+  catch (cause) { const response=databaseFailureResponse(cause); if(response) return response; throw cause; }
+}
+
+async function loginRequest(request: Request) {
   if (!databaseConfigured()) return NextResponse.json({ error: "خدمة تسجيل الدخول غير مهيأة على هذه البيئة." }, { status: 503 });
   if (!checkRateLimit(`login:${clientIp(request)}`, 10, 15 * 60_000).allowed) return NextResponse.json({ error: "محاولات كثيرة. حاول لاحقًا." }, { status: 429 });
   const parsed = loginSchema.safeParse(await request.json().catch(() => null));

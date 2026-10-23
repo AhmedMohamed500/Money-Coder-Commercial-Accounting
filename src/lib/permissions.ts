@@ -25,6 +25,9 @@ const ROLE_PERMISSIONS: Record<MembershipRole, Permission[]> = {
   VIEWER: ["organization:view", "documents:view"],
 };
 
+const OWNER_ROLES = new Set<MembershipRole>(["OFFICE_OWNER", "COMPANY_OWNER"]);
+const MANAGER_ROLES = new Set<MembershipRole>(["OFFICE_MANAGER", "COMPANY_MANAGER"]);
+
 export function defaultOwnerRole(type: OrganizationType): MembershipRole {
   return type === "ACCOUNTING_OFFICE" ? "OFFICE_OWNER" : "COMPANY_OWNER";
 }
@@ -38,4 +41,30 @@ export function mergePermissions(role: MembershipRole, overrides: unknown): Perm
     ? overrides.filter((value): value is Permission => PERMISSIONS.includes(value as Permission))
     : [];
   return Array.from(new Set([...ROLE_PERMISSIONS[role], ...validOverrides]));
+}
+
+export function isOwnerRole(role: MembershipRole) {
+  return OWNER_ROLES.has(role);
+}
+
+export function roleMatchesOrganization(role: MembershipRole, type: OrganizationType) {
+  if (role === "REVIEWER" || role === "VIEWER") return true;
+  return type === "ACCOUNTING_OFFICE" ? role.startsWith("OFFICE_") : role.startsWith("COMPANY_");
+}
+
+export function canManageMembership(actorRole: MembershipRole, targetRole: MembershipRole, nextRole?: MembershipRole) {
+  if (isOwnerRole(targetRole) || (nextRole && isOwnerRole(nextRole))) return false;
+  if (isOwnerRole(actorRole)) return true;
+  if (!MANAGER_ROLES.has(actorRole)) return false;
+  return !MANAGER_ROLES.has(targetRole) && (!nextRole || !MANAGER_ROLES.has(nextRole));
+}
+
+export function validPermissions(value: unknown): Permission[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is Permission => PERMISSIONS.includes(item as Permission));
+}
+
+export function intersectPermissions(first: unknown, second: unknown): Permission[] {
+  const allowed = new Set(validPermissions(second));
+  return validPermissions(first).filter((permission) => allowed.has(permission));
 }

@@ -61,7 +61,21 @@ export const organizationUpdateSchema = z.object({
     openingBalanceDate: z.coerce.date().nullable().optional(),
     inventoryMethod: z.enum(["PERIODIC", "PERPETUAL"]),
   }).optional(),
+  fiscalYear: z.object({
+    id: z.string().uuid().optional(),
+    name: z.string().trim().min(2).max(80),
+    startsAt: z.coerce.date(),
+    endsAt: z.coerce.date(),
+  }).refine((value) => value.endsAt > value.startsAt, {
+    message: "نهاية السنة المالية يجب أن تكون بعد بدايتها.",
+    path: ["endsAt"],
+  }).optional(),
 });
+
+export const membershipActionSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("CHANGE_ROLE"), role: z.enum(["OFFICE_MANAGER", "OFFICE_ACCOUNTANT", "COMPANY_MANAGER", "COMPANY_ACCOUNTANT", "REVIEWER", "VIEWER"]) }),
+  z.object({ action: z.enum(["SUSPEND", "ACTIVATE", "REVOKE"]) }),
+]);
 
 export const bankAccountSchema = z.object({
   bankName: z.string().trim().min(2).max(150),

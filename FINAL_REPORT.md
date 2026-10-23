@@ -1,5 +1,7 @@
 # تقرير التسليم النهائي الشامل
 
+> **التقرير الحالي المعتمد لـPhase 1.5:** [PHASE_1_5_DELIVERY_REPORT.md](PHASE_1_5_DELIVERY_REPORT.md). المحتوى أدناه تقرير Phase 1 التاريخي قبل تفعيل اختبارات PostgreSQL، ويُحفظ للمرجعية فقط.
+
 ## Money Coder Commercial Accounting — Phase 1
 
 **تاريخ التقرير:** 23 أكتوبر 2026

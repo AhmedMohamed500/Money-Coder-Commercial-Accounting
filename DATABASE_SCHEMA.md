@@ -37,8 +37,8 @@
 
 ## عزل البيانات
 
-العزل مطبق عبر server-side authorization في `src/lib/auth.ts`. كل endpoint يأخذ `organizationId` ثم يتحقق من عضوية ACTIVE غير محذوفة أو تعيين موظف في تفويض ACTIVE. الاستعلامات التابعة تضيف `organizationId` أيضًا لمنع IDOR. لا توجد PostgreSQL Row-Level Security حاليًا؛ لذلك لا يجوز السماح بوصول عميل مباشر لقاعدة البيانات.
+العزل مطبق عبر server-side authorization في `src/lib/auth.ts`. كل endpoint يتحقق من عضوية ACTIVE غير محذوفة أو تعيين موظف صحيح داخل مكتب التفويض. صلاحية موظف المكتب هي تقاطع صلاحيات التعيين مع صلاحيات التفويض المقبولة، ويجب أن تنتمي العضوية إلى المكتب نفسه. الاستعلامات التابعة تقيد `organizationId` لمنع IDOR. لا توجد PostgreSQL Row-Level Security؛ القرار مقصود في Phase 1.5 لتجنب سياسات ناقصة، ولا يُسمح بأي اتصال عميل مباشر بقاعدة البيانات.
 
 ## Migrations
 
-الهجرة الأولى: `prisma/migrations/20261023160000_init/migration.sql`. تم توليدها من المخطط، لكن لم تُطبق على قاعدة محلية أو إنتاجية بسبب عدم توفر اتصال عامل وقت التسليم.
+الهجرة الأولى: `prisma/migrations/20261023160000_init/migration.sql`. طُبقت فعليًا بنجاح بواسطة `prisma migrate deploy` على PostgreSQL 17 مؤقتة ومعزولة ضمن `npm run test:db`. لم تُطبق على قاعدة Production لأن اتصالًا إنتاجيًا لم يُقدّم. لا توجد بيانات seed، ولا يستخدم الاختبار قاعدة التطوير أو الإنتاج.

@@ -1,55 +1,67 @@
 # Money Coder Commercial Accounting
 
-تطبيق SaaS محاسبي متعدد الكيانات. ينفذ **Phase 1 — Company & Office Foundation**: الهوية الآمنة، ملفات الشركات ومكاتب المحاسبة، العضويات والصلاحيات، الحسابات البنكية، المستندات المحلية المحمية للاختبار، والتفويض بين المكتب والشركة.
+أساس SaaS محاسبي عربي متعدد الشركات والمكاتب. تنفذ النسخة الحالية **Phase 1.5 — Production Foundation & Real Data Activation**: مصادقة خادمية، ملفات شركات ومكاتب، سنوات مالية وحسابات بنكية، عضويات وصلاحيات، تفويض مكتب محاسبة، مستندات خاصة، وسجل تدقيق.
 
-الصفحة العامة أعيد تصميمها وفق اتجاه **Atelier Finance**: تجربة تحريرية فاخرة بواجهة عربية RTL، ومعاينات منتج مبنية بمكونات React وCSS، ونظام ألوان Plum/Ivory مستقل عن ألوان الشعار. راجع [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) للتفاصيل.
+الواجهة العامة المنشورة: <https://money-coder-commercial-accounting.vercel.app>. الصفحة العامة متاحة، لكن التسجيل الإنتاجي يظل مغلقًا حتى تهيئة PostgreSQL وSMTP، كما يظل رفع المستندات مغلقًا حتى تركيب private-storage adapter.
 
-الواجهة العامة المنشورة: https://money-coder-commercial-accounting.vercel.app — وظائف الحسابات معطلة في الإنتاج حتى تهيئة PostgreSQL وSMTP والتخزين الخاص.
+> لا تتضمن هذه المرحلة دليل الحسابات أو القيود أو معالجة Excel/PDF أو تكامل n8n. راجع `PHASES_ROADMAP.md` فقط لخارطة Phase 2.
 
-> لا تتضمن هذه المرحلة دليل الحسابات أو القيود أو القوائم المالية. هذه العناصر موثقة في `PHASES_ROADMAP.md` فقط.
+## ما يعمل فعليًا
 
-## التقنيات
-
-- Next.js 16 App Router، React 19، TypeScript strict، Tailwind CSS 4.
-- PostgreSQL 16 وPrisma ORM.
-- جلسات خادمية عشوائية مخزنة كـSHA-256، وكلمات مرور bcrypt (cost 12).
-- Zod للتحقق، React Hook Form متاح للنماذج الممتدة، Lucide Icons.
-- Vitest للاختبارات، وطبقة n8n موقعة HMAC وغير مفعلة دون إعداد.
+- اختبارات PostgreSQL حقيقية ومعزولة تطبق migration ثم تختبر التسجيل لشركة ومكتب، التحقق المحلي، الدخول والخروج، الاستعادة، الجلسات، حفظ الشركة، السنة المالية، الحساب البنكي، عزل الشركات، وحماية تنزيل المستند.
+- حماية خادمية لكل مورد حسب العضوية أو التفويض النشط، مع تقاطع صلاحيات موظف المكتب مع صلاحيات التفويض المقبولة.
+- إدارة أدوار فريق المكتب، التعليق، إعادة التفعيل، والإلغاء مع حماية المالك ومنع التصعيد الأفقي.
+- اعتماد onboarding فقط بعد اكتمال الحقول الحرجة.
+- رفع محلي خاص للتطوير مع فحص الحجم وMIME والتوقيع وحذف الملف اليتيم عند فشل معاملة قاعدة البيانات.
 
 ## التشغيل المحلي
 
-1. انسخ `.env.example` إلى `.env` وغيّر `AUTH_SECRET` وكلمة مرور PostgreSQL المحلية.
-2. شغّل قاعدة البيانات: `docker compose up -d`.
-3. طبّق الهجرات: `npm run db:deploy`.
-4. شغّل التطبيق: `npm run dev`.
-5. افتح `http://localhost:3000`.
+```powershell
+npm install
+Copy-Item .env.example .env
+# حدّث القيم المحلية دون رفع الملف إلى Git
+npm run db:deploy
+npm run dev
+```
 
-في التطوير فقط، تعيد واجهة التسجيل رابط تأكيد البريد مباشرة لتسهيل الاختبار. هذا السلوك لا يعمل في الإنتاج. في الإنتاج يتعطل التسجيل إذا لم تكن خدمة SMTP مهيأة.
+يمكن استخدام PostgreSQL مثبتة أو Docker. لاختبار معزول لا يحتاج Docker:
 
-## أوامر الجودة
+```powershell
+npm run test:db
+```
 
-```text
+الأمر السابق ينزل PostgreSQL 17 محليًا كأداة تطوير فقط، يشغّل cluster مؤقتًا، يطبق `prisma migrate deploy`، يشغّل اختبارات التكامل، ثم يحذف قاعدة الاختبار. لا يستخدم بيانات التطوير أو الإنتاج.
+
+## أوامر التحقق
+
+```powershell
 npm run typecheck
 npm run lint
 npm test
+npm run test:db
 npm run build
-RUN_DB_TESTS=1 npm test
+npm start -- -p 3000
 npm run test:visual
 ```
 
-الاختبار الأخير يحتاج PostgreSQL متاحة ومطبقة عليها migration. لا تعتبر نتيجة اختبارات الوحدة بديلًا عن اختبار التكامل.
+`test:visual` يحتاج خادمًا يعمل على `http://localhost:3000`.
 
 ## متغيرات البيئة
 
-الأسماء فقط موثقة في `.env.example`. لا تضع القيم في Git:
+الأسماء موجودة في `.env.example` ولا يجب وضع قيم حقيقية في Git:
 
 - `DATABASE_URL`, `AUTH_SECRET`, `APP_URL`
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`
-- `MAX_UPLOAD_BYTES`
-- `N8N_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET` (اختياريان، للمراحل القادمة)
+- `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`
+- `PRIVATE_STORAGE_PROVIDER`, `PRIVATE_STORAGE_PATH`, `MAX_UPLOAD_BYTES`
+- متغيرا n8n موثقان للمستقبل وغير مفعلين في Phase 1.5.
 
-## حدود التخزين
+اتصال PostgreSQL البعيد في الإنتاج يجب أن يطلب TLS، مثل `sslmode=require`. استخدم runtime pooled URL إن وفره المزود، ونفذ migrations عبر اتصال إداري مباشر ومن بيئة موثوقة؛ التفاصيل في `INFRASTRUCTURE_SETUP.md`.
 
-رفع المستندات يعمل محليًا داخل `storage/` غير المتتبع. في الإنتاج يُرفض الرفع صراحةً حتى يضاف موفر private object storage؛ لا يستخدم التطبيق نظام ملفات Vercel كتخزين دائم.
+## حدود الإنتاج الحالية
 
-راجع [PROJECT_STATUS.md](PROJECT_STATUS.md) للحالة الدقيقة و[DEPLOYMENT.md](DEPLOYMENT.md) للنشر.
+- لا توجد قاعدة PostgreSQL أو SMTP أو private object storage مهيأة على Vercel وقت آخر تحقق.
+- `/api/health` يعيد `degraded` وHTTP 503 عندما تكون خدمة حرجة مفقودة أو غير صالحة.
+- التسجيل والاستعادة والدعوات لا تدعي النجاح عندما تكون البنية المطلوبة غير مهيأة.
+- التخزين المحلي لا يعمل في Production ولا توضع المستندات داخل `/public`.
+
+راجع `PROJECT_STATUS.md` للحالة الدقيقة، و`DEPLOYMENT.md` للنشر، و`FINAL_REPORT.md` لتقرير التسليم.

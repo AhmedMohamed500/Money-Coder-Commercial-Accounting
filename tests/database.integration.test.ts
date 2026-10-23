@@ -18,11 +18,13 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")("PostgreSQL tenant isolation a
     const ownerA = await db.user.create({ data: { email: `owner-a-${marker}@test.local`, displayName: "Owner A", passwordHash: "test-only", emailVerifiedAt: new Date() } });
     const ownerB = await db.user.create({ data: { email: `owner-b-${marker}@test.local`, displayName: "Owner B", passwordHash: "test-only", emailVerifiedAt: new Date() } });
     ids.users.push(ownerA.id, ownerB.id);
-    const companyA = await db.organization.create({ data: { type:"COMMERCIAL_COMPANY",legalName:"Company A",createdById:ownerA.id,memberships:{create:{userId:ownerA.id,role:"COMPANY_OWNER"}},bankAccounts:{create:[{bankName:"Bank One",accountName:"Main",accountNumber:`A-${marker}`,currency:"EGP"},{bankName:"Bank Two",accountName:"Reserve",accountNumber:`B-${marker}`,currency:"USD"}]}} });
+    const companyA = await db.organization.create({ data: { type:"COMMERCIAL_COMPANY",legalName:"Company A",createdById:ownerA.id,memberships:{create:{userId:ownerA.id,role:"COMPANY_OWNER"}},profile:{create:{responsiblePerson:"Owner A",businessActivity:"Trade"}},legalDetails:{create:{commercialRegisterNo:`CR-${marker}`,taxRegistrationNo:`TX-${marker}`}},addresses:{create:{countryCode:"EG",addressLine:"Cairo"}},accountingSettings:{create:{baseCurrency:"EGP"}},fiscalYears:{create:{name:"FY 2026",startsAt:new Date("2026-01-01"),endsAt:new Date("2026-12-31")}},bankAccounts:{create:[{bankName:"Bank One",accountName:"Main",accountNumber:`A-${marker}`,currency:"EGP"},{bankName:"Bank Two",accountName:"Reserve",accountNumber:`B-${marker}`,currency:"USD"}]}} });
     const companyB = await db.organization.create({ data: { type:"COMMERCIAL_COMPANY",legalName:"Company B",createdById:ownerB.id,memberships:{create:{userId:ownerB.id,role:"COMPANY_OWNER"}}} });
     ids.organizations.push(companyA.id, companyB.id);
-    const reloaded = await db.organization.findUnique({ where:{id:companyA.id}, include:{bankAccounts:true} });
+    const reloaded = await db.organization.findUnique({ where:{id:companyA.id}, include:{bankAccounts:true,profile:true,legalDetails:true,accountingSettings:true,fiscalYears:true} });
     expect(reloaded?.bankAccounts).toHaveLength(2);
+    expect(reloaded?.fiscalYears).toHaveLength(1);
+    expect(reloaded?.profile?.businessActivity).toBe("Trade");
     expect(await authorizeOrganization(ownerA.id, companyA.id, "organization:edit")).not.toBeNull();
     expect(await authorizeOrganization(ownerA.id, companyB.id, "organization:view")).toBeNull();
   });
@@ -33,9 +35,25 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")("PostgreSQL tenant isolation a
     const office = await db.organization.create({ data:{type:"ACCOUNTING_OFFICE",legalName:"Office Test",createdById:staff.id,memberships:{create:{userId:staff.id,role:"OFFICE_ACCOUNTANT"}}} }); ids.organizations.push(office.id);
     const membership = await db.organizationMembership.findUniqueOrThrow({where:{userId_organizationId:{userId:staff.id,organizationId:office.id}}});
     const engagement = await db.officeCompanyEngagement.create({data:{officeOrganizationId:office.id,companyOrganizationId:company.id,requestedById:staff.id,status:"ACTIVE",acceptedAt:new Date(),permissions:["organization:view"]}});
-    await db.engagementStaff.create({data:{engagementId:engagement.id,membershipId:membership.id,userId:staff.id,permissions:["organization:view"]}});
+    await db.engagementStaff.create({data:{engagementId:engagement.id,membershipId:membership.id,userId:staff.id,permissions:["organization:view","organization:edit"]}});
     expect(await authorizeOrganization(staff.id,company.id,"organization:view")).not.toBeNull();
+    expect(await authorizeOrganization(staff.id,company.id,"organization:edit")).toBeNull();
+    await db.organizationMembership.update({where:{id:membership.id},data:{status:"SUSPENDED"}});
+    expect(await authorizeOrganization(staff.id,company.id,"organization:view")).toBeNull();
+    await db.organizationMembership.update({where:{id:membership.id},data:{status:"ACTIVE"}});
     await db.officeCompanyEngagement.update({where:{id:engagement.id},data:{status:"REVOKED",revokedAt:new Date()}});
+    expect(await authorizeOrganization(staff.id,company.id,"organization:view")).toBeNull();
+  });
+
+  it("rejects an assignment whose membership belongs to a different office", async () => {
+    const staff = await db.user.create({ data:{email:`mismatch-${marker}@test.local`,displayName:"Mismatched Staff",passwordHash:"test-only",emailVerifiedAt:new Date()} }); ids.users.push(staff.id);
+    const company = await db.organization.findFirstOrThrow({ where:{legalName:"Company A",id:{in:ids.organizations}} });
+    const officeA = await db.organization.create({ data:{type:"ACCOUNTING_OFFICE",legalName:"Office A",createdById:staff.id} });
+    const officeB = await db.organization.create({ data:{type:"ACCOUNTING_OFFICE",legalName:"Office B",createdById:staff.id,memberships:{create:{userId:staff.id,role:"OFFICE_ACCOUNTANT"}}} });
+    ids.organizations.push(officeA.id, officeB.id);
+    const wrongMembership = await db.organizationMembership.findUniqueOrThrow({where:{userId_organizationId:{userId:staff.id,organizationId:officeB.id}}});
+    const engagement = await db.officeCompanyEngagement.create({data:{officeOrganizationId:officeA.id,companyOrganizationId:company.id,requestedById:staff.id,status:"ACTIVE",acceptedAt:new Date(),permissions:["organization:view"]}});
+    await db.engagementStaff.create({data:{engagementId:engagement.id,membershipId:wrongMembership.id,userId:staff.id,permissions:["organization:view"]}});
     expect(await authorizeOrganization(staff.id,company.id,"organization:view")).toBeNull();
   });
 });

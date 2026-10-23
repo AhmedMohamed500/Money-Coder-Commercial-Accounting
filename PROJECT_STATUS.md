@@ -1,39 +1,32 @@
-# Project Status — Phase 1
+# Project Status — Phase 1.5
 
 آخر تحديث: 23 أكتوبر 2026.
 
-## الحالة التنفيذية
-
-| الجزء | الحالة | ملاحظات |
+| الجزء | الحالة | الدليل / الملاحظة |
 |---|---|---|
-| Landing page وRTL | Completed & Tested | إعادة تصميم Atelier Finance كاملة؛ فحص Playwright فعلي عند 390/768/1280/1440/1920px دون overflow أفقي أو أخطاء متصفح، وRTL مؤكد. |
-| التسجيل والدخول والجلسات | Completed but Not Tested | الكود وقاعدة البيانات والهجرات موجودة؛ PostgreSQL المحلية لم تعمل بسبب تعطل Docker Desktop على الجهاز. |
-| تأكيد البريد والاستعادة | Completed but Not Tested | مسار محلي آمن وروابط أحادية الاستخدام؛ SMTP غير مهيأ. |
-| ملف مكتب المحاسبة | Completed but Not Tested | تعديل الملف، إحصاءات حقيقية، فريق ودعوات وتفويضات. |
-| Wizard الشركة | Completed but Not Tested | ست خطوات، حفظ مسودة، بيانات قانونية وعناوين ومسؤولون وإعدادات. |
-| الحسابات البنكية | Completed but Not Tested | إضافة متعددة وحذف منطقي وقيود فريدة. |
-| المستندات | Partially Completed | حماية النوع الفعلي والحجم والصلاحية؛ التخزين المحلي للتطوير فقط، لا يوجد موفر إنتاجي. |
-| التفويض والتعيين | Completed but Not Tested | طلب/قبول/رفض/إلغاء وتعيين موظفي المكتب. |
-| RBAC وعزل الشركات | Completed but Not Tested | فحوص خادمية على كل API؛ اختبارات الوحدة نجحت، اختبار PostgreSQL لم يُشغّل. |
-| Audit log | Completed but Not Tested | يسجل العمليات الأساسية ويعرضها للمكتب. |
-| نشر GitHub | Completed & Tested | `main` مرفوع وظهور الملفات والـcommit تحقق عبر GitHub API. |
-| نشر Vercel | Partially Completed | Production READY والواجهة 200؛ وظائف الحسابات معطلة لغياب PostgreSQL وSMTP والتخزين الخاص. |
+| Landing وRTL | Completed & Tested | لم يُعد تصميمها؛ visual smoke ناجح على 390/768/1280/1440/1920px. |
+| Prisma/PostgreSQL | Completed & Tested (isolated test) | migration `20261023160000_init` طُبقت على PostgreSQL 17 مؤقتة؛ 7 اختبارات DB/API نجحت. الإنتاج غير متصل. |
+| تسجيل شركة ومكتب | Completed & Tested (local integration) | إنشاء ذري للمستخدم والمؤسسة وعضوية المالك ورمز التحقق. الإنتاج مغلق لغياب DB/SMTP. |
+| التحقق والدخول والخروج والاستعادة | Completed & Tested (local integration) | منع دخول غير المؤكد، إنشاء/إلغاء الجلسة، reset وإبطال الجلسات، ورفض الجلسة المنتهية. SMTP الحقيقي غير مختبر. |
+| Wizard الشركة | Completed & Tested (API/DB) | الملف والقانوني والضريبي والعنوان والمحاسبة والسنة المالية والبنك تحفظ وتسترجع؛ الاعتماد يمنع الملف الناقص. |
+| ملف المكتب | Completed but Partially Tested | التسجيل مختبر؛ حفظ ملف المكتب والواجهة مبنيان، لكن UI E2E بحسابين لم يُشغل. |
+| الفريق والدعوات | Completed but Partially Tested | تغيير الدور/تعليق/تفعيل/إلغاء وحماية المالك منفذة؛ قواعد التصعيد unit-tested. SMTP invitation غير مختبر. |
+| التفويض والتعيين | Completed & Tested (authorization layer) | صلاحيات التعيين لا تتجاوز الدور أو التفويض؛ التعليق والإلغاء يمنعان الوصول. دورة UI الكاملة غير مختبرة. |
+| عزل الشركات | Completed & Tested | محاولات معرّف شركة ومستند لـtenant آخر أعادت 403/404؛ assignment خاطئ وpermission escalation مرفوضان. |
+| المستندات | Partially Completed | validation والتنزيل المصرح والحذف وorphan cleanup؛ local-dev فقط، لا adapter إنتاجي. |
+| Health endpoint | Completed & Tested (build/local) | يميز misconfigured/unavailable/connected ولا يعرض أسرارًا. |
+| Vercel | Partially Completed | المشروع الحالي محفوظ؛ Landing تعمل. الخدمات الثلاث غير مهيأة، لذا الحالة degraded مقصودة. |
 
-## نتائج مثبتة حاليًا
+## نتائج التحقق الحالية
 
-- TypeScript: PASS.
-- Production build: PASS.
-- Unit tests: 6 PASS.
-- Responsive visual smoke: PASS على 390 و768 و1280 و1440 و1920 بكسل، مع لقطات كاملة ولقطات مراجعة للأقسام الرئيسية.
-- Landing visual system: لوحة Plum/Ivory/Lilac/Gold، Alexandria للعناوين وIBM Plex Sans Arabic للنصوص، و`prefers-reduced-motion` مدعوم.
-- Database integration tests: 2 SKIPPED بسبب عدم توفر PostgreSQL.
-- `npm audit`: صفر ثغرات معروفة بعد ترقية Next.js.
-- Migration SQL: مولدة، غير مطبقة على قاعدة فعلية بعد.
-- GitHub ↔ Vercel: الربط مفعل، وpush إلى `main` أنشأ Production deployment تلقائيًا.
-- Production URL: `https://money-coder-commercial-accounting.vercel.app`.
-- Premium redesign deployment: `https://money-coder-commercial-accounting-p0rwyntal.vercel.app` — Production READY، وتم فحصه فعليًا على المقاسات الخمسة.
-- Production smoke: الصفحة 200، و`/api/health` يعيد 503/degraded بصدق، والتسجيل غير المهيأ يعيد 503.
+- `npm run typecheck`: PASS.
+- `npm run lint`: PASS دون تحذيرات.
+- `npm test`: 9 PASS، و7 DB/API integration tests SKIPPED في الأمر العام عمدًا.
+- `npm run test:db`: migration PASS؛ ملفا اختبار و7 اختبارات تكامل PASS، دون skipped.
+- `npm run build`: PASS؛ 28 route/page entries ظهرت في manifest.
+- `npm run test:visual`: PASS بعد تشغيل خادم الإنتاج المحلي؛ خمسة مقاسات، RTL ودون overflow.
+- المحاولة الأولى لـ`test:visual`: FAIL بسبب عدم تشغيل الخادم (`ERR_CONNECTION_REFUSED`) ثم أعيدت بالشروط الصحيحة ونجحت.
 
-## عوائق خارجية
+## العوائق الخارجية الصريحة
 
-Docker Desktop 4.68.0 يتعطل على هذا الجهاز برسالة داخلية تخص المسار `dockerInference` و`<HOME>`. لذلك لم يُنفذ `prisma migrate deploy` أو سيناريوهات التسجيل والحفظ الفعلية. لا يوجد اتصال PostgreSQL مستضاف أو SMTP أو private object storage متاح داخل المشروع حتى الآن.
+لا توجد على Vercel قيم إنتاج لـPostgreSQL أو SMTP أو private object storage. لم تُنشأ حسابات أو موارد مدفوعة ولم تُفبرك credentials. يلزم صاحب المشروع تنفيذ `INFRASTRUCTURE_SETUP.md` قبل تجربة التسجيل أو المستندات ببيانات حقيقية.
