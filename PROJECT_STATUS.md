@@ -15,7 +15,7 @@
 | عزل الشركات | Completed & Tested | محاولات معرّف شركة ومستند لـtenant آخر أعادت 403/404؛ assignment خاطئ وpermission escalation مرفوضان. |
 | المستندات | Partially Completed | validation والتنزيل المصرح والحذف وorphan cleanup؛ local-dev فقط، لا adapter إنتاجي. |
 | Health endpoint | Completed & Tested (build/local) | يميز misconfigured/unavailable/connected ولا يعرض أسرارًا. |
-| Vercel | Partially Completed | المشروع الحالي محفوظ؛ Landing تعمل. الخدمات الثلاث غير مهيأة، لذا الحالة degraded مقصودة. |
+| Vercel | Partially Completed | deployment `dpl_F9vxSEnx9x9fuULKwr7Z1DktMJfi` READY؛ Landing والصفحة الجديدة 200. الخدمات الثلاث غير مهيأة، لذا health والتسجيل 503 مقصودة. |
 
 ## نتائج التحقق الحالية
 
@@ -25,6 +25,7 @@
 - `npm run test:db`: migration PASS؛ ملفا اختبار و7 اختبارات تكامل PASS، دون skipped.
 - `npm run build`: PASS؛ 28 route/page entries ظهرت في manifest.
 - `npm run test:visual`: PASS بعد تشغيل خادم الإنتاج المحلي؛ خمسة مقاسات، RTL ودون overflow.
+- Production smoke: `/` و`/auth/resend-verification` = 200؛ `/api/health` وregister = 503 آمن لغياب الخدمات.
 - المحاولة الأولى لـ`test:visual`: FAIL بسبب عدم تشغيل الخادم (`ERR_CONNECTION_REFUSED`) ثم أعيدت بالشروط الصحيحة ونجحت.
 
 ## العوائق الخارجية الصريحة

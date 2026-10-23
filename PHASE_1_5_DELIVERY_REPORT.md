@@ -80,7 +80,7 @@
 | Full Browser Auth/Wizard E2E | NOT RUN | لا production-like email/storage stack. |
 | Mobile Responsive | PASS | خمسة viewports. |
 | Arabic RTL | PASS | visual smoke confirmed. |
-| Production Smoke Test | PENDING FINAL DEPLOY | سيحدث بعد push/deploy. |
+| Production Smoke Test | PASS للوظائف المتاحة | `/` و`/auth/resend-verification` = 200؛ health = 503 degraded والتسجيل = 503 كما يجب لغياب البنية. |
 
 الأوامر: `npm run typecheck`, `npm run lint`, `npm test`, `npm run test:db`, `npm run build`, ثم تشغيل `npm start -- -p 3000` و`npm run test:visual`.
 
@@ -90,17 +90,20 @@
 
 - Repository: <https://github.com/AhmedMohamed500/Money-Coder-Commercial-Accounting>
 - Branch: `main`
-- Implementation commit: `IMPLEMENTATION_COMMIT_SHA_PENDING`
+- Implementation commit: `f59c6854fa7ecfb7893d7a2b7483377dd8f8b679`
+- Commit link: <https://github.com/AhmedMohamed500/Money-Coder-Commercial-Accounting/commit/f59c6854fa7ecfb7893d7a2b7483377dd8f8b679>
 - Commit message: `feat: activate phase 1.5 production foundation`
-- Push verification: `PENDING_PUSH_VERIFICATION`
+- Push verification: PASS؛ `origin/main` طابق SHA المحلي بعد `git ls-remote`.
 - `.env`/uploads: غير متتبعة، وسيعاد فحص tracked files قبل push.
 
 ## 7. Vercel
 
 - Project Name: `money-coder-commercial-accounting`
 - Production URL: <https://money-coder-commercial-accounting.vercel.app>
-- Deployment URL/Status: `PENDING_FINAL_DEPLOYMENT_VERIFICATION`
-- GitHub integration وauto-deploy من `main`: كانا يعملان قبل Phase 1.5 وسيعاد التحقق بعد push.
+- Deployment URL: <https://money-coder-commercial-accounting-cjkzs042n.vercel.app>
+- Deployment ID: `dpl_F9vxSEnx9x9fuULKwr7Z1DktMJfi`
+- Status: READY، target Production، build duration 40s.
+- GitHub integration وauto-deploy من `main`: PASS؛ push أنشأ هذا deployment وربط alias الرئيسي به.
 - Environment Variables: لا توجد قيم Project Environment Variables وقت preflight.
 - Database: غير متصلة.
 - Authentication: التسجيل/الاستعادة غير تشغيليين إنتاجيًا عمدًا.
@@ -201,6 +204,6 @@ Phase 1.5 **جاهزة للتجربة المحلية الآلية على Postgre
 - [x] مراجعة tracked files وعدم رفع `.env` أو uploads.
 - [x] تحديث README/PROJECT_STATUS/DATABASE_SCHEMA/DEPLOYMENT/CHANGELOG.
 - [x] إنشاء INFRASTRUCTURE_SETUP.
-- [ ] Git commit/push النهائي — يحدّث بعد التنفيذ.
-- [ ] Vercel deployment/smoke النهائي — يحدّث بعد التنفيذ.
+- [x] Git commit/push إلى `main` والتحقق من SHA.
+- [x] Vercel deployment READY وsmoke للوظائف المتاحة.
 - [ ] SMTP وProduction DB وprivate storage — إجراء مطلوب من صاحب الحساب.

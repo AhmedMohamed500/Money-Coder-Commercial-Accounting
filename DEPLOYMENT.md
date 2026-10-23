@@ -4,6 +4,7 @@
 
 - Project: `money-coder-commercial-accounting`
 - Production: `https://money-coder-commercial-accounting.vercel.app`
+- آخر deployment متحقق: `https://money-coder-commercial-accounting-cjkzs042n.vercel.app` — READY، ID `dpl_F9vxSEnx9x9fuULKwr7Z1DktMJfi`.
 - Git integration: متصل بالمستودع الرسمي؛ فرع `main` أنشأ نشرًا إنتاجيًا تلقائيًا.
 - الواجهة العامة تعمل، لكن لا توجد Project Environment Variables حاليًا؛ لذلك قاعدة البيانات والبريد والتخزين الخاص غير متاحة.
 
