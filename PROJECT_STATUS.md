@@ -31,6 +31,7 @@
 - Migration SQL: مولدة، غير مطبقة على قاعدة فعلية بعد.
 - GitHub ↔ Vercel: الربط مفعل، وpush إلى `main` أنشأ Production deployment تلقائيًا.
 - Production URL: `https://money-coder-commercial-accounting.vercel.app`.
+- Premium redesign deployment: `https://money-coder-commercial-accounting-p0rwyntal.vercel.app` — Production READY، وتم فحصه فعليًا على المقاسات الخمسة.
 - Production smoke: الصفحة 200، و`/api/health` يعيد 503/degraded بصدق، والتسجيل غير المهيأ يعيد 503.
 
 ## عوائق خارجية

@@ -39,14 +39,14 @@
 
 - المستودع: <https://github.com/AhmedMohamed500/Money-Coder-Commercial-Accounting>
 - الفرع الرئيسي: `main`
-- آخر Commit موثق وقت التسليم: `e20ec3283d4f4e70f683402f29b1fabb44f7434a`
-- رابط آخر Commit: <https://github.com/AhmedMohamed500/Money-Coder-Commercial-Accounting/commit/e20ec3283d4f4e70f683402f29b1fabb44f7434a>
+- Commit تنفيذ إعادة التصميم: `bb5193dc9c4f16aea7dce98cfd39c821935fd17e`
+- رابط Commit: <https://github.com/AhmedMohamed500/Money-Coder-Commercial-Accounting/commit/bb5193dc9c4f16aea7dce98cfd39c821935fd17e>
 
 ### Vercel
 
 - رابط الإنتاج الرئيسي: <https://money-coder-commercial-accounting.vercel.app>
-- رابط آخر Deployment موثق: <https://money-coder-commercial-accounting-j5046ry2k.vercel.app>
-- Deployment ID: `dpl_ALjjGkxDFbkJsjimPeMVpoySp5h5`
+- رابط Deployment الخاص بإعادة التصميم: <https://money-coder-commercial-accounting-p0rwyntal.vercel.app>
+- Deployment ID: `dpl_b1mnUEMnf69PonHxguQXiEogn3yC`
 - الحالة وقت التحقق: `READY`
 - الربط التلقائي: GitHub `main` → Vercel Production
 
