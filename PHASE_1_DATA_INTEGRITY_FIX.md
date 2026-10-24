@@ -105,14 +105,24 @@ data: {
 
 ## 9. حالة النشر
 
-يُحدّث هذا القسم بعد دفع commit والتحقق من Vercel Production. لا يُعتبر الإصلاح منشورًا لمجرد نجاح الاختبارات المحلية.
+- Implementation commit: `d31ee79` (`fix: preserve company data across onboarding patches`).
+- دُفع `main` بنجاح إلى `origin` وشغّل Git integration نشر Production تلقائيًا.
+- Vercel deployment: `dpl_GUa2KkTKGjSgjygpjhqBL7EfFsfo`.
+- Deployment URL: <https://money-coder-commercial-accounting-h0rh1ej6f.vercel.app>.
+- الحالة: `READY` خلال نحو 21 ثانية، والـalias العام يشير إلى النشر الجديد.
+- Production smoke بعد النشر:
+  - `/`: HTTP 200.
+  - `/auth/register`: HTTP 200.
+  - `/api/health`: HTTP 503 `degraded` مع `database=connected`, `email=configured`, `privateStorage=misconfigured`.
+- آخر سجلات Vercel كانت طلبات info ناجحة/متوقعة فقط، دون stack traces أو database connection errors أو تسريب أسرار.
+- تأكد البناء الإنتاجي من تضمين رسالة تعطيل الرفع الدقيقة، لكن لم يُستخدم حساب حقيقي لإجراء تعديل أو رفع على Production.
 
 ## 10. مخاطر أو حدود متبقية
 
 - Private Storage adapter غير موجود؛ الرفع معطل بوضوح في Production.
 - لا توجد قيم before/after في AuditEvent، لذلك الاسترجاع التاريخي للأسماء غير ممكن من السجل الحالي.
-- الاختبار الآلي لا يعدل الشركة الإنتاجية؛ يلزم تحقق يدوي بالحساب الحقيقي بعد النشر.
-- لا تزال رحلة UI الكاملة عبر متصفح مسجل الدخول تحققًا يدويًا مطلوبًا بعد النشر، رغم نجاح Route/API integration على PostgreSQL معزولة.
+- الاختبار الآلي لم يعدل الشركة الإنتاجية؛ يلزم تحقق يدوي بالحساب الحقيقي بعد النشر.
+- لا تزال رحلة UI الكاملة عبر متصفح مسجل الدخول تحققًا يدويًا مطلوبًا، رغم نجاح Route/API integration على PostgreSQL معزولة ونشر الإصلاح بحالة READY.
 
 ## 11. الاستعادة اليدوية بعد النشر
 

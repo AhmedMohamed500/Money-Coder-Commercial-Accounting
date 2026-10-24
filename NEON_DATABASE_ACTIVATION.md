@@ -159,6 +159,7 @@ npm run db:verify
 
 - commit إعداد Phase 1.6 المحلي: `774d4f7b156cdb7c2deeab7f74e823f4ffad61bf`.
 - commit تسليم Phase 1.6 المحلي: `106703e`.
-- أصبح الفرعان وقاعدة Vercel مثبتين، لذا يمكن دفع هذه الـcommits مع إصلاح سلامة البيانات بعد اجتياز مراجعة الـdiff النهائية.
+- commit إصلاح سلامة البيانات: `d31ee79`، دُفع إلى `origin/main`.
+- نشر Vercel الناتج `dpl_GUa2KkTKGjSgjygpjhqBL7EfFsfo` أصبح READY؛ قاعدة الإنتاج لم تُكتب أثناء التحقق.
 
 مراجع رسمية: [Neon branch isolation](https://neon.com/docs/get-started-with-neon/workflow-primer)، [Neon computes and endpoint IDs](https://neon.com/docs/manage/endpoints/)، [Prisma 6 connection URLs](https://www.prisma.io/docs/orm/v6/reference/connection-urls).

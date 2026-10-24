@@ -4,9 +4,10 @@
 
 - Project: `money-coder-commercial-accounting`
 - Production: `https://money-coder-commercial-accounting.vercel.app`
-- آخر deployment متحقق: `https://money-coder-commercial-accounting-1tf3n2mhu.vercel.app` — READY، ID `dpl_97BFjF7h9ay8eo1ZNcz4LRzvs85Q`.
+- آخر deployment متحقق: `https://money-coder-commercial-accounting-h0rh1ej6f.vercel.app` — READY، ID `dpl_GUa2KkTKGjSgjygpjhqBL7EfFsfo`.
 - Git integration: متصل بالمستودع الرسمي؛ فرع `main` أنشأ نشرًا إنتاجيًا تلقائيًا.
 - الواجهة العامة تعمل. PostgreSQL والبريد مهيآن؛ health يثبت `database=connected` و`email=configured`. التخزين الخاص وحده غير مهيأ، لذلك تبقى الحالة العامة degraded.
+- Production smoke بعد إصلاح سلامة البيانات: الصفحة العامة والتسجيل 200، وhealth يعيد 503 المتوقع بسبب التخزين فقط؛ السجلات الحديثة بلا أخطاء تشغيلية.
 
 ## GitHub
 
