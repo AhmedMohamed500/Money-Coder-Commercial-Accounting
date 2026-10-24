@@ -1,6 +1,7 @@
 # تقرير التسليم النهائي الشامل
 
-> **التقرير الحالي المعتمد لـPhase 1.5:** [PHASE_1_5_DELIVERY_REPORT.md](PHASE_1_5_DELIVERY_REPORT.md). المحتوى أدناه تقرير Phase 1 التاريخي قبل تفعيل اختبارات PostgreSQL، ويُحفظ للمرجعية فقط.
+> **التقرير التشغيلي الأحدث لـPhase 1.6:** [NEON_DATABASE_ACTIVATION.md](NEON_DATABASE_ACTIVATION.md). يوضح بدقة ما تم التحقق منه وما توقف بسبب عدم توفر Neon Direct access.
+> **تقرير Phase 1.5:** [PHASE_1_5_DELIVERY_REPORT.md](PHASE_1_5_DELIVERY_REPORT.md). المحتوى أدناه تقرير Phase 1 التاريخي ويُحفظ للمرجعية فقط.
 
 ## Money Coder Commercial Accounting — Phase 1
 

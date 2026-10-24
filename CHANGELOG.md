@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0 — 2026-10-24
+
+- تدقيق Phase 1.6 لتفعيل Neon PostgreSQL دون كشف أي connection strings أو credentials.
+- مراجعة migration الأولية: 19 جدولًا، 7 enums، 25 foreign keys، ولا أوامر DDL مدمرة.
+- إضافة `npm run db:verify` للتحقق للقراءة فقط من هوية Neon Direct endpoint وTLS والجداول والقيود والفهارس وسجل Prisma migrations.
+- تأكيد وجود `DATABASE_URL` كـSecret في Vercel Production فقط، مع توثيق أن خصائص pooling/SSL/branch لا يمكن إثباتها من القيمة المحجوبة.
+- إضافة `APP_URL` العام إلى Vercel Production كـConfig غير سري، دون redeploy قبل إتمام Neon migrations.
+- إعادة تشغيل typecheck وlint والوحدات واختبارات PostgreSQL المعزولة والبناء والفحص البصري بنجاح.
+- إضافة `NEON_DATABASE_ACTIVATION.md` بخطوات Development ثم Production، وحواجز منع التشغيل على فرع غير مؤكد.
+- لم تُطبق Neon migrations ولم يُنفذ redeploy لأن Direct access وهوية الفرعين غير متاحين في بيئة التنفيذ.
+
 ## 0.3.0 — 2026-10-23
 
 - إضافة PostgreSQL 17 مؤقتة للاختبارات دون Docker وتطبيق migration حقيقية قبل اختبارات التكامل.

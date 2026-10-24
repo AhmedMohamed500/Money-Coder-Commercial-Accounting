@@ -4,9 +4,9 @@
 
 - Project: `money-coder-commercial-accounting`
 - Production: `https://money-coder-commercial-accounting.vercel.app`
-- آخر deployment متحقق: `https://money-coder-commercial-accounting-cjkzs042n.vercel.app` — READY، ID `dpl_F9vxSEnx9x9fuULKwr7Z1DktMJfi`.
+- آخر deployment متحقق: `https://money-coder-commercial-accounting-1tf3n2mhu.vercel.app` — READY، ID `dpl_97BFjF7h9ay8eo1ZNcz4LRzvs85Q`.
 - Git integration: متصل بالمستودع الرسمي؛ فرع `main` أنشأ نشرًا إنتاجيًا تلقائيًا.
-- الواجهة العامة تعمل، لكن لا توجد Project Environment Variables حاليًا؛ لذلك قاعدة البيانات والبريد والتخزين الخاص غير متاحة.
+- الواجهة العامة تعمل. يوجد `DATABASE_URL` كـSecret و`APP_URL` كـConfig في Production فقط؛ كلاهما ينتظر redeploy، ولم يمكن إثبات branch/pooling/SSL لرابط القاعدة لأن Vercel يحجب القيمة. البريد والتخزين الخاص غير مهيأين.
 
 ## GitHub
 
@@ -18,6 +18,8 @@
 2. ضع runtime pooled `DATABASE_URL` الذي يطلب TLS في Vercel فقط.
 3. من بيئة CI/إدارية منفصلة نفذ `npm run db:deploy` عبر direct TLS connection قبل تفعيل الوظائف.
 4. شغّل `npm run test:db` محليًا، أو `RUN_DB_TESTS=1 npm test` على قاعدة اختبار منفصلة، ولا تشغّل fixtures على الإنتاج.
+
+التسلسل الملزم لـNeon هو `development` أولًا ثم `production`. استخدم `npm run db:verify -- --preflight` قبل الهجرة و`npm run db:verify` بعدها، مع endpoint ID الصحيح لكل فرع. راجع `NEON_DATABASE_ACTIVATION.md`.
 
 لا تستخدم PostgreSQL الجهاز المحلي من Vercel، ولا تستخدم SQLite كبديل إنتاجي.
 

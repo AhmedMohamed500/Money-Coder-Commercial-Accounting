@@ -1,4 +1,6 @@
-# Infrastructure Setup — Money Coder Phase 1.5
+# Infrastructure Setup — Money Coder Phase 1.6
+
+> الحالة التنفيذية الفعلية وخطوات Neon الآمنة موجودة في `NEON_DATABASE_ACTIVATION.md`. لا تعتبر قاعدة Neon مفعلة قبل نجاح `npm run db:verify` على `development` ثم `production`.
 
 هذا الدليل يهيئ الخدمات الحقيقية دون تضمين credentials أو بيانات عملاء في Git. لا تفعّل billing أو خطة مدفوعة إلا بموافقة صاحب المشروع.
 
@@ -24,6 +26,8 @@ npm ci
 npm run db:deploy
 Remove-Item Env:DATABASE_URL
 ```
+
+قبل التنفيذ اضبط `EXPECTED_NEON_ENDPOINT_ID` من صفحة Compute للفرع، ثم شغّل `npm run db:verify -- --preflight`. بعد `db:deploy` شغّل `npm run db:verify`. أداة التحقق ترفض pooled URL أو اتصال Neon لا يطابق endpoint المتوقع، ولا تطبع السر.
 
 لا تستخدم `prisma db push` أو `migrate reset` على Production. راجع migration SQL قبل التطبيق وخذ نسخة احتياطية عندما تصبح هناك بيانات.
 

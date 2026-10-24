@@ -1,6 +1,6 @@
 # Money Coder Commercial Accounting
 
-أساس SaaS محاسبي عربي متعدد الشركات والمكاتب. تنفذ النسخة الحالية **Phase 1.5 — Production Foundation & Real Data Activation**: مصادقة خادمية، ملفات شركات ومكاتب، سنوات مالية وحسابات بنكية، عضويات وصلاحيات، تفويض مكتب محاسبة، مستندات خاصة، وسجل تدقيق.
+أساس SaaS محاسبي عربي متعدد الشركات والمكاتب. الحالة الحالية **Phase 1.6 — Neon PostgreSQL Migration & Vercel Database Activation**: تم التحقق محليًا من الهجرة والاختبارات، بينما ينتظر تطبيق Neon وصول Direct آمن ومؤكد الهوية لكل فرع.
 
 الواجهة العامة المنشورة: <https://money-coder-commercial-accounting.vercel.app>. الصفحة العامة متاحة، لكن التسجيل الإنتاجي يظل مغلقًا حتى تهيئة PostgreSQL وSMTP، كما يظل رفع المستندات مغلقًا حتى تركيب private-storage adapter.
 
@@ -39,6 +39,7 @@ npm run typecheck
 npm run lint
 npm test
 npm run test:db
+npm run db:verify
 npm run build
 npm start -- -p 3000
 npm run test:visual
@@ -57,11 +58,13 @@ npm run test:visual
 
 اتصال PostgreSQL البعيد في الإنتاج يجب أن يطلب TLS، مثل `sslmode=require`. استخدم runtime pooled URL إن وفره المزود، ونفذ migrations عبر اتصال إداري مباشر ومن بيئة موثوقة؛ التفاصيل في `INFRASTRUCTURE_SETUP.md`.
 
+`db:verify` مخصص لـNeon Direct connection ويتطلب `EXPECTED_NEON_ENDPOINT_ID` كي يمنع تشغيل التحقق على فرع خاطئ. راجع `NEON_DATABASE_ACTIVATION.md` للتسلسل الآمن.
+
 ## حدود الإنتاج الحالية
 
-- لا توجد قاعدة PostgreSQL أو SMTP أو private object storage مهيأة على Vercel وقت آخر تحقق.
+- يوجد `DATABASE_URL` محجوب كـSecret في Vercel Production، لكن لم تُطبق migrations على Neon ولم يُثبت بعد أنه pooled ومن فرع production وبـTLS.
 - `/api/health` يعيد `degraded` وHTTP 503 عندما تكون خدمة حرجة مفقودة أو غير صالحة.
 - التسجيل والاستعادة والدعوات لا تدعي النجاح عندما تكون البنية المطلوبة غير مهيأة.
 - التخزين المحلي لا يعمل في Production ولا توضع المستندات داخل `/public`.
 
-راجع `PROJECT_STATUS.md` للحالة الدقيقة، و`DEPLOYMENT.md` للنشر، و`FINAL_REPORT.md` لتقرير التسليم.
+راجع `NEON_DATABASE_ACTIVATION.md` لتقرير Phase 1.6، و`PROJECT_STATUS.md` للحالة الدقيقة، و`DEPLOYMENT.md` للنشر، و`FINAL_REPORT.md` لسجل التقارير.
