@@ -15,7 +15,7 @@
 | عزل الشركات | Completed & Tested | محاولات معرّف شركة ومستند لـtenant آخر أعادت 403/404؛ assignment خاطئ وpermission escalation مرفوضان. |
 | المستندات | Implemented; production activation pending | Neon private S3 adapter، direct upload، server finalization، SHA-256، tenant isolation، secure download/delete منفذة. Production يظل معطلًا حتى تحقق bucket/credentials فعليًا. |
 | Health endpoint | Verified in Production | HTTP 503 degraded بسبب التخزين فقط؛ `database=connected`, `email=configured`, `privateStorage=misconfigured`. |
-| Vercel | Production READY | نشر الإصلاح `dpl_GUa2KkTKGjSgjygpjhqBL7EfFsfo` أصبح READY والـalias العام يشير إليه؛ قاعدة البيانات والبريد مهيآن. |
+| Vercel | Production READY | commit `88fcd814ca915a6a4f4d6b888bd486adb46b79a9` نشر بنجاح؛ alias العام أعاد 200، وhealth يعكس storage misconfigured بأمان. |
 
 ## نتائج التحقق الحالية
 

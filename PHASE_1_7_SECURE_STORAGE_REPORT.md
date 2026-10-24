@@ -109,8 +109,8 @@
 
 ## 8. GitHub وVercel
 
-- Implementation commit SHA: **يُضاف بعد اكتمال التحقق والـcommit**.
-- Vercel deployment: **يُحدّث بعد push والتحقق من READY**.
+- Implementation commit SHA: `88fcd814ca915a6a4f4d6b888bd486adb46b79a9` على `main`، وتم دفعه إلى `origin`.
+- Vercel deployment: **READY / success** وفق GitHub Vercel status (`Deployment has completed`). Production smoke بعد النشر: `/` و`/auth/register` = 200، و`/api/health` = 503 degraded بالدقة المتوقعة: database connected، email configured، privateStorage misconfigured.
 - Storage activation: **غير نشط**؛ READY deployment وحده لا يثبت التخزين.
 
 ## 9. التشغيل والتكلفة والقيود المتبقية

@@ -4,10 +4,10 @@
 
 - Project: `money-coder-commercial-accounting`
 - Production: `https://money-coder-commercial-accounting.vercel.app`
-- آخر deployment متحقق: `https://money-coder-commercial-accounting-h0rh1ej6f.vercel.app` — READY، ID `dpl_GUa2KkTKGjSgjygpjhqBL7EfFsfo`.
+- آخر implementation deployment متحقق: commit `88fcd814ca915a6a4f4d6b888bd486adb46b79a9` — Vercel READY / success (`Deployment has completed`).
 - Git integration: متصل بالمستودع الرسمي؛ فرع `main` أنشأ نشرًا إنتاجيًا تلقائيًا.
 - الواجهة العامة تعمل. PostgreSQL والبريد مهيآن. طبقة Neon Object Storage الإنتاجية منفذة، لكن credentials/bucket لم يُتحقق منهما على الحساب؛ لذلك Production يظل degraded والرفع معطلًا عمدًا.
-- Production smoke بعد إصلاح سلامة البيانات: الصفحة العامة والتسجيل 200، وhealth يعيد 503 المتوقع بسبب التخزين فقط؛ السجلات الحديثة بلا أخطاء تشغيلية.
+- Production smoke بعد Phase 1.7: الصفحة العامة والتسجيل 200، وhealth يعيد 503 المتوقع فقط لأن storage credentials غير مضافة؛ `database=connected`, `email=configured`, `privateStorage=misconfigured`.
 
 ## GitHub
 
