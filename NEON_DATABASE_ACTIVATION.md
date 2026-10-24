@@ -196,4 +196,11 @@ $phase16SecureUrl = $null
 - **بيانات أو جداول غير متوقعة:** أوقف الهجرة، خذ Snapshot، وحدد أصل البيانات أولًا.
 - **Health ما زال misconfigured:** تأكد من redeploy أحدث من وقت إضافة Vercel secret، ثم راجع أن الرابط PostgreSQL كامل وTLS مفروض.
 
+## 13. Git والتسليم
+
+- commit إعداد Phase 1.6 المحلي: `774d4f7b156cdb7c2deeab7f74e823f4ffad61bf`.
+- `origin/main` وقت التسليم: `65a7d02c1efecf0754548f147cd0d6f8d5e6d6c8`.
+- لم يُنفذ push؛ لذلك لا يوجد GitHub SHA جديد لهذه المرحلة بعد.
+- سبب الإيقاف: الدفع إلى `main` سيطلق Vercel Production deployment تلقائيًا ويفعّل `DATABASE_URL` قبل التحقق من فرع production وتطبيق migration. يُنفذ push فقط بعد إكمال القسمين 8 و9 بنجاح.
+
 مراجع رسمية: [Neon branch isolation](https://neon.com/docs/get-started-with-neon/workflow-primer)، [Neon computes and endpoint IDs](https://neon.com/docs/manage/endpoints/)، [Prisma 6 connection URLs](https://www.prisma.io/docs/orm/v6/reference/connection-urls).
