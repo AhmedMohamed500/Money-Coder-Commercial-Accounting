@@ -1,4 +1,4 @@
-# Infrastructure Setup — Money Coder Phase 1.6
+# Infrastructure Setup — Money Coder Phase 1.7
 
 > الحالة التنفيذية الفعلية وخطوات Neon الآمنة موجودة في `NEON_DATABASE_ACTIVATION.md`. لا تعتبر قاعدة Neon مفعلة قبل نجاح `npm run db:verify` على `development` ثم `production`.
 
@@ -45,8 +45,17 @@ Remove-Item Env:DATABASE_URL
 | `SMTP_PORT` | مطلوب | مطلوب | 465 أو 587 حسب المزود |
 | `SMTP_USER` | مطلوب | مطلوب | Secret |
 | `SMTP_PASSWORD` | مطلوب | مطلوب | Secret |
-| `PRIVATE_STORAGE_PROVIDER` | مطلوب للرفع | مطلوب | لا توجد production adapter مركبة بعد |
+| `PRIVATE_STORAGE_PROVIDER` | `neon` بعد التحقق | `neon` أو `local-dev` محليًا | لا تستخدم `local-dev` في Production |
+| `PRIVATE_STORAGE_BUCKET` | مطلوب للتفعيل | bucket منفصل | اسم مقترح `money-coder-documents` |
+| `PRIVATE_STORAGE_ACCESS` | `private` فقط | `private` فقط | إقرار تشغيلي بأن access مضبوط من Neon؛ غير سري |
+| `AWS_ACCESS_KEY_ID` | Secret مطلوب | Secret مختلف | Storage credential؛ ليس متغيرًا عامًا |
+| `AWS_SECRET_ACCESS_KEY` | Secret مطلوب | Secret مختلف | لا يُنسخ إلى المتصفح أو Git |
+| `AWS_ENDPOINT_URL_S3` | مطلوب | endpoint الفرع المنفصل | Neon S3 HTTPS endpoint |
+| `AWS_REGION` | مطلوب | مطلوب | منطقة Neon الفعلية |
 | `MAX_UPLOAD_BYTES` | اختياري | اختياري | الافتراضي 5MB |
+| `STORAGE_UPLOAD_TTL_SECONDS` | اختياري | اختياري | 60–600 ثانية؛ الافتراضي 300 |
+| `ORGANIZATION_STORAGE_QUOTA_BYTES` | اختياري | اختياري | الافتراضي 100MB لكل مؤسسة |
+| `ORGANIZATION_DOCUMENT_LIMIT` | اختياري | اختياري | الافتراضي 100 مستند نشط |
 
 بعد أي تغيير متغيرات، أعد النشر ثم افحص `/api/health`. لا تنسخ قيم Production إلى Preview.
 
@@ -61,22 +70,46 @@ Remove-Item Env:DATABASE_URL
 
 في التطوير فقط تعيد API روابط التحقق والاستعادة إلى العميل لاختبار التدفق. هذا السلوك غير موجود عند `NODE_ENV=production`.
 
-## 4. Private document storage
+## 4. Neon Object Storage الخاص — خطوات التفعيل اليدوي
 
-الوضع الحالي آمن-معطل في Production. قبل التفعيل اختر private bucket يدعم server-side credentials وsigned/authenticated downloads، ثم نفذ adapter داخل `src/lib/storage.ts`.
+الـadapter الإنتاجي منفذ، لكن الرفع يظل آمنًا ومعطلًا حتى تنجح connectivity/ACL check فعلية. وفق [Neon Object Storage overview](https://neon.com/docs/storage/overview)، الخطة Free موثقة بسعة 5GB للمشروع، ومنطقة المشروع الحالية `eu-central-1` مدعومة. يجب مع ذلك التأكد داخل الحساب من أهلية المشروع الفعلية قبل الإنشاء؛ لا تضف billing ولا ترقِّ الخطة.
 
-قائمة الدمج الإلزامية:
+### أ. إنشاء بيئة Development أولًا
 
-- bucket خاص بلا public ACL أو directory listing.
-- مفاتيح خدمة محدودة للbucket والعمليات المطلوبة.
-- storage key عشوائي لا يعتمد على filename.
-- تحقق organization authorization قبل كل upload/download/delete.
-- حد حجم، allowlist للأنواع، وفحص magic bytes؛ وmalware scanning قبل الملفات الحقيقية.
-- تشفير at rest، lifecycle policy، نسخة احتياطية، وسياسة retention/delete.
-- حذف آمن أو compensating cleanup عند فشل transaction.
-- اختبارات IDOR للتنزيل والحذف، وسجل AuditEvent.
+1. افتح [Neon Console](https://console.neon.tech/) وسجّل الدخول بنفس حساب المشروع. لا ترسل أي مفتاح في محادثة أو issue أو screenshot.
+2. افتح مشروع Money Coder، ثم اختر branch `development`. من صفحة **Storage** تحقق أن Object Storage متاح وأن الخطة ما زالت Free.
+3. أنشئ bucket خاصًا باسم `money-coder-documents` إن لم يكن موجودًا. اترك access خاصًا؛ لا تختَر `public_read` أو anonymous access. راجع [إدارة buckets](https://neon.com/docs/storage/buckets).
+4. أنشئ credentials محدودة لهذا الفرع وبصلاحيات القراءة والكتابة المطلوبة فقط. انسخ مرة واحدة القيم الموثقة في [Neon storage quickstart](https://neon.com/docs/storage/get-started): `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL_S3`, `AWS_REGION`.
+5. لا تفترض أن bucket ظهر في branch قديم تلقائيًا. افتح branch `development` نفسه وتأكد من ظهور bucket/credentials الخاصة به.
+6. اضبط CORS للـbucket ليقبل فقط origins المطلوبة (مثل URL Preview أو localhost للاختبار)، والطريقة `PUT`، والـheaders الموقعة التي يعيدها التطبيق، وليس `*` مع origins غير موثوقة. احتفظ بالتنزيل عبر GET موقع قصير العمر من الخادم. راجع [عمليات objects وpresigned URLs](https://neon.com/docs/storage/objects).
+7. في ملف `.env.local` غير المتتبع أو Vercel Preview Secrets اضبط:
 
-لا تستخدم `/public` أو نظام ملفات Vercel أو GitHub لتخزين مستندات الشركات.
+```text
+PRIVATE_STORAGE_PROVIDER=neon
+PRIVATE_STORAGE_BUCKET=money-coder-documents
+PRIVATE_STORAGE_ACCESS=private
+AWS_ACCESS_KEY_ID=<development credential>
+AWS_SECRET_ACCESS_KEY=<development secret>
+AWS_ENDPOINT_URL_S3=<development HTTPS endpoint>
+AWS_REGION=eu-central-1
+```
+
+8. أعد التشغيل، ثم افحص `/api/health`. المطلوب `privateStorage=connected`، لا مجرد وجود المتغيرات.
+9. استخدم حسابًا وملف PDF وهميًا صغيرًا: ارفع، حدّث الصفحة، نزّل وقارن المحتوى، جرّب حساب مؤسسة أخرى، ثم احذف. لا تستخدم بيانات عميل حقيقية.
+
+### ب. تفعيل Production بعد نجاح Development
+
+1. كرر الخطوات على branch `production` وبـbucket/credentials خاصة به. لا تعِد استخدام مفاتيح Development.
+2. أضف المتغيرات السابقة إلى Vercel → Project → Settings → Environment Variables → **Production**. علّم access key وsecret كـSecrets، ولا تستخدم بادئة `NEXT_PUBLIC_`.
+3. تحقق داخل Neon أن bucket ما زال `private` ثم اضبط `PRIVATE_STORAGE_ACCESS=private`. Neon يدير مستوى access عبر Console/API وليس S3 ACL؛ التطبيق يرفض configuration إن لم يوجد هذا الإقرار، ويستخدم `HeadBucket` للتحقق الفعلي من الاتصال، لكن المراجعة اليدوية داخل Neon تظل إلزامية.
+4. أعد Redeploy. افحص `/api/health`، ثم نفّذ اختبارًا وهميًا صغيرًا فقط بعد موافقة صريحة على الاختبار الإنتاجي.
+5. إذا ظهر quota error، أوقف الرفع أو نظف ملفات اختبار مصرح بها فقط؛ لا تفعل paid upgrade تلقائيًا.
+
+### ج. التدوير والإلغاء
+
+أنشئ credential بديلًا محدودًا، حدّث Vercel، أعد النشر وتحقق من health، ثم revoke المفتاح القديم من Neon. عند الاشتباه في تسريب، revoke فورًا ولا تسجل القيمة في logs. تنزيلات التطبيق قصيرة العمر (60 ثانية) وتصاريح الرفع 5 دقائق افتراضيًا.
+
+التطبيق يستخدم مفاتيح عشوائية تحت `organizations/{organizationId}/{uuid}`، ولا يخزن الملفات في `/public` أو Vercel filesystem. التحقق الحالي يشمل signatures وXLSX structure وSHA-256، لكنه ليس malware scanner؛ أضف quarantine/AV قبل استقبال مستندات حقيقية عالية الخطورة. Lifecycle configuration في Neon S3 يجب التحقق منها عمليًا؛ لا تعتمد عليها للحذف دون متابعة.
 
 ## 5. قاعدة الاختبار المحلية
 
@@ -114,6 +147,6 @@ npm test
 3. راجع وطبق migrations على Production عبر direct TLS URL.
 4. أضف runtime pooled `DATABASE_URL` وSMTP إلى Vercel.
 5. انشر وافحص health؛ اختبر بحسابات وهمية لا ببيانات عملاء.
-6. لا تفعّل رفع المستندات حتى اكتمال adapter واختباراته.
+6. لا تفعّل رفع المستندات حتى نجاح `privateStorage=connected` واختبار Development المعزول.
 7. فعّل backups والمراقبة والتنبيهات.
 8. لا تبدأ Phase 2 قبل نجاح E2E إنتاجي موثق ومسح أمني نهائي.

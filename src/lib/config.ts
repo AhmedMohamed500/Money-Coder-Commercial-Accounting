@@ -1,4 +1,13 @@
 export type ServiceConfiguration = { configured: boolean; reason?: string };
+export type PrivateStorageConfiguration = ServiceConfiguration & {
+  details?: {
+    endpoint: string;
+    region: string;
+    bucket: string;
+    accessKeyId: string;
+    secretAccessKey: string;
+  };
+};
 
 function isLocalHost(hostname: string) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
@@ -36,9 +45,36 @@ export function emailConfigured() {
   return emailConfiguration().configured;
 }
 
-export function privateStorageConfiguration(): ServiceConfiguration {
+export function privateStorageConfiguration(): PrivateStorageConfiguration {
   const provider = process.env.PRIVATE_STORAGE_PROVIDER?.trim() || (process.env.NODE_ENV === "production" ? "" : "local-dev");
   if (provider === "local-dev" && process.env.NODE_ENV !== "production") return { configured: true };
+  if (provider === "test-memory" && (process.env.NODE_ENV === "test" || process.env.STORAGE_TEST_MODE === "1")) return { configured: true };
   if (!provider) return { configured: false, reason: "PRIVATE_STORAGE_PROVIDER is missing" };
-  return { configured: false, reason: `Storage provider '${provider}' has no installed adapter` };
+  if (provider !== "neon") return { configured: false, reason: "PRIVATE_STORAGE_PROVIDER is unsupported" };
+
+  const endpoint = process.env.AWS_ENDPOINT_URL_S3?.trim() ?? "";
+  const region = process.env.AWS_REGION?.trim() ?? "";
+  const bucket = process.env.PRIVATE_STORAGE_BUCKET?.trim() ?? "";
+  const access = process.env.PRIVATE_STORAGE_ACCESS?.trim() ?? "";
+  const accessKeyId = process.env.AWS_ACCESS_KEY_ID?.trim() ?? "";
+  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY?.trim() ?? "";
+  if (!endpoint || !region || !bucket || !accessKeyId || !secretAccessKey) {
+    return { configured: false, reason: "Neon Object Storage configuration is incomplete" };
+  }
+  try {
+    const url = new URL(endpoint);
+    if (url.protocol !== "https:" || !(url.hostname === "neon.tech" || url.hostname.endsWith(".neon.tech"))) {
+      return { configured: false, reason: "AWS_ENDPOINT_URL_S3 must be a Neon HTTPS endpoint" };
+    }
+  } catch {
+    return { configured: false, reason: "AWS_ENDPOINT_URL_S3 is invalid" };
+  }
+  if (!new Set(["us-east-1", "us-east-2", "eu-central-1", "ap-southeast-1"]).has(region)) {
+    return { configured: false, reason: "AWS_REGION is not supported by Neon Object Storage" };
+  }
+  if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket)) {
+    return { configured: false, reason: "PRIVATE_STORAGE_BUCKET is invalid" };
+  }
+  if (access !== "private") return { configured: false, reason: "PRIVATE_STORAGE_ACCESS must explicitly be private" };
+  return { configured: true, details: { endpoint, region, bucket, accessKeyId, secretAccessKey } };
 }

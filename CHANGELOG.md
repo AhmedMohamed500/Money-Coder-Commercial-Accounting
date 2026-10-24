@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0 — 2026-10-25
+
+- إضافة Neon Object Storage adapter خاص متوافق S3 مع `HeadBucket` connectivity check واشتراط private access المراجع من Neon بدل الاكتفاء بوجود credentials.
+- استبدال multipart عبر Function برفع مباشر إلى pending key موقّع قصير العمر ثم finalization آمن وذري لبيانات المستند.
+- إضافة فحص الحجم/MIME والتوقيع الفعلي وXLSX structure وarchive limits وSHA-256 وأسماء تنزيل آمنة.
+- منع replay وcross-tenant completion والoverwrite، وتنظيف uploads المهجورة وفشل DB بعد promotion.
+- إضافة تنزيل خاص قصير العمر، no-store/nosniff، حذف soft + physical retry، وAuditEvents للرفع والتنزيل والحذف.
+- إضافة تقدم رفع وتأكيد حذف وتصنيف/حجم داخل واجهة الخطوة السادسة دون تغيير التصميم.
+- إضافة test-memory adapter و24 اختبار DB/API معزولًا؛ لا اختبار Neon حقيقي ولا تعديل لبيانات Production.
+- الحالة الإنتاجية: **IMPLEMENTED — PRODUCTION ACTIVATION PENDING** حتى إعداد bucket/credentials والتحقق اليدوي.
+
 ## 0.5.0 — 2026-10-25
 
 - إصلاح فقد `tradeName` و`englishName` عند إرسال PATCH جزئي أو اعتماد ملف الشركة.

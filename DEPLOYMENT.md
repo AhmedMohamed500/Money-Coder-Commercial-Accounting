@@ -6,7 +6,7 @@
 - Production: `https://money-coder-commercial-accounting.vercel.app`
 - آخر deployment متحقق: `https://money-coder-commercial-accounting-h0rh1ej6f.vercel.app` — READY، ID `dpl_GUa2KkTKGjSgjygpjhqBL7EfFsfo`.
 - Git integration: متصل بالمستودع الرسمي؛ فرع `main` أنشأ نشرًا إنتاجيًا تلقائيًا.
-- الواجهة العامة تعمل. PostgreSQL والبريد مهيآن؛ health يثبت `database=connected` و`email=configured`. التخزين الخاص وحده غير مهيأ، لذلك تبقى الحالة العامة degraded.
+- الواجهة العامة تعمل. PostgreSQL والبريد مهيآن. طبقة Neon Object Storage الإنتاجية منفذة، لكن credentials/bucket لم يُتحقق منهما على الحساب؛ لذلك Production يظل degraded والرفع معطلًا عمدًا.
 - Production smoke بعد إصلاح سلامة البيانات: الصفحة العامة والتسجيل 200، وhealth يعيد 503 المتوقع بسبب التخزين فقط؛ السجلات الحديثة بلا أخطاء تشغيلية.
 
 ## GitHub
@@ -28,7 +28,7 @@
 
 اسم المشروع: `money-coder-commercial-accounting`، Framework: Next.js، Build: `npm run build`.
 
-المتغيرات المطلوبة لتشغيل الوظائف الكاملة: `DATABASE_URL`, `AUTH_SECRET`, `APP_URL`, `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`. يلزم `PRIVATE_STORAGE_PROVIDER` عند تركيب adapter إنتاجية. متغيرا n8n اختياريان وغير مطلوبين في Phase 1.5.
+المتغيرات المطلوبة لتشغيل الوظائف الكاملة: `DATABASE_URL`, `AUTH_SECRET`, `APP_URL`, `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`. يتطلب Neon Storage أيضًا `PRIVATE_STORAGE_PROVIDER=neon`, `PRIVATE_STORAGE_BUCKET`, `PRIVATE_STORAGE_ACCESS=private`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL_S3`, `AWS_REGION`. كلها server-side، ومفتاحا AWS أسرار. متغيرا n8n اختياريان.
 
 ملف `.vercelignore` يمنع رفع ملفات `.env` المحلية ضمن artifact؛ أضف القيم من إعدادات Project Environment Variables فقط.
 
@@ -36,7 +36,7 @@
 
 ## المستندات
 
-موفر التخزين الخاص الإنتاجي غير منفذ بعد. رفع الملفات يرفض في `NODE_ENV=production`؛ هذه حماية مقصودة. قبل تفعيله يلزم adapter خاص (private bucket)، signed/authorized download، lifecycle rules، malware scanning ونسخ احتياطي. اتبع `INFRASTRUCTURE_SETUP.md`.
+Neon S3-compatible private adapter منفذ: رفع مباشر بتصريح قصير، تحقق server-side، تنزيل موقع 60 ثانية، عزل tenant، حذف قابل لإعادة المحاولة، وhealth connectivity/ACL check. لا توجد credentials فعلية في المستودع، لذلك الإنتاج يرفض التفعيل تلقائيًا. اتبع `INFRASTRUCTURE_SETUP.md` لإنشاء bucket خاص وبيئتي Development/Production. Malware scanning والنسخ الاحتياطي/retention التشغيلي ما زالا مطلوبين قبل المستندات الحقيقية عالية الحساسية.
 
 ## Smoke Test
 
@@ -56,3 +56,10 @@
 - Neon Development وProduction: 19 جدول تطبيق وmigration سليمة؛ Production data محفوظة.
 - Production database وSMTP: مهيآن ومتصّلان.
 - Private storage: غير مهيأ؛ الرفع معطل بوضوح.
+
+## نتيجة Phase 1.7
+
+- الحالة: **IMPLEMENTED — PRODUCTION ACTIVATION PENDING**.
+- لا يوجد schema change أو migration؛ بيانات Production لم تُمس.
+- اختبارات PostgreSQL والتخزين المعزولة تغطي الرفع للأربعة أنواع، IDOR، replay، expiry، cleanup، DB/storage failures، التنزيل والحذف.
+- التفعيل يتطلب إعداد Neon/Vercel يدويًا والتحقق من `/api/health`; نجاح Vercel وحده لا يعني أن التخزين نشط.

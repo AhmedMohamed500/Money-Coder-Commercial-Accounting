@@ -27,7 +27,7 @@ function run(script, args, extraEnv = {}) {
 
 try {
   run("node_modules/prisma/build/index.js", ["migrate", "deploy"]);
-  run("node_modules/vitest/vitest.mjs", ["run", "tests/database.integration.test.ts", "tests/auth.integration.test.ts"], { RUN_DB_TESTS: "1" });
+  run("node_modules/vitest/vitest.mjs", ["run", "tests/database.integration.test.ts", "tests/auth.integration.test.ts", "tests/storage.integration.test.ts"], { RUN_DB_TESTS: "1", PRIVATE_STORAGE_PROVIDER: "test-memory", STORAGE_TEST_MODE: "1", AUTH_SECRET: "isolated-storage-test-secret-at-least-32-characters" });
 } finally {
   await postgres.stop({ force: true });
 }

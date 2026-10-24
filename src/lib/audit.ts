@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 
 export async function writeAudit(input: {
   organizationId?: string;
@@ -8,8 +9,10 @@ export async function writeAudit(input: {
   entityId?: string;
   metadata?: Record<string, string | number | boolean | null>;
   request?: Request;
+  client?: Prisma.TransactionClient;
 }) {
-  await db.auditEvent.create({
+  const client = input.client ?? db;
+  await client.auditEvent.create({
     data: {
       organizationId: input.organizationId,
       actorUserId: input.actorUserId,

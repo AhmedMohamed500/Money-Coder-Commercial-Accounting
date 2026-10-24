@@ -1,4 +1,4 @@
-# Project Status — Phase 1 Production Stabilization
+# Project Status — Phase 1.7 Secure Private Storage
 
 آخر تحديث: 25 أكتوبر 2026.
 
@@ -13,7 +13,7 @@
 | الفريق والدعوات | Completed but Partially Tested | تغيير الدور/تعليق/تفعيل/إلغاء وحماية المالك منفذة؛ قواعد التصعيد unit-tested. SMTP invitation غير مختبر. |
 | التفويض والتعيين | Completed & Tested (authorization layer) | صلاحيات التعيين لا تتجاوز الدور أو التفويض؛ التعليق والإلغاء يمنعان الوصول. دورة UI الكاملة غير مختبرة. |
 | عزل الشركات | Completed & Tested | محاولات معرّف شركة ومستند لـtenant آخر أعادت 403/404؛ assignment خاطئ وpermission escalation مرفوضان. |
-| المستندات | Safely disabled in Production | validation والتصاريح باقية؛ لا adapter إنتاجي. واجهة الرفع مخفية وتظهر رسالة عدم الإتاحة بدل وصفه كرفع آمن. |
+| المستندات | Implemented; production activation pending | Neon private S3 adapter، direct upload، server finalization، SHA-256، tenant isolation، secure download/delete منفذة. Production يظل معطلًا حتى تحقق bucket/credentials فعليًا. |
 | Health endpoint | Verified in Production | HTTP 503 degraded بسبب التخزين فقط؛ `database=connected`, `email=configured`, `privateStorage=misconfigured`. |
 | Vercel | Production READY | نشر الإصلاح `dpl_GUa2KkTKGjSgjygpjhqBL7EfFsfo` أصبح READY والـalias العام يشير إليه؛ قاعدة البيانات والبريد مهيآن. |
 
@@ -21,16 +21,17 @@
 
 - `npm run typecheck`: PASS.
 - `npm run lint`: PASS دون تحذيرات.
-- `npm test`: 9 PASS، و7 DB/API integration tests SKIPPED في الأمر العام عمدًا.
-- `npm run test:db`: migration PASS؛ ملفا اختبار و7 اختبارات تكامل PASS، دون skipped.
-- `npm run build`: PASS؛ 30 route/page entries ظهرت في manifest.
-- `npm run test:visual`: PASS بعد تشغيل خادم الإنتاج المحلي؛ خمسة مقاسات، RTL ودون overflow.
+- `npm test`: 17 PASS؛ واختبارات DB/API المشروطة SKIPPED عمدًا في الأمر العام.
+- `npm run test:db`: migration PASS؛ 3 ملفات و24 اختبار تكامل PASS، دون skipped، على PostgreSQL مؤقتة وtest-memory storage فقط.
+- `npm run build`: PASS؛ 32 route/page entries ظهرت في manifest، ومنها upload-init وlocal/test receiver الجديدان.
+- `npm run test:visual`: PASS بعد تشغيل خادم الإنتاج المحلي؛ 390/768/1280/1440/1920px، RTL ودون overflow.
 - Production smoke بعد نشر الإصلاح: `/` و`/auth/register` = 200؛ health = 503 degraded مع database connected وemail configured وprivate storage misconfigured.
 - اختبار التراجع الجديد يعيد دورة الخطوات الست ويحمي trade/English names وContacts والحسابات البنكية والعزل.
 
 ## العوائق الخارجية الصريحة
 
-- لا يوجد private storage adapter إنتاجي؛ الرفع معطل عمدًا.
+- لم يكن Neon Console متاحًا دون تسجيل دخول، لذلك لم يُنشأ bucket ولم تُصدر credentials ولم يُنفذ اختبار Neon فعلي. الرفع الإنتاجي معطل عمدًا.
+- وثائق Neon الرسمية تعرض 5GB Object Storage ضمن Free وتدعم منطقة المشروع `eu-central-1`؛ أهلية الحساب/الحصة الفعلية تحتاج تحققًا يدويًا داخل Console.
 - إصلاح فقد البيانات منشور بحالة READY؛ المتبقي تحقق يدوي آمن من الشركة الحالية دون تخمين القيم المفقودة.
 - لا يحتوي AuditEvent على قيم الحقول السابقة، لذلك لا يمكن استرجاع الاسمين المفقودين آليًا بأمان.
 
