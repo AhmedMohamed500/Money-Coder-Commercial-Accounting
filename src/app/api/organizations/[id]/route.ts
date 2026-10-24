@@ -5,6 +5,7 @@ import { organizationUpdateSchema } from "@/lib/schemas";
 import { writeAudit } from "@/lib/audit";
 import { onboardingMissingFields } from "@/lib/onboarding";
 import { databaseFailureResponse } from "@/lib/api-errors";
+import type { Prisma } from "@prisma/client";
 
 class IncompleteOnboardingError extends Error {}
 
@@ -36,11 +37,24 @@ async function updateOrganization(request: Request, params: Promise<{ id: string
   if (current.type !== "COMMERCIAL_COMPANY" && (accounting || fiscalYear)) return NextResponse.json({ error: "الإعدادات المحاسبية والسنة المالية مخصصة للشركات." }, { status: 400 });
   try {
     await db.$transaction(async tx => {
-      await tx.organization.update({ where: { id }, data: { ...base, tradeName: base.tradeName || null, englishName: base.englishName || null } });
-      if (profile) await tx.organizationProfile.upsert({ where: { organizationId: id }, create: { organizationId: id, ...profile, website: profile.website || null, publicEmail: profile.publicEmail || null }, update: { ...profile, website: profile.website || null, publicEmail: profile.publicEmail || null } });
+      const organizationData: Prisma.OrganizationUpdateInput = {};
+      if (base.legalName !== undefined) organizationData.legalName = base.legalName;
+      if (base.tradeName !== undefined) organizationData.tradeName = base.tradeName;
+      if (base.englishName !== undefined) organizationData.englishName = base.englishName;
+      if (base.onboardingStatus !== undefined) organizationData.onboardingStatus = base.onboardingStatus;
+      if (Object.keys(organizationData).length) await tx.organization.update({ where: { id }, data: organizationData });
+      if (profile) await tx.organizationProfile.upsert({ where: { organizationId: id }, create: { organizationId: id, ...profile }, update: profile });
       if (legal) await tx.companyLegalDetails.upsert({ where: { organizationId: id }, create: { organizationId: id, ...legal }, update: legal });
       if (address) await tx.organizationAddress.upsert({ where: { organizationId_type: { organizationId: id, type: "LEGAL" } }, create: { organizationId: id, type: "LEGAL", ...address }, update: address });
-      if (contacts) { await tx.companyContact.deleteMany({ where: { organizationId: id } }); if (contacts.length) await tx.companyContact.createMany({ data: contacts.map(contact => ({ organizationId: id, ...contact, email: contact.email || null })) }); }
+      if (contacts) {
+        const contactTypes = contacts.length ? contacts.map(contact => contact.type) : ["FINANCE_MANAGER", "ACCOUNTING_CONTACT"];
+        await tx.companyContact.deleteMany({ where: { organizationId: id, type: { in: contactTypes } } });
+        const replacements = contacts.flatMap(contact => {
+          if ("remove" in contact) return [];
+          return [{ organizationId: id, ...contact }];
+        });
+        if (replacements.length) await tx.companyContact.createMany({ data: replacements });
+      }
       if (accounting) await tx.companyAccountingSettings.upsert({ where: { organizationId: id }, create: { organizationId: id, ...accounting }, update: accounting });
       if (fiscalYear) {
         if (fiscalYear.id) {

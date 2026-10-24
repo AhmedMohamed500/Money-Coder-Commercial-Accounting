@@ -1,6 +1,7 @@
 # تقرير التسليم النهائي الشامل
 
-> **التقرير التشغيلي الأحدث لـPhase 1.6:** [NEON_DATABASE_ACTIVATION.md](NEON_DATABASE_ACTIVATION.md). يوضح بدقة ما تم التحقق منه وما توقف بسبب عدم توفر Neon Direct access.
+> **التقرير التشغيلي الأحدث لإصلاح سلامة البيانات:** [PHASE_1_DATA_INTEGRITY_FIX.md](PHASE_1_DATA_INTEGRITY_FIX.md).
+> **تقرير تفعيل Neon لـPhase 1.6:** [NEON_DATABASE_ACTIVATION.md](NEON_DATABASE_ACTIVATION.md).
 > **تقرير Phase 1.5:** [PHASE_1_5_DELIVERY_REPORT.md](PHASE_1_5_DELIVERY_REPORT.md). المحتوى أدناه تقرير Phase 1 التاريخي ويُحفظ للمرجعية فقط.
 
 ## Money Coder Commercial Accounting — Phase 1

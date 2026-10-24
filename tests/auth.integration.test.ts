@@ -26,6 +26,7 @@ import { POST as forgotPassword } from "@/app/api/auth/forgot/route";
 import { POST as resetPassword } from "@/app/api/auth/reset/route";
 import { GET as getOrganization, PATCH as updateOrganization } from "@/app/api/organizations/[id]/route";
 import { POST as createBankAccount } from "@/app/api/organizations/[id]/bank-accounts/route";
+import { DELETE as deleteBankAccount } from "@/app/api/organizations/[id]/bank-accounts/[accountId]/route";
 import { GET as downloadDocument } from "@/app/api/documents/[documentId]/route";
 
 const enabled = process.env.RUN_DB_TESTS === "1";
@@ -40,6 +41,17 @@ let companyVerificationUrl = "";
 
 function jsonRequest(url: string, body: unknown) {
   return new Request(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+}
+
+function patchRequest(organizationId: string, body: unknown) {
+  return new Request(`http://local.test/api/organizations/${organizationId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+}
+
+async function expectCompanyNames(organizationId: string, tradeName: string | null, englishName: string | null) {
+  const company = await db.organization.findUniqueOrThrow({ where: { id: organizationId } });
+  expect(company.tradeName).toBe(tradeName);
+  expect(company.englishName).toBe(englishName);
+  return company;
 }
 
 describe.skipIf(!enabled)("authentication and protected API workflow", () => {
@@ -69,7 +81,7 @@ describe.skipIf(!enabled)("authentication and protected API workflow", () => {
     expect(officeUser.memberships[0].role).toBe("OFFICE_OWNER");
   });
 
-  it("requires verification, logs in, persists the full company setup, and logs out", async () => {
+  it("preserves company data through all onboarding steps, approval, refresh, and login", async () => {
     const deniedBeforeVerification = await login(jsonRequest("http://local.test/api/auth/login", { email:companyEmail, password:firstPassword }));
     expect(deniedBeforeVerification.status).toBe(403);
 
@@ -79,21 +91,114 @@ describe.skipIf(!enabled)("authentication and protected API workflow", () => {
     expect(loginResponse.status).toBe(200);
     expect(cookieState.jar.get("money_coder_session")).toBeTruthy();
 
-    const update = await updateOrganization(new Request(`http://local.test/api/organizations/${companyId}`, { method:"PATCH", headers:{"content-type":"application/json"}, body:JSON.stringify({ legalName:"Integration Company Updated", tradeName:"Integration", profile:{responsiblePerson:"Company Owner",businessActivity:"Wholesale",phone:"01000000000"}, legal:{commercialRegisterNo:`CR-${marker}`,taxRegistrationNo:`TX-${marker}`}, address:{countryCode:"EG",city:"Cairo",addressLine:"Test address"}, accounting:{baseCurrency:"EGP",fiscalYearStartMonth:1,fiscalYearStartDay:1,fiscalYearEndMonth:12,fiscalYearEndDay:31,inventoryMethod:"PERIODIC"}, fiscalYear:{name:"FY 2026",startsAt:"2026-01-01",endsAt:"2026-12-31"} }) }), { params:Promise.resolve({id:companyId}) });
-    expect(update.status).toBe(200);
+    const tradeName = "Money Coder Test";
+    const englishName = "Money Coder Test Company";
+    const routeParams = { params: Promise.resolve({ id: companyId }) };
 
-    const bank = await createBankAccount(jsonRequest(`http://local.test/api/organizations/${companyId}/bank-accounts`, { bankName:"Integration Bank",accountName:"Main",accountNumber:`ACC-${marker}`,currency:"EGP",isActive:true }), { params:Promise.resolve({id:companyId}) });
+    const basic = await updateOrganization(patchRequest(companyId, {
+      legalName: "Integration Company Updated",
+      tradeName,
+      englishName,
+      profile: { legalEntityType: "Limited Liability Company", businessActivity: "Wholesale", activityStartDate: "2026-01-15" },
+    }), routeParams);
+    expect(basic.status).toBe(200);
+    await expectCompanyNames(companyId, tradeName, englishName);
+
+    const legal = await updateOrganization(patchRequest(companyId, {
+      legal: {
+        commercialRegisterNo: `CR-${marker}`,
+        registrationAuthority: "Cairo Investment Authority",
+        taxRegistrationNo: `TX-${marker}`,
+        taxOffice: "Cairo Tax Office",
+        taxCardNumber: `CARD-${marker}`,
+        legalRepresentative: "Company Owner",
+        vatRegistered: true,
+      },
+    }), routeParams);
+    expect(legal.status).toBe(200);
+    await expectCompanyNames(companyId, tradeName, englishName);
+
+    const partialLegal = await updateOrganization(patchRequest(companyId, { legal: { taxOffice: "Updated Tax Office" } }), routeParams);
+    expect(partialLegal.status).toBe(200);
+    expect((await db.companyLegalDetails.findUniqueOrThrow({ where: { organizationId: companyId } })).commercialRegisterNo).toBe(`CR-${marker}`);
+
+    await db.companyContact.create({ data: { organizationId: companyId, type: "GENERAL", name: "Unrelated Contact", email: "general@test.local" } });
+    const contactPayload = {
+      profile: { responsiblePerson: "Company Owner", phone: "01000000000", publicEmail: "company@test.local", website: "https://example.com" },
+      address: { countryCode: "EG", governorate: "Cairo", city: "Cairo", addressLine: "Test address", postalCode: "11511" },
+      contacts: [
+        { type: "FINANCE_MANAGER", name: "Finance Manager", title: "Finance", email: "finance@test.local", phone: "01000000001" },
+        { type: "ACCOUNTING_CONTACT", name: "Accounting Contact", title: "Accounting", email: "accounting@test.local", phone: "01000000002" },
+      ],
+    };
+    expect((await updateOrganization(patchRequest(companyId, contactPayload), routeParams)).status).toBe(200);
+    expect((await updateOrganization(patchRequest(companyId, contactPayload), routeParams)).status).toBe(200);
+    await expectCompanyNames(companyId, tradeName, englishName);
+    const contacts = await db.companyContact.findMany({ where: { organizationId: companyId } });
+    expect(contacts.map(contact => contact.type).sort()).toEqual(["ACCOUNTING_CONTACT", "FINANCE_MANAGER", "GENERAL"]);
+    expect((await updateOrganization(patchRequest(companyId, { contacts: [] }), routeParams)).status).toBe(200);
+    expect((await db.companyContact.findMany({ where: { organizationId: companyId } })).map(contact => contact.type)).toEqual(["GENERAL"]);
+    expect((await updateOrganization(patchRequest(companyId, { contacts: contactPayload.contacts }), routeParams)).status).toBe(200);
+
+    const clearWebsite = await updateOrganization(patchRequest(companyId, { profile: { website: "" } }), routeParams);
+    expect(clearWebsite.status).toBe(200);
+    const profileAfterClear = await db.organizationProfile.findUniqueOrThrow({ where: { organizationId: companyId } });
+    expect(profileAfterClear.website).toBeNull();
+    expect(profileAfterClear.publicEmail).toBe("company@test.local");
+    expect(profileAfterClear.responsiblePerson).toBe("Company Owner");
+
+    const fiscalPayload = {
+      accounting: { baseCurrency: "EGP", fiscalYearStartMonth: 1, fiscalYearStartDay: 1, fiscalYearEndMonth: 12, fiscalYearEndDay: 31, openingBalanceDate: "2026-01-01", inventoryMethod: "PERIODIC" },
+      fiscalYear: { name: "FY 2026", startsAt: "2026-01-01", endsAt: "2026-12-31" },
+    };
+    expect((await updateOrganization(patchRequest(companyId, fiscalPayload), routeParams)).status).toBe(200);
+    expect((await updateOrganization(patchRequest(companyId, fiscalPayload), routeParams)).status).toBe(200);
+    await expectCompanyNames(companyId, tradeName, englishName);
+    expect(await db.companyFiscalYear.count({ where: { organizationId: companyId } })).toBe(1);
+
+    const bank = await createBankAccount(jsonRequest(`http://local.test/api/organizations/${companyId}/bank-accounts`, { bankName:"Integration Bank",accountName:"Main",accountNumber:`ACC-${marker}`,currency:"EGP",isActive:true }), routeParams);
     expect(bank.status).toBe(201);
-    const complete = await updateOrganization(new Request(`http://local.test/api/organizations/${companyId}`, { method:"PATCH", headers:{"content-type":"application/json"}, body:JSON.stringify({legalName:"Integration Company Updated",onboardingStatus:"COMPLETE"}) }), { params:Promise.resolve({id:companyId}) });
+    const bankBody = await bank.json();
+    const secondBank = await createBankAccount(jsonRequest(`http://local.test/api/organizations/${companyId}/bank-accounts`, { bankName:"Reserve Bank",accountName:"Reserve",accountNumber:`RES-${marker}`,currency:"USD",isActive:true }), routeParams);
+    expect(secondBank.status).toBe(201);
+    const secondBankBody = await secondBank.json();
+    expect(bankBody.organizationId).toBe(companyId);
+    expect(await db.companyBankAccount.count({ where: { organizationId: companyId, deletedAt: null } })).toBe(2);
+    const deletedBank = await deleteBankAccount(new Request(`http://local.test/api/organizations/${companyId}/bank-accounts/${secondBankBody.id}`, { method: "DELETE" }), { params: Promise.resolve({ id: companyId, accountId: secondBankBody.id }) });
+    expect(deletedBank.status).toBe(200);
+    expect(await db.companyBankAccount.count({ where: { organizationId: companyId, deletedAt: null } })).toBe(1);
+    await expectCompanyNames(companyId, tradeName, englishName);
+
+    const complete = await updateOrganization(patchRequest(companyId, { legalName:"Integration Company Updated",onboardingStatus:"COMPLETE" }), routeParams);
     expect(complete.status).toBe(200);
+    const completedCompany = await expectCompanyNames(companyId, tradeName, englishName);
+    expect(completedCompany.onboardingStatus).toBe("COMPLETE");
+
+    const renamed = await updateOrganization(patchRequest(companyId, { tradeName: "Updated Trade", englishName: "Updated English" }), routeParams);
+    expect(renamed.status).toBe(200);
+    await expectCompanyNames(companyId, "Updated Trade", "Updated English");
+    const cleared = await updateOrganization(patchRequest(companyId, { tradeName: "", englishName: null }), routeParams);
+    expect(cleared.status).toBe(200);
+    await expectCompanyNames(companyId, null, null);
+    const restored = await updateOrganization(patchRequest(companyId, { tradeName, englishName }), routeParams);
+    expect(restored.status).toBe(200);
 
     const read = await getOrganization(new Request(`http://local.test/api/organizations/${companyId}`), { params:Promise.resolve({id:companyId}) });
     expect(read.status).toBe(200);
     const persisted = await read.json();
     expect(persisted.legalName).toBe("Integration Company Updated");
+    expect(persisted.tradeName).toBe(tradeName);
+    expect(persisted.englishName).toBe(englishName);
     expect(persisted.fiscalYears).toHaveLength(1);
     expect(persisted.bankAccounts).toHaveLength(1);
     expect(persisted.onboardingStatus).toBe("COMPLETE");
+
+    const companyUser = await db.user.findUniqueOrThrow({ where: { email: companyEmail } });
+    const incompleteCompany = await db.organization.create({ data: { type: "COMMERCIAL_COMPANY", legalName: "Incomplete Company", createdById: companyUser.id, memberships: { create: { userId: companyUser.id, role: "COMPANY_OWNER" } } } });
+    ids.organizations.push(incompleteCompany.id);
+    const incompleteApproval = await updateOrganization(patchRequest(incompleteCompany.id, { onboardingStatus: "COMPLETE" }), { params: Promise.resolve({ id: incompleteCompany.id }) });
+    expect(incompleteApproval.status).toBe(400);
+    expect((await db.organization.findUniqueOrThrow({ where: { id: incompleteCompany.id } })).onboardingStatus).toBe("DRAFT");
 
     const sessionToken = cookieState.jar.get("money_coder_session")!;
     expect(await db.session.findUnique({where:{tokenHash:sha256(sessionToken)}})).not.toBeNull();
@@ -101,6 +206,13 @@ describe.skipIf(!enabled)("authentication and protected API workflow", () => {
     expect(logoutResponse.status).toBe(303);
     expect(cookieState.jar.has("money_coder_session")).toBe(false);
     expect((await db.session.findUniqueOrThrow({where:{tokenHash:sha256(sessionToken)}})).revokedAt).not.toBeNull();
+
+    expect((await login(jsonRequest("http://local.test/api/auth/login", { email:companyEmail, password:firstPassword }))).status).toBe(200);
+    const afterLogin = await getOrganization(new Request(`http://local.test/api/organizations/${companyId}`), routeParams);
+    expect(afterLogin.status).toBe(200);
+    const afterLoginBody = await afterLogin.json();
+    expect(afterLoginBody.tradeName).toBe(tradeName);
+    expect(afterLoginBody.englishName).toBe(englishName);
   });
 
   it("denies modified tenant and document identifiers", async () => {
@@ -113,6 +225,15 @@ describe.skipIf(!enabled)("authentication and protected API workflow", () => {
 
     const organizationResponse = await getOrganization(new Request(`http://local.test/api/organizations/${otherCompany.id}`), {params:Promise.resolve({id:otherCompany.id})});
     expect(organizationResponse.status).toBe(403);
+    const unauthorizedUpdate = await updateOrganization(patchRequest(otherCompany.id, { tradeName: "Unauthorized change" }), { params: Promise.resolve({ id: otherCompany.id }) });
+    expect(unauthorizedUpdate.status).toBe(403);
+    expect((await db.organization.findUniqueOrThrow({ where: { id: otherCompany.id } })).tradeName).toBeNull();
+
+    const otherBank = await db.companyBankAccount.create({ data: { organizationId: otherCompany.id, bankName: "Other Bank", accountName: "Private", accountNumber: `OTHER-${marker}`, currency: "EGP" } });
+    const unauthorizedBankDelete = await deleteBankAccount(new Request(`http://local.test/api/organizations/${otherCompany.id}/bank-accounts/${otherBank.id}`, { method: "DELETE" }), { params: Promise.resolve({ id: otherCompany.id, accountId: otherBank.id }) });
+    expect(unauthorizedBankDelete.status).toBe(403);
+    expect((await db.companyBankAccount.findUniqueOrThrow({ where: { id: otherBank.id } })).deletedAt).toBeNull();
+
     const documentResponse = await downloadDocument(new Request(`http://local.test/api/documents/${document.id}`), {params:Promise.resolve({documentId:document.id})});
     expect(documentResponse.status).toBe(404);
   });

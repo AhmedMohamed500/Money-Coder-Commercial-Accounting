@@ -6,7 +6,7 @@
 - Production: `https://money-coder-commercial-accounting.vercel.app`
 - آخر deployment متحقق: `https://money-coder-commercial-accounting-1tf3n2mhu.vercel.app` — READY، ID `dpl_97BFjF7h9ay8eo1ZNcz4LRzvs85Q`.
 - Git integration: متصل بالمستودع الرسمي؛ فرع `main` أنشأ نشرًا إنتاجيًا تلقائيًا.
-- الواجهة العامة تعمل. يوجد `DATABASE_URL` كـSecret و`APP_URL` كـConfig في Production فقط؛ كلاهما ينتظر redeploy، ولم يمكن إثبات branch/pooling/SSL لرابط القاعدة لأن Vercel يحجب القيمة. البريد والتخزين الخاص غير مهيأين.
+- الواجهة العامة تعمل. PostgreSQL والبريد مهيآن؛ health يثبت `database=connected` و`email=configured`. التخزين الخاص وحده غير مهيأ، لذلك تبقى الحالة العامة degraded.
 
 ## GitHub
 
@@ -31,7 +31,7 @@
 
 ملف `.vercelignore` يمنع رفع ملفات `.env` المحلية ضمن artifact؛ أضف القيم من إعدادات Project Environment Variables فقط.
 
-إن لم تتوفر قاعدة البيانات والبريد، يمكن نشر Landing Page فقط. التسجيل يعاد بـ503 صريحًا ولا يمثل وظيفة متاحة. `/api/health` يعرض `degraded` دون كشف أسرار.
+`/api/health` قد يعيد HTTP 503 رغم نجاح قاعدة البيانات والبريد لأن private storage غير مهيأ؛ اقرأ حالات الخدمات المنفصلة ولا تعتبر 503 وحده فشلًا في PostgreSQL.
 
 ## المستندات
 
@@ -47,9 +47,11 @@
 4. اختبر مستخدمًا ثانيًا ومحاولة رابط شركة أخرى (يجب 404/403).
 5. لا تستخدم مستندات أو بيانات شركة حقيقية في الاختبار.
 
-## نتيجة Phase 1.5 المحلية
+## نتيجة Phase 1.6
 
 - PostgreSQL 17 مؤقتة: اتصال ناجح.
 - `prisma migrate deploy`: migration واحدة مطبقة بنجاح.
 - اختبارات DB/API: 7 PASS دون skipped داخل `npm run test:db`.
-- Production database/SMTP/private storage: غير مهيأة وقت التوثيق؛ التسجيل والرفع يظلان مغلقين.
+- Neon Development وProduction: 19 جدول تطبيق وmigration سليمة؛ Production data محفوظة.
+- Production database وSMTP: مهيآن ومتصّلان.
+- Private storage: غير مهيأ؛ الرفع معطل بوضوح.

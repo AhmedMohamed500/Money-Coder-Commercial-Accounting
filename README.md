@@ -1,8 +1,8 @@
 # Money Coder Commercial Accounting
 
-أساس SaaS محاسبي عربي متعدد الشركات والمكاتب. الحالة الحالية **Phase 1.6 — Neon PostgreSQL Migration & Vercel Database Activation**: تم التحقق محليًا من الهجرة والاختبارات، بينما ينتظر تطبيق Neon وصول Direct آمن ومؤكد الهوية لكل فرع.
+أساس SaaS محاسبي عربي متعدد الشركات والمكاتب. الحالة الحالية **Phase 1 Production Stabilization**: Neon وSMTP مفعّلان، ويعالج الإصدار الحالي سلامة PATCH وحفظ بيانات الشركة عبر خطوات onboarding الست.
 
-الواجهة العامة المنشورة: <https://money-coder-commercial-accounting.vercel.app>. الصفحة العامة متاحة، لكن التسجيل الإنتاجي يظل مغلقًا حتى تهيئة PostgreSQL وSMTP، كما يظل رفع المستندات مغلقًا حتى تركيب private-storage adapter.
+الواجهة العامة المنشورة: <https://money-coder-commercial-accounting.vercel.app>. قاعدة البيانات والبريد مهيآن؛ رفع المستندات وحده يظل مغلقًا حتى تركيب private-storage adapter.
 
 > لا تتضمن هذه المرحلة دليل الحسابات أو القيود أو معالجة Excel/PDF أو تكامل n8n. راجع `PHASES_ROADMAP.md` فقط لخارطة Phase 2.
 
@@ -62,9 +62,10 @@ npm run test:visual
 
 ## حدود الإنتاج الحالية
 
-- يوجد `DATABASE_URL` محجوب كـSecret في Vercel Production، لكن لم تُطبق migrations على Neon ولم يُثبت بعد أنه pooled ومن فرع production وبـTLS.
+- Neon Development وProduction تحملان migration الصحيحة، وVercel health يثبت اتصال قاعدة الإنتاج.
+- SMTP مهيأ وhealth يعرض `email=configured`.
 - `/api/health` يعيد `degraded` وHTTP 503 عندما تكون خدمة حرجة مفقودة أو غير صالحة.
 - التسجيل والاستعادة والدعوات لا تدعي النجاح عندما تكون البنية المطلوبة غير مهيأة.
 - التخزين المحلي لا يعمل في Production ولا توضع المستندات داخل `/public`.
 
-راجع `NEON_DATABASE_ACTIVATION.md` لتقرير Phase 1.6، و`PROJECT_STATUS.md` للحالة الدقيقة، و`DEPLOYMENT.md` للنشر، و`FINAL_REPORT.md` لسجل التقارير.
+راجع `PHASE_1_DATA_INTEGRITY_FIX.md` لإصلاح سلامة بيانات onboarding، و`NEON_DATABASE_ACTIVATION.md` لتقرير قاعدة البيانات، و`PROJECT_STATUS.md` للحالة الدقيقة.
