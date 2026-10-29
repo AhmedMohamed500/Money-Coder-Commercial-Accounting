@@ -2,7 +2,7 @@
 
 import { useRef, useState, type KeyboardEvent } from "react";
 import { ArrowLeft, Check, CircleAlert, FileSpreadsheet, FileText, Landmark, Scale } from "lucide-react";
-import { closingBankBalance, demoTransactions, money, openingBankBalance, totalCredits, totalDebits, trialBalance, trialCreditTotal, trialDebitTotal } from "./accounting-demo-data";
+import { closingBankBalance, customerCollectionEntry, demoAccountNumber, demoBankName, demoStatementPeriod, demoTransactions, financialPosition, incomeStatement, money, openingBankBalance, totalCredits, totalDebits, trialBalance, trialCreditTotal, trialDebitTotal } from "./accounting-demo-data";
 import { FinancialFlowSignature } from "./dimensional-scenes";
 
 function StageTitle({ number, title, description }: { number: number; title: string; description: string }) {
@@ -14,11 +14,12 @@ function StatementPreview() {
     <div className="mc-document__upload"><FileText /><span><b>كشف-حساب-يونيو.pdf</b><small>PDF · ملف افتراضي</small></span><i>100%</i></div>
     <div className="mc-document__progress"><span /></div>
     <div className="mc-document__paper">
-      <header><span className="mc-document__bank"><Landmark /> بنك النيل التجاري</span><small>كشف حساب · يونيو 2026</small></header>
-      <div className="mc-document__account"><span>حساب شركة المثال التجارية</span><b dir="ltr">•••• 2048</b></div>
-      <div className="mc-document__row mc-document__row--head"><span>التاريخ</span><span>البيان</span><span>الحركة</span><span>الرصيد</span></div>
-      {demoTransactions.map(item => <div className="mc-document__row" key={item.date}><span dir="ltr">{item.date}</span><span>{item.description}</span><span dir="ltr">{item.credit ? "+" : "−"}{money(item.credit || item.debit)}</span><span dir="ltr">{money(item.balance)}</span></div>)}
-      <footer><span>رصيد أول المدة <b dir="ltr">{money(openingBankBalance)}</b></span><span>رصيد آخر المدة <b dir="ltr">{money(closingBankBalance)}</b></span></footer>
+      <header><span className="mc-document__bank"><Landmark /> {demoBankName}</span><small>كشف حساب · {demoStatementPeriod}</small></header>
+      <div className="mc-document__account"><span>شركة المثال التجارية · حساب افتراضي</span><b dir="ltr">{demoAccountNumber}</b></div>
+      <div className="mc-document__row mc-document__row--head"><span>التاريخ</span><span>البيان</span><span>مدين</span><span>دائن</span><span>الرصيد</span></div>
+      {demoTransactions.map(item => <div className="mc-document__row" key={item.reference}><span dir="ltr">{item.date}</span><span>{item.description}</span><span dir="ltr">{item.debit ? money(item.debit) : "—"}</span><span dir="ltr">{item.credit ? money(item.credit) : "—"}</span><span dir="ltr">{money(item.balance)}</span></div>)}
+      <footer><span>افتتاحي <b dir="ltr">{money(openingBankBalance)}</b></span><span>إيداعات <b dir="ltr">{money(totalCredits)}</b></span><span>مسحوبات <b dir="ltr">{money(totalDebits)}</b></span><span>إقفال <b dir="ltr">{money(closingBankBalance)}</b></span></footer>
+      <small className="mc-document__page">صفحة 1 من 1 · جميع القيم بالجنيه المصري</small>
     </div>
   </div>;
 }
@@ -26,10 +27,12 @@ function StatementPreview() {
 function ExcelPreview() {
   return <div className="mc-excel" aria-label="نموذج جدول Excel منظم للحركات البنكية">
     <header><span className="mc-excel__icon"><FileSpreadsheet /></span><div><strong>الحركات-المنظمة.xlsx</strong><small>ورقة مراجعة افتراضية</small></div><span className="mc-excel__sheet">Sheet 1</span></header>
-    <div className="mc-excel__letters" aria-hidden="true"><span>A</span><span>B</span><span>C</span><span>D</span><span>E</span></div>
-    <table><thead><tr><th>التاريخ</th><th>الوصف</th><th>مدين</th><th>دائن</th><th>الرصيد</th></tr></thead><tbody>{demoTransactions.map(item => <tr key={item.date}><td dir="ltr">{item.date}</td><td>{item.description}</td><td dir="ltr">{item.debit ? money(item.debit) : "—"}</td><td dir="ltr">{item.credit ? money(item.credit) : "—"}</td><td dir="ltr">{money(item.balance)}</td></tr>)}</tbody></table>
-    <div className="mc-excel__mobile">{demoTransactions.map(item => <div key={item.date}><span dir="ltr">{item.date}</span><strong>{item.description}</strong><b dir="ltr">{item.credit ? "+" : "−"}{money(item.credit || item.debit)}</b></div>)}</div>
-    <footer><span>إيداعات <b dir="ltr">{money(totalCredits)}</b></span><span>مسحوبات <b dir="ltr">{money(totalDebits)}</b></span><span>رصيد <b dir="ltr">{money(closingBankBalance)}</b></span></footer>
+    <div className="mc-excel__letters" aria-hidden="true"><span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span></div>
+    <div className="mc-excel__formula"><b dir="ltr">E3</b><code dir="ltr">=E2+D3-C3</code><span>الرصيد بعد تحصيل العميل: <b dir="ltr">{money(demoTransactions[0].balance)}</b></span></div>
+    <table><thead><tr><th scope="col">1</th><th scope="col">التاريخ</th><th scope="col">الوصف</th><th scope="col">مدين</th><th scope="col">دائن</th><th scope="col">الرصيد</th><th scope="col">المراجعة</th></tr></thead><tbody><tr><th scope="row">2</th><td>رصيد افتتاحي</td><td>—</td><td>—</td><td>—</td><td dir="ltr">{money(openingBankBalance)}</td><td>مرجع</td></tr>{demoTransactions.map((item, index) => <tr key={item.reference}><th scope="row">{index + 3}</th><td dir="ltr">{item.date}</td><td>{item.description}</td><td dir="ltr">{item.debit ? money(item.debit) : "—"}</td><td dir="ltr">{item.credit ? money(item.credit) : "—"}</td><td dir="ltr">{money(item.balance)}</td><td>{item.review}</td></tr>)}</tbody></table>
+    <div className="mc-excel__mobile">{demoTransactions.map(item => <div key={item.reference}><span dir="ltr">{item.date}</span><strong>{item.description}</strong><b dir="ltr">{item.credit ? "+" : "−"}{money(item.credit || item.debit)}</b><small>{item.review} · رصيد {money(item.balance)}</small></div>)}</div>
+    <footer><span>إيداعات <b dir="ltr">{money(totalCredits)}</b></span><span>مسحوبات <b dir="ltr">{money(totalDebits)}</b></span><span>إقفال <b dir="ltr">{money(openingBankBalance)} + {money(totalCredits)} − {money(totalDebits)} = {money(closingBankBalance)}</b></span></footer>
+    <div className="mc-excel__tabs"><b>الحركات البنكية</b><span>ملخص المراجعة</span><small>ورقة افتراضية · لا يوجد تصدير فعلي</small></div>
   </div>;
 }
 
@@ -38,18 +41,18 @@ function ReviewPreview() {
     <header><span><FileSpreadsheet /> الحركات-المنظمة.xlsx</span><small>مسودة استيراد · دون ترحيل</small></header>
     <div className="mc-review-ui__mapping"><strong>مطابقة الأعمدة</strong><div><span>تاريخ الحركة <ArrowLeft /> تاريخ القيد</span><span>المبلغ <ArrowLeft /> مدين / دائن</span></div></div>
     <div className="mc-review-ui__checks"><span><Check /> تنسيق التواريخ سليم</span><span><Check /> رصيد الإقفال متسق</span><span className="mc-review-ui__warning"><CircleAlert /> حركة تحتاج مراجعة</span></div>
-    <div className="mc-review-ui__row"><span dir="ltr">03/06</span><strong>مصروفات تشغيل</strong><b dir="ltr">1,500 EGP</b><em>للمراجعة</em></div>
-    <div className="mc-review-ui__row"><span dir="ltr">04/06</span><strong>إيراد خدمة</strong><b dir="ltr">6,000 EGP</b><em>تحقق من التكرار</em></div>
+    {demoTransactions.filter(item => item.review !== "مطابق").map(item => <div className="mc-review-ui__case" key={item.reference}><div className="mc-review-ui__row"><span dir="ltr">{item.date}</span><strong>{item.description}</strong><b dir="ltr">{money(item.debit || item.credit)} EGP</b><em>{item.review}</em></div><p><b dir="ltr">{item.reference}</b> · {item.reviewReason}</p></div>)}
     <p>الاعتماد اليدوي مطلوب قبل تحويل أي حركة إلى قيد نهائي.</p>
   </div>;
 }
 
 function JournalPreview() {
   return <div className="mc-journal-ui" aria-label="قيد يومية توضيحي متوازن">
-    <header><div><small>دفتر اليومية · مثال محاسبي</small><strong>قيد تحصيل من عميل</strong></div><span dir="ltr">JV-2026-014</span></header>
-    <div className="mc-journal-ui__meta"><span>التاريخ: <b dir="ltr">01/06/2026</b></span><span>الحالة: <b>بانتظار الاعتماد</b></span></div>
-    <table><thead><tr><th>الحساب</th><th>مدين</th><th>دائن</th></tr></thead><tbody><tr><td><span>1010</span> البنك</td><td dir="ltr">10,000</td><td>—</td></tr><tr><td><span>1110</span> العملاء</td><td>—</td><td dir="ltr">10,000</td></tr></tbody></table>
-    <footer><span><Scale /> إجمالي المدين = إجمالي الدائن</span><strong dir="ltr">10,000 EGP</strong></footer>
+    <header><div><small>دفتر اليومية · مستند {demoTransactions[0].reference}</small><strong>تحصيل مستحق من عميل</strong></div><span dir="ltr">{customerCollectionEntry.reference}</span></header>
+    <div className="mc-journal-ui__meta"><span>التاريخ: <b dir="ltr">{customerCollectionEntry.date}</b></span><span>الحالة: <b>قيد مقترح · بانتظار الاعتماد</b></span></div>
+    <table><thead><tr><th>الحساب</th><th>مدين</th><th>دائن</th></tr></thead><tbody><tr><td><span>1010</span> البنك</td><td dir="ltr">{money(customerCollectionEntry.bankDebit)}</td><td>—</td></tr><tr><td><span>1110</span> العملاء</td><td>—</td><td dir="ltr">{money(customerCollectionEntry.receivablesCredit)}</td></tr></tbody></table>
+    <footer><span><Scale /> إجمالي المدين = إجمالي الدائن</span><strong dir="ltr">{money(customerCollectionEntry.bankDebit)} EGP</strong></footer>
+    <p className="mc-journal-ui__note">تحصيل ذمة قائمة؛ يزيد البنك وتنخفض حسابات العملاء. لا يُسجل إيراد جديد.</p>
     <div className="mc-journal-ui__flow">دفتر اليومية <ArrowLeft /> دفتر الأستاذ</div>
   </div>;
 }
@@ -82,7 +85,13 @@ const journeyStages = [
   { title: "المراجعة", heading: "راجع البيانات قبل الترحيل", copy: "طابق الأعمدة والأرصدة والتكرار. الاعتماد اليدوي يسبق أي قيد نهائي.", visual: <ReviewPreview /> },
   { title: "القيود", heading: "حوّل الحركات إلى قيود محاسبية", copy: "تحصيل 10,000 جنيه من عميل: البنك مدين والعملاء دائن، دون ترحيل آلي حاليًا.", visual: <JournalPreview /> },
   { title: "الأستاذ والميزان", heading: "راجع الأرصدة وميزان المراجعة", copy: "تابع أثر الحركات على الحسابات وتساوي جانبي ميزان المراجعة في المثال.", visual: <div className="mc-journey__ledger-grid"><LedgerPreview /><TrialBalancePreview /></div> },
-  { title: "القوائم", heading: "افهم نتائج شركتك", copy: "القوائم المتكاملة تصور مستقبلي يساعد على فهم الأرقام واتخاذ القرار.", visual: <><div className="mc-journey__report-grid"><ReportCard title="قائمة الدخل" lines={[["إيراد الخدمات", "6,000"], ["المصروفات", "(4,000)"]]} total={["صافي الربح", "2,000 EGP"]} foot="6,000 − 4,000 = 2,000" /><ReportCard title="قائمة المركز المالي" lines={[["الأصول", "62,000"], ["الالتزامات", "10,000"], ["حقوق الملكية", "52,000"]]} total={["الأصول = الالتزامات + الحقوق", "62,000 EGP"]} foot="50,000 رأس مال + 2,000 ربح" /><ReportCard title="قائمة التدفقات النقدية" lines={[["رصيد أول المدة", "20,000"], ["التدفقات الداخلة", "16,000"], ["التدفقات الخارجة", "(4,000)"]]} total={["رصيد آخر المدة", "32,000 EGP"]} foot="20,000 + 16,000 − 4,000" /></div><p className="mc-journey__conclusion">من بيانات متفرقة إلى صورة مالية أوضح. <span>القوائم المعروضة ليست تقارير حية.</span></p></> },
+  { title: "القوائم", heading: "افهم نتائج شركتك", copy: "القوائم المتكاملة تصور مستقبلي يساعد على فهم الأرقام واتخاذ القرار.", visual: <>
+    <div className="mc-journey__report-grid">
+      <ReportCard title="قائمة الدخل" lines={[["إيراد الخدمات", money(incomeStatement.revenue)], ["المصروفات", `(${money(incomeStatement.expenses)})`]]} total={["صافي الربح", `${money(incomeStatement.profit)} EGP`]} foot="6,000 − 4,000 = 2,000" />
+      <ReportCard title="قائمة المركز المالي" lines={[["الأصول", money(financialPosition.assets)], ["الالتزامات", money(financialPosition.liabilities)], ["حقوق الملكية", money(financialPosition.equity)]]} total={["الأصول = الالتزامات + الحقوق", `${money(financialPosition.assets)} EGP`]} foot="50,000 رأس مال + 2,000 ربح" />
+      <ReportCard title="قائمة التدفقات النقدية" lines={[["رصيد أول المدة", money(openingBankBalance)], ["التدفقات الداخلة", money(totalCredits)], ["التدفقات الخارجة", `(${money(totalDebits)})`]]} total={["رصيد آخر المدة", `${money(closingBankBalance)} EGP`]} foot="20,000 + 16,000 − 4,000" />
+    </div><p className="mc-journey__conclusion">من بيانات متفرقة إلى صورة مالية أوضح. <span>القوائم المعروضة ليست تقارير حية.</span></p>
+  </> },
 ] as const;
 
 export function AccountingJourney() {

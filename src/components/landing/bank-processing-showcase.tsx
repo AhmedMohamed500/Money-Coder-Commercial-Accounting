@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft, CircleCheck, FileSpreadsheet, FileText, Landmark, ScanLine } from "lucide-react";
-import { closingBankBalance, demoTransactions, money, openingBankBalance, totalCredits, totalDebits } from "./accounting-demo-data";
+import { closingBankBalance, demoBankName, demoStatementPeriod, demoTransactions, money, openingBankBalance, totalCredits, totalDebits } from "./accounting-demo-data";
 import { BankFlowPipeline } from "./dimensional-scenes";
 
 const summary = [
@@ -29,7 +29,7 @@ export function BankProcessingShowcase() {
             <header className="mc-processing__header"><div><small>مساحة المراجعة · نموذج توضيحي</small><h3>مركز معالجة الحركات البنكية</h3></div><span className="mc-processing__state"><ScanLine /> بانتظار المراجعة</span></header>
             <BankFlowPipeline />
             <div className="mc-processing__overview">
-              <div className="mc-processing__file"><span className="mc-processing__pdf"><FileText />PDF</span><div><strong>كشف بنك النيل التجاري</strong><small>01–04 يونيو 2026 · مثال افتراضي</small></div><span className="mc-processing__file-state">تصوّر للاستخراج</span></div>
+              <div className="mc-processing__file"><span className="mc-processing__pdf"><FileText />PDF</span><div><strong>كشف {demoBankName}</strong><small>{demoStatementPeriod} · مثال افتراضي</small></div><span className="mc-processing__file-state">تصوّر للاستخراج</span></div>
               <div className="mc-processing__stats">{summary.map(([label, value]) => <div key={label}><small>{label}</small><strong dir="ltr">{value}</strong></div>)}</div>
             </div>
             <div className="mc-processing__content">

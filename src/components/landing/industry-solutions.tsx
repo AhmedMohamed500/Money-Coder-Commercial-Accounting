@@ -2,7 +2,8 @@
 
 import { useRef, useState, type KeyboardEvent } from "react";
 import { Building2, Factory, FileText, Landmark, Scale, ShieldCheck, Users } from "lucide-react";
-import { IndustrialCutaway } from "./dimensional-scenes";
+import { IndustrialCutaway } from "./factory-cutaway";
+import { factoryProductionCost, money } from "./accounting-demo-data";
 
 const audiences = [
   { label: "الشركات التجارية", icon: Building2, heading: "كل شركة ومسؤولياتها في مساحة واضحة", description: "نظّم بيانات الشركة وحساباتها البنكية وأعضاء فريقها، ثم وسّع رحلتها المحاسبية مع المراحل القادمة.", points: ["بيانات الشركة والحسابات البنكية", "فريق وصلاحيات بحسب الدور", "المستندات وفق جاهزية الرفع"], availability: "الأساس المؤسسي متاح؛ الحركة المحاسبية تصور مستقبلي." },
@@ -15,7 +16,7 @@ function CommercialVisual() {
 }
 
 function FactoryVisual() {
-  return <div className="mc-audience-factory" aria-label="رسم توضيحي لتجميع تكلفة التصنيع"><IndustrialCutaway compact /><div className="mc-audience-factory__total"><Scale /><span>تكلفة إنتاج توضيحية</span><strong dir="ltr">220,000 EGP</strong></div><small>أرقام افتراضية · نظام تكاليف المصانع غير مفعّل</small></div>;
+  return <div className="mc-audience-factory" aria-label="تصور لتجميع تكلفة التصنيع"><IndustrialCutaway compact /><div className="mc-audience-factory__total"><Scale /><span>تكلفة إنتاج توضيحية</span><strong dir="ltr">{money(factoryProductionCost)} EGP</strong></div><small>أرقام افتراضية · نظام تكاليف المصانع غير مفعّل</small></div>;
 }
 
 function FinanceVisual() {

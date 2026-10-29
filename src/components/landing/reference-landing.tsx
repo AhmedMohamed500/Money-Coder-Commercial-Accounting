@@ -8,11 +8,13 @@ import { FinancialClarity } from "@/components/landing/financial-clarity";
 import { IndustrySolutions } from "@/components/landing/industry-solutions";
 import { FactoryFinanceStory } from "@/components/landing/factory-finance-story";
 import { FinancialControl, ProductReadiness } from "@/components/landing/financial-control";
+import { closingBankBalance, demoAccountNumber, demoTransactions, incomeStatement, money, openingBankBalance, totalCredits, totalDebits } from "@/components/landing/accounting-demo-data";
 import { getSessionUser } from "@/lib/auth";
 import "./reference-landing.css";
 import "./accounting-journey.css";
 import "./enterprise-sections.css";
 import "./dimensional-art.css";
+import "./enterprise-v2.css";
 
 const nav = [["الرئيسية", "#top"], ["الحلول", "#solutions"], ["المميزات", "#features"], ["رحلة البيانات", "#journey"], ["كيف تبدأ", "#process"], ["ابدأ الآن", "#contact"]] as const;
 const features = [
@@ -32,15 +34,15 @@ const steps = [
 
 function DashboardPreview() {
   return <div className="af-dashboard" dir="rtl" aria-label="معاينة توضيحية للوحة مالية ببيانات افتراضية">
-    <aside className="af-dashboard__sidebar" aria-hidden="true"><b>M</b><span className="active"><PieChart/>لوحة التحكم</span><span><Building2/>الشركات</span><span><FileText/>المستندات</span><span><BarChart3/>التقارير</span><span><Landmark/>الحسابات</span><span><Users/>الفريق</span></aside>
-    <div className="af-dashboard__body"><header><div><small>صباح الخير</small><strong>لوحة التحكم</strong></div><span>معاينة توضيحية · 2026</span></header><div className="af-dashboard__stats"><div><small>إجمالي الإيرادات</small><b>1,250,000</b><em>EGP · مثال توضيحي</em></div><div><small>إجمالي المصروفات</small><b>540,000</b><em>EGP · مثال توضيحي</em></div><div><small>صافي الربح</small><b>710,000</b><em>EGP · مثال توضيحي</em></div><div><small>المستندات</small><b>248</b><em>بيانات افتراضية</em></div></div><div className="af-dashboard__charts"><div className="af-dashboard__panel af-dashboard__line"><strong>الإيرادات والمصروفات</strong><div className="af-chart-grid"><svg viewBox="0 0 400 140" preserveAspectRatio="none" aria-hidden="true"><path className="revenue" d="M0 125 L50 114 L100 121 L150 58 L200 93 L250 42 L300 70 L350 35 L400 15"/><path className="expenses" d="M0 132 L50 123 L100 100 L150 108 L200 80 L250 96 L300 63 L350 74 L400 54"/></svg></div><small>يناير　 فبراير　 مارس　 أبريل　 مايو　 يونيو</small></div><div className="af-dashboard__panel af-dashboard__donut"><strong>توزيع المصروفات</strong><div className="af-donut"><span>32%</span></div><small>توزيع توضيحي حسب النوع</small></div></div><div className="af-dashboard__panel af-dashboard__activity"><strong>أحدث الأنشطة</strong><div><span>تحديث بيانات الشركة</span><span>بيانات تجريبية</span></div><div><span>إضافة عضو للفريق</span><span>بيانات تجريبية</span></div></div></div>
+    <aside className="af-dashboard__sidebar" aria-hidden="true"><b>M</b><span className="active"><PieChart/>نظرة مالية</span><span><Building2/>الشركة</span><span><FileText/>المستند</span><span><BarChart3/>المراجعة</span><span><Landmark/>البنك</span><span><Users/>الفريق</span></aside>
+    <div className="af-dashboard__body"><header><div><small>شركة المثال التجارية · نموذج افتراضي</small><strong>نظرة مالية</strong></div><span>يونيو 2026 · <b dir="ltr">{demoAccountNumber}</b></span></header><div className="af-dashboard__stats"><div><small>رصيد البنك</small><b>{money(closingBankBalance)}</b><em>EGP · إقفال الكشف</em></div><div><small>إيداعات البنك</small><b>{money(totalCredits)}</b><em>EGP · ليست كلها إيرادًا</em></div><div><small>مسحوبات البنك</small><b>{money(totalDebits)}</b><em>EGP · 2 حركات</em></div><div><small>صافي ربح المثال</small><b>{money(incomeStatement.profit)}</b><em>EGP · قائمة دخل توضيحية</em></div></div><div className="af-dashboard__charts"><div className="af-dashboard__panel af-dashboard__line"><strong>حركة رصيد البنك</strong><div className="af-chart-grid"><svg viewBox="0 0 400 140" preserveAspectRatio="none" aria-hidden="true"><path className="revenue" d="M0 126 L100 23 L200 49 L300 64 L400 4"/></svg></div><small>افتتاحي {money(openingBankBalance)} ← إقفال {money(closingBankBalance)} EGP</small></div><div className="af-dashboard__panel af-dashboard__review"><strong>حالة المراجعة</strong><span>مطابق <b>02</b></span><span>يحتاج مراجعة <b>01</b></span><span>تحقق من تكرار <b>01</b></span><small>لا ترحيل دون اعتماد بشري</small></div></div><div className="af-dashboard__panel af-dashboard__activity"><strong>حركات من الكشف الافتراضي</strong>{demoTransactions.slice(0, 2).map(item => <div key={item.reference}><span>{item.description}</span><span dir="ltr">{item.credit ? "+" : "−"}{money(item.credit || item.debit)} EGP</span></div>)}</div></div>
   </div>;
 }
 
 function Devices() {
   return <div className="af-devices" aria-label="معاينة توضيحية للمنصة على الكمبيوتر والهاتف">
-    <div className="af-laptop"><div className="af-laptop__screen"><DashboardPreview/></div><div className="af-laptop__base"/></div>
-    <div className="mc-hero-float mc-hero-float--account" aria-hidden="true"><Landmark/><span><small>حساب بنكي · مثال</small><strong dir="ltr">32,000 EGP</strong></span></div>
+    <div className="af-laptop"><div className="af-laptop__screen"><span className="af-laptop__camera" aria-hidden="true"/><DashboardPreview/></div><div className="af-laptop__hinge" aria-hidden="true"/><div className="af-laptop__base"/></div>
+    <div className="mc-hero-float mc-hero-float--account" aria-hidden="true"><Landmark/><span><small>حساب بنكي · مثال</small><strong dir="ltr">{money(closingBankBalance)} EGP</strong></span></div>
     <div className="mc-hero-float mc-hero-float--document" aria-hidden="true"><FileText/><span><strong>كشف حساب</strong><small>4 حركات للمراجعة</small></span><Check/></div>
     <PremiumMobileMockup/><span className="af-preview-note">بيانات الواجهة المعروضة توضيحية وليست حسابات حقيقية</span>
   </div>;
