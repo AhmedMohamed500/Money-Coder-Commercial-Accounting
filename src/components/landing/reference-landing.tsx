@@ -12,6 +12,7 @@ import { getSessionUser } from "@/lib/auth";
 import "./reference-landing.css";
 import "./accounting-journey.css";
 import "./enterprise-sections.css";
+import "./dimensional-art.css";
 
 const nav = [["الرئيسية", "#top"], ["الحلول", "#solutions"], ["المميزات", "#features"], ["رحلة البيانات", "#journey"], ["كيف تبدأ", "#process"], ["ابدأ الآن", "#contact"]] as const;
 const features = [
@@ -37,7 +38,12 @@ function DashboardPreview() {
 }
 
 function Devices() {
-  return <div className="af-devices" aria-label="معاينة توضيحية للمنصة على الكمبيوتر والهاتف"><div className="af-laptop"><div className="af-laptop__screen"><DashboardPreview/></div><div className="af-laptop__base"/></div><PremiumMobileMockup/><span className="af-preview-note">بيانات الواجهة المعروضة توضيحية وليست حسابات حقيقية</span></div>;
+  return <div className="af-devices" aria-label="معاينة توضيحية للمنصة على الكمبيوتر والهاتف">
+    <div className="af-laptop"><div className="af-laptop__screen"><DashboardPreview/></div><div className="af-laptop__base"/></div>
+    <div className="mc-hero-float mc-hero-float--account" aria-hidden="true"><Landmark/><span><small>حساب بنكي · مثال</small><strong dir="ltr">32,000 EGP</strong></span></div>
+    <div className="mc-hero-float mc-hero-float--document" aria-hidden="true"><FileText/><span><strong>كشف حساب</strong><small>4 حركات للمراجعة</small></span><Check/></div>
+    <PremiumMobileMockup/><span className="af-preview-note">بيانات الواجهة المعروضة توضيحية وليست حسابات حقيقية</span>
+  </div>;
 }
 
 function LandingBrand() {

@@ -3,6 +3,7 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import { ArrowLeft, Check, CircleAlert, FileSpreadsheet, FileText, Landmark, Scale } from "lucide-react";
 import { closingBankBalance, demoTransactions, money, openingBankBalance, totalCredits, totalDebits, trialBalance, trialCreditTotal, trialDebitTotal } from "./accounting-demo-data";
+import { FinancialFlowSignature } from "./dimensional-scenes";
 
 function StageTitle({ number, title, description }: { number: number; title: string; description: string }) {
   return <div className="mc-journey__stage-title"><span className="mc-journey__number">{number}</span><div><h3>{title}</h3><p>{description}</p></div></div>;
@@ -99,13 +100,13 @@ export function AccountingJourney() {
 
   return <section className="mc-journey af-section" id="journey" aria-labelledby="mc-journey-title">
     <div className="af-container">
-      <div className="mc-journey__intro"><span className="mc-vision-label">تصوّر مراحل المحاسبة القادمة · غير مفعّل في الموقع الحالي</span><h2 id="mc-journey-title">رحلة بياناتك المالية... من المستند إلى القرار</h2><p>شوف رحلة بيانات شركتك من أول مستند بنكي لحد تقارير تساعدك تفهم أرقامك وتاخد قرارات أفضل.</p><small>واجهة استكشافية ببيانات افتراضية، دون معالجة أو ترحيل أو اعتماد فعلي.</small></div>
+      <div className="mc-journey__intro"><span className="mc-vision-label">تصوّر مراحل المحاسبة القادمة · غير مفعّل في الموقع الحالي</span><h2 id="mc-journey-title">رحلة بياناتك المالية... من المستند إلى القرار</h2><p>شوف رحلة بيانات شركتك من أول مستند بنكي لحد تقارير تساعدك تفهم أرقامك وتاخد قرارات أفضل.</p><small>واجهة استكشافية ببيانات افتراضية، دون معالجة أو ترحيل أو اعتماد فعلي.</small><FinancialFlowSignature /></div>
       <div className="mc-journey__experience">
         <div className="mc-journey__tabs" role="tablist" aria-label="مراحل رحلة البيانات المالية">
           {journeyStages.map((stage, index) => <button key={stage.title} ref={element => { tabRefs.current[index] = element; }} id={`mc-journey-tab-${index}`} type="button" role="tab" aria-selected={selected === index} aria-controls={`mc-journey-panel-${index}`} tabIndex={selected === index ? 0 : -1} className={selected === index ? "is-active" : ""} onClick={() => setSelected(index)} onKeyDown={event => handleKeys(event, index)}><span>{String(index + 1).padStart(2, "0")}</span>{stage.title}</button>)}
         </div>
         <div className="mc-journey__panels">
-          {journeyStages.map((stage, index) => <article key={stage.title} id={`mc-journey-panel-${index}`} className={`mc-journey__panel ${selected === index ? "is-active" : ""}`} role="tabpanel" aria-labelledby={`mc-journey-tab-${index}`} tabIndex={0}><div className="mc-journey__panel-copy"><StageTitle number={index + 1} title={stage.heading} description={stage.copy} /><span>تصور واجهة · بيانات افتراضية</span></div><div className="mc-journey__panel-visual">{stage.visual}</div></article>)}
+          {journeyStages.map((stage, index) => <article key={stage.title} id={`mc-journey-panel-${index}`} className={`mc-journey__panel ${selected === index ? "is-active" : ""}`} role="tabpanel" aria-labelledby={`mc-journey-tab-${index}`} tabIndex={0}><div className="mc-journey__panel-copy"><StageTitle number={index + 1} title={stage.heading} description={stage.copy} /><span>تصور واجهة · بيانات افتراضية</span></div><div className={`mc-journey__panel-visual mc-journey__panel-visual--${index + 1}`}>{stage.visual}</div></article>)}
         </div>
       </div>
     </div>

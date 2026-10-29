@@ -2,6 +2,7 @@
 
 import { useRef, useState, type KeyboardEvent } from "react";
 import { Building2, Factory, FileText, Landmark, Scale, ShieldCheck, Users } from "lucide-react";
+import { IndustrialCutaway } from "./dimensional-scenes";
 
 const audiences = [
   { label: "الشركات التجارية", icon: Building2, heading: "كل شركة ومسؤولياتها في مساحة واضحة", description: "نظّم بيانات الشركة وحساباتها البنكية وأعضاء فريقها، ثم وسّع رحلتها المحاسبية مع المراحل القادمة.", points: ["بيانات الشركة والحسابات البنكية", "فريق وصلاحيات بحسب الدور", "المستندات وفق جاهزية الرفع"], availability: "الأساس المؤسسي متاح؛ الحركة المحاسبية تصور مستقبلي." },
@@ -10,15 +11,15 @@ const audiences = [
 ] as const;
 
 function CommercialVisual() {
-  return <div className="mc-audience-ui" aria-label="واجهة توضيحية لشركة تجارية"><header><Building2 /><span><strong>شركة المثال التجارية</strong><small>مساحة المؤسسة</small></span><em>مثال توضيحي</em></header><div className="mc-audience-ui__cards"><div><small>حسابات بنكية</small><strong>02</strong><Landmark /></div><div><small>أعضاء الفريق</small><strong>05</strong><Users /></div></div><div className="mc-audience-ui__rows"><div><span>ملف الشركة</span><b>منظم</b></div><div><span>مستندات الموردين والعملاء</span><b>حسب جاهزية الخدمة</b></div><div><span>ملخص الحركة المالية</span><b>تصور قادم</b></div></div></div>;
+  return <div className="mc-audience-ui" aria-label="واجهة توضيحية لشركة تجارية"><header><Building2 /><span><strong>شركة المثال التجارية</strong><small>مساحة المؤسسة</small></span><em>مثال توضيحي</em></header><div className="mc-audience-ui__cards"><div><small>حسابات بنكية</small><strong>02</strong><Landmark /></div><div><small>أعضاء الفريق</small><strong>05</strong><Users /></div></div><div className="mc-audience-ui__rows"><div><span>ملف الشركة</span><b>منظم</b></div><div><span>مستندات الموردين والعملاء</span><b>حسب جاهزية الخدمة</b></div><div><span>ملخص الحركة المالية</span><b>تصور قادم</b></div></div><div className="mc-audience-ui__documents"><span><FileText /> مستند مورد · مثال</span><span><Landmark /> كشف بنك · مثال</span></div></div>;
 }
 
 function FactoryVisual() {
-  return <div className="mc-audience-factory" aria-label="رسم توضيحي لتجميع تكلفة التصنيع"><div className="mc-audience-factory__building"><Factory /><span>رؤية مالية للمصنع</span></div><div className="mc-audience-factory__streams"><div><span>خامات</span><b dir="ltr">120,000</b></div><div><span>أجور مباشرة</span><b dir="ltr">60,000</b></div><div><span>تكاليف صناعية غير مباشرة</span><b dir="ltr">40,000</b></div></div><div className="mc-audience-factory__total"><Scale /><span>تكلفة إنتاج توضيحية</span><strong dir="ltr">220,000 EGP</strong></div><small>أرقام افتراضية · نظام تكاليف المصانع غير مفعّل</small></div>;
+  return <div className="mc-audience-factory" aria-label="رسم توضيحي لتجميع تكلفة التصنيع"><IndustrialCutaway compact /><div className="mc-audience-factory__total"><Scale /><span>تكلفة إنتاج توضيحية</span><strong dir="ltr">220,000 EGP</strong></div><small>أرقام افتراضية · نظام تكاليف المصانع غير مفعّل</small></div>;
 }
 
 function FinanceVisual() {
-  return <div className="mc-audience-finance" aria-label="تصور مساحة مراجعة للفريق المالي"><header><ShieldCheck /><span><strong>مساحة الإدارة المالية</strong><small>أدوار واضحة · مثال توضيحي</small></span></header><div className="mc-audience-finance__line"><span><FileText /> مستندات الشركة</span><b>ضمن الصلاحيات</b></div><div className="mc-audience-finance__line"><span><Users /> أعضاء الفريق</span><b>أدوار محددة</b></div><div className="mc-audience-finance__line"><span><Scale /> مراجعة قيود المحاسبة</span><b>رؤية قادمة</b></div><div className="mc-audience-finance__footer"><span>مالك الشركة</span><span>المحاسب</span><span>المراجع</span></div></div>;
+  return <div className="mc-audience-finance" aria-label="تصور مساحة مراجعة للفريق المالي"><header><ShieldCheck /><span><strong>مساحة الإدارة المالية</strong><small>أدوار واضحة · مثال توضيحي</small></span></header><div className="mc-audience-finance__line"><span><FileText /> مستندات الشركة</span><b>ضمن الصلاحيات</b></div><div className="mc-audience-finance__line"><span><Users /> أعضاء الفريق</span><b>أدوار محددة</b></div><div className="mc-audience-finance__line"><span><Scale /> مراجعة قيود المحاسبة</span><b>رؤية قادمة</b></div><div className="mc-audience-finance__reports"><span><FileText /> قائمة الدخل <small>تصور قادم</small></span><span><ShieldCheck /> صلاحيات الفريق <small>ضمن الأساس الحالي</small></span></div><div className="mc-audience-finance__footer"><span>مالك الشركة</span><span>المحاسب</span><span>المراجع</span></div></div>;
 }
 
 const visuals = [<CommercialVisual key="commercial" />, <FactoryVisual key="factory" />, <FinanceVisual key="finance" />];
