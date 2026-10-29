@@ -15,6 +15,7 @@ import "./accounting-journey.css";
 import "./enterprise-sections.css";
 import "./dimensional-art.css";
 import "./enterprise-v2.css";
+import "./hero-refinement.css";
 
 const nav = [["الرئيسية", "#top"], ["الحلول", "#solutions"], ["المميزات", "#features"], ["رحلة البيانات", "#journey"], ["كيف تبدأ", "#process"], ["ابدأ الآن", "#contact"]] as const;
 const features = [
@@ -60,7 +61,7 @@ export async function ReferenceLanding() {
   const signedIn = Boolean(await getSessionUser());
   const startHref = signedIn ? "/dashboard" : "/auth/register";
   return <div className="af-landing" id="top" dir="rtl"><Header signedIn={signedIn}/><main>
-    <section className="af-hero"><div className="af-container af-hero__grid"><div className="af-hero__copy"><span className="af-eyebrow">أساس مالي منظم لشركتك التجارية</span><h1>إدارة مالية <em>أسهل</em> لنمو <span>أسرع</span> لشركتك</h1><p>موني كودر يساعدك على تنظيم بيانات شركتك، فريقها، حساباتها البنكية ومستنداتها في مكان واحد. رحلة المحاسبة المتكاملة ضمن رؤيتنا القادمة.</p><div className="af-hero__buttons"><Link className="af-primary" href={startHref}>ابدأ الآن <ArrowLeft/></Link><Link className="af-outline" href="#about">شاهد جولة سريعة <CirclePlay/></Link></div><div className="af-assurance"><span><ShieldCheck/>صلاحيات واضحة</span><span><FileText/>تنظيم البيانات</span><span><Sparkles/>واجهة عربية</span><span><Headphones/>بداية سهلة</span></div></div><Devices/></div></section>
+    <section className="af-hero"><div className="af-container af-hero__grid"><div className="af-hero__copy"><span className="af-eyebrow">أساس مالي منظم لشركتك التجارية</span><h1>إدارة مالية <em>أسهل</em> لنمو <span>أسرع</span> لشركتك</h1><p>نظّم بيانات شركتك وفريقها وحساباتها البنكية ومستنداتها في مساحة عربية واحدة. واستكشف تصورًا واضحًا لرحلتها المالية القادمة.</p><div className="af-hero__buttons"><Link className="af-primary" href={startHref}>ابدأ الآن <ArrowLeft/></Link><Link className="af-outline" href="#about">شاهد جولة سريعة <CirclePlay/></Link></div><div className="af-assurance"><span><ShieldCheck/>صلاحيات واضحة</span><span><FileText/>تنظيم البيانات</span><span><Sparkles/>واجهة عربية</span><span><Headphones/>بداية سهلة</span></div></div><Devices/></div></section>
     <FinancialClarity/>
     <IndustrySolutions/>
     <section className="af-features af-section" id="features"><div className="af-container"><div className="af-heading"><i/><h2>مميزات المنصة</h2><p>كل ما تحتاجه لبدء تنظيم شركتك المالية في مكان واحد</p></div><div className="af-feature-grid">{features.map(({ icon: Icon, title, copy }) => <article className="af-feature" key={title}><span><Icon/></span><h3>{title}</h3><p>{copy}</p></article>)}</div></div></section>
