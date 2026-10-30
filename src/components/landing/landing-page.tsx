@@ -1,7 +1,7 @@
-import { ReferenceLanding } from "@/components/landing/reference-landing";
+import { EnterpriseV7Landing } from "@/components/landing/enterprise-v7";
 
 export function LandingPage() {
   return (
-    <ReferenceLanding />
+    <EnterpriseV7Landing />
   );
 }
