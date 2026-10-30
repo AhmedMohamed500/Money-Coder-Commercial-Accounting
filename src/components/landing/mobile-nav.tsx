@@ -20,7 +20,7 @@ export function MobileNav({
       <nav aria-label="التنقل على الهاتف">
         {nav.map(([label, href]) => <Link key={href} href={href} onClick={closeMenu}>{label}</Link>)}
         <Link href={signedIn ? "/dashboard" : "/auth/login"} onClick={closeMenu}>{signedIn ? "لوحة التحكم" : "تسجيل الدخول"}</Link>
-        <Link href={signedIn ? "/dashboard" : "/auth/register"} onClick={closeMenu}>{signedIn ? "حسابي" : "إنشاء حساب مجاني"}</Link>
+        <Link href={signedIn ? "/dashboard" : "/auth/register"} onClick={closeMenu}>{signedIn ? "حسابي" : "إنشاء حساب"}</Link>
       </nav>
     </details>
   );

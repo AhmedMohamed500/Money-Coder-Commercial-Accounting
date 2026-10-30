@@ -1,9 +1,8 @@
-import { ArrowDownLeft, ArrowUpRight, FileText, Home, UserRound } from "lucide-react";
-import { closingBankBalance, demoTransactions, money, totalCredits, totalDebits } from "./accounting-demo-data";
+import { Building2, Home, Landmark, ShieldCheck, Users } from "lucide-react";
 
 export function PremiumMobileMockup() {
   return (
-    <div className="mc-phone" dir="rtl" role="img" aria-label="معاينة توضيحية لهاتف يعرض رصيدًا وحركة مالية افتراضية">
+    <div className="mc-phone" dir="rtl" role="img" aria-label="معاينة توضيحية لهاتف يعرض ملف الشركة والفريق">
       <span className="mc-phone__camera" aria-hidden="true" />
       <div className="mc-phone__screen">
         <div className="mc-phone__top">
@@ -11,22 +10,20 @@ export function PremiumMobileMockup() {
           <span>Money Coder</span>
         </div>
         <div className="mc-phone__greeting">
-          <small>شركة المثال التجارية</small>
-          <strong>نظرة البنك · يونيو</strong>
+          <small>مساحة الشركة</small>
+          <strong>شركة المثال التجارية</strong>
         </div>
         <div className="mc-phone__balance">
-          <small>رصيد إقفال الكشف · مثال توضيحي</small>
-          <strong dir="ltr">{money(closingBankBalance)} <span>EGP</span></strong>
-          <svg viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true">
-            <path d="M0 26 L12 22 L25 24 L38 15 L51 18 L64 9 L77 13 L90 5 L104 9 L120 2" />
-          </svg>
+          <small>ملف الشركة · معاينة</small>
+          <strong>بيانات منظمة</strong>
+          <p>تجارية · الجنيه المصري</p>
         </div>
         <div className="mc-phone__summary">
-          <div><span><ArrowDownLeft /></span><small>إيداعات</small><b dir="ltr">{money(totalCredits)}</b></div>
-          <div><span><ArrowUpRight /></span><small>مسحوبات</small><b dir="ltr">{money(totalDebits)}</b></div>
+          <div><span><Landmark /></span><small>الحسابات</small><b>مسجلة</b></div>
+          <div><span><Users /></span><small>الفريق</small><b>أدوار واضحة</b></div>
         </div>
-        <div className="mc-phone__activity"><strong>حركة للمراجعة</strong><span><FileText /> {demoTransactions[2].description} <small dir="ltr">{demoTransactions[2].date}</small></span></div>
-        <div className="mc-phone__bottom" aria-hidden="true"><Home /><FileText /><UserRound /></div>
+        <div className="mc-phone__activity"><strong>وصول المكتب</strong><span><ShieldCheck /> بعد موافقة الشركة</span></div>
+        <div className="mc-phone__bottom" aria-hidden="true"><Home /><Building2 /><Users /></div>
       </div>
     </div>
   );

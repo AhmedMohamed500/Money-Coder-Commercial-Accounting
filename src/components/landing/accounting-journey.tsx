@@ -3,7 +3,6 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import { ArrowLeft, Check, CircleAlert, FileSpreadsheet, FileText, Landmark, Scale } from "lucide-react";
 import { closingBankBalance, customerCollectionEntry, demoAccountNumber, demoBankName, demoStatementPeriod, demoTransactions, financialPosition, incomeStatement, money, openingBankBalance, totalCredits, totalDebits, trialBalance, trialCreditTotal, trialDebitTotal } from "./accounting-demo-data";
-import { FinancialFlowSignature } from "./dimensional-scenes";
 
 function StageTitle({ number, title, description }: { number: number; title: string; description: string }) {
   return <div className="mc-journey__stage-title"><span className="mc-journey__number">{number}</span><div><h3>{title}</h3><p>{description}</p></div></div>;
@@ -11,8 +10,7 @@ function StageTitle({ number, title, description }: { number: number; title: str
 
 function StatementPreview() {
   return <div className="mc-document" aria-label="نموذج كشف حساب بنكي افتراضي">
-    <div className="mc-document__upload"><FileText /><span><b>كشف-حساب-يونيو.pdf</b><small>PDF · ملف افتراضي</small></span><i>100%</i></div>
-    <div className="mc-document__progress"><span /></div>
+    <div className="mc-document__upload"><FileText /><span><b>كشف-حساب-يونيو.pdf</b><small>PDF · ملف افتراضي</small></span><i>معاينة فقط</i></div>
     <div className="mc-document__paper">
       <header><span className="mc-document__bank"><Landmark /> {demoBankName}</span><small>كشف حساب · {demoStatementPeriod}</small></header>
       <div className="mc-document__account"><span>شركة المثال التجارية · حساب افتراضي</span><b dir="ltr">{demoAccountNumber}</b></div>
@@ -59,7 +57,7 @@ function JournalPreview() {
 
 function LedgerPreview() {
   return <div className="mc-ledger-ui" aria-label="نموذج دفتر أستاذ حساب البنك">
-    <header><span><Landmark /> دفتر الأستاذ</span><small>1010 · حساب البنك</small></header>
+    <header><span><Landmark /> دفتر الأستاذ · سيناريو أوسع</span><small>1010 · حساب البنك</small></header>
     <div className="mc-ledger-ui__line"><span>رصيد أول المدة</span><b dir="ltr">{money(openingBankBalance)}</b></div>
     {demoTransactions.map(item => <div className="mc-ledger-ui__line" key={item.date}><span>{item.description}</span><b dir="ltr">{item.credit ? "+" : "−"}{money(item.credit || item.debit)}</b></div>)}
     <footer><span>رصيد آخر المدة</span><strong dir="ltr">{money(closingBankBalance)} EGP</strong></footer>
@@ -80,7 +78,7 @@ function ReportCard({ title, lines, total, foot }: { title: string; lines: reado
 }
 
 const journeyStages = [
-  { title: "كشف البنك", heading: "ارفع كشف حسابك البنكي", copy: "ابدأ من كشف الحساب البنكي بدل الإدخال اليدوي لكل حركة.", visual: <StatementPreview /> },
+  { title: "كشف البنك", heading: "ابدأ من كشف حساب بنكي", copy: "معاينة لكشف افتراضي يعرض كل حركة ورصيدها.", visual: <StatementPreview /> },
   { title: "Excel", heading: "استخرج الحركات في Excel", copy: "تصوّر لتحويل المستند إلى صفوف منظمة قابلة للفحص.", visual: <><div className="mc-journey__conversion"><span>PDF</span><ArrowLeft /><span>حركات منظمة</span><ArrowLeft /><span>Excel</span></div><ExcelPreview /></> },
   { title: "المراجعة", heading: "راجع البيانات قبل الترحيل", copy: "طابق الأعمدة والأرصدة والتكرار. الاعتماد اليدوي يسبق أي قيد نهائي.", visual: <ReviewPreview /> },
   { title: "القيود", heading: "حوّل الحركات إلى قيود محاسبية", copy: "تحصيل 10,000 جنيه من عميل: البنك مدين والعملاء دائن، دون ترحيل آلي حاليًا.", visual: <JournalPreview /> },
@@ -93,15 +91,6 @@ const journeyStages = [
     </div><p className="mc-journey__conclusion">من بيانات متفرقة إلى صورة مالية أوضح. <span>القوائم المعروضة ليست تقارير حية.</span></p>
   </> },
 ] as const;
-
-function JourneyMiniature({ index }: { index: number }) {
-  if (index === 0) return <div className="mc-stage-mini mc-stage-mini--pdf" aria-hidden="true"><span>PDF · {demoBankName}</span><b>كشف {demoStatementPeriod}</b><div><i /> <i /> <i /></div><strong dir="ltr">{money(closingBankBalance)} EGP</strong></div>;
-  if (index === 1) return <div className="mc-stage-mini mc-stage-mini--excel" aria-hidden="true"><span>Excel · حركات منظمة</span><div className="mc-stage-mini__grid"><b>التاريخ</b><b>البيان</b><b>الرصيد</b>{demoTransactions.slice(0, 2).map(item => <div className="mc-stage-mini__row" key={item.reference}><small dir="ltr">{item.date}</small><small>{item.description}</small><small dir="ltr">{money(item.balance)}</small></div>)}</div></div>;
-  if (index === 2) return <div className="mc-stage-mini mc-stage-mini--review" aria-hidden="true"><span>مراجعة الحركات</span><div><b>{demoTransactions[0].description}</b><em>مطابق</em></div><div><b>{demoTransactions[2].description}</b><em>تحتاج مراجعة</em></div><small>قرار بشري قبل الترحيل</small></div>;
-  if (index === 3) return <div className="mc-stage-mini mc-stage-mini--journal" aria-hidden="true"><span>قيد {customerCollectionEntry.reference}</span><div><b>البنك · مدين</b><strong dir="ltr">{money(customerCollectionEntry.bankDebit)}</strong></div><div><b>العملاء · دائن</b><strong dir="ltr">{money(customerCollectionEntry.receivablesCredit)}</strong></div><small>المدين = الدائن</small></div>;
-  if (index === 4) return <div className="mc-stage-mini mc-stage-mini--ledger" aria-hidden="true"><span>أستاذ البنك وميزان المراجعة</span><div><b>رصيد البنك</b><strong dir="ltr">{money(closingBankBalance)}</strong></div><div><b>إجمالي المدين</b><strong dir="ltr">{money(trialDebitTotal)}</strong></div><div><b>إجمالي الدائن</b><strong dir="ltr">{money(trialCreditTotal)}</strong></div></div>;
-  return <div className="mc-stage-mini mc-stage-mini--report" aria-hidden="true"><span>قائمة دخل توضيحية</span><div><b>الإيراد</b><strong dir="ltr">{money(incomeStatement.revenue)}</strong></div><div><b>المصروفات</b><strong dir="ltr">{money(incomeStatement.expenses)}</strong></div><div className="mc-stage-mini__total"><b>صافي الربح</b><strong dir="ltr">{money(incomeStatement.profit)} EGP</strong></div></div>;
-}
 
 export function AccountingJourney() {
   const [selected, setSelected] = useState(0);
@@ -118,14 +107,22 @@ export function AccountingJourney() {
 
   return <section className="mc-journey af-section" id="journey" aria-labelledby="mc-journey-title">
     <div className="af-container">
-      <div className="mc-journey__intro"><span className="mc-vision-label">تصوّر مراحل المحاسبة القادمة · غير مفعّل في الموقع الحالي</span><h2 id="mc-journey-title">رحلة بياناتك المحاسبية</h2><p>ست مراحل واضحة من كشف البنك إلى التقارير، مع معاينة تفصيلية لكل مرحلة عند اختيارها.</p><small>واجهة استكشافية ببيانات افتراضية، دون معالجة أو ترحيل أو اعتماد فعلي.</small><FinancialFlowSignature /></div>
+      <div className="mc-journey__intro"><span className="mc-vision-label">تصوّر مراحل المحاسبة القادمة · غير مفعّل في الموقع الحالي</span><h2 id="mc-journey-title">رحلة بياناتك المحاسبية</h2><p>اختر مرحلة لترى مثالًا مفصلًا لكيفية انتقال البيانات من كشف البنك إلى القوائم.</p><small>واجهة استكشافية ببيانات افتراضية، دون معالجة أو ترحيل أو اعتماد فعلي.</small></div>
       <div className="mc-journey__experience">
         <div className="mc-journey__tabs" role="tablist" aria-label="مراحل رحلة البيانات المالية">
-          {journeyStages.map((stage, index) => <button key={stage.title} ref={element => { tabRefs.current[index] = element; }} id={`mc-journey-tab-${index}`} type="button" role="tab" aria-selected={selected === index} aria-controls={`mc-journey-panel-${index}`} tabIndex={selected === index ? 0 : -1} className={selected === index ? "is-active" : ""} onClick={() => setSelected(index)} onKeyDown={event => handleKeys(event, index)}><span className="mc-journey__tab-number">{String(index + 1).padStart(2, "0")}</span><strong>{stage.title}</strong><small>{stage.copy}</small><JourneyMiniature index={index} /></button>)}
+          {journeyStages.map((stage, index) => <button key={stage.title} ref={element => { tabRefs.current[index] = element; }} id={`mc-journey-tab-${index}`} type="button" role="tab" aria-selected={selected === index} aria-controls={`mc-journey-panel-${index}`} tabIndex={selected === index ? 0 : -1} className={selected === index ? "is-active" : ""} onClick={() => setSelected(index)} onKeyDown={event => handleKeys(event, index)}><span className="mc-journey__tab-number">{String(index + 1).padStart(2, "0")}</span><strong>{stage.title}</strong></button>)}
         </div>
         <div className="mc-journey__panels">
           {journeyStages.map((stage, index) => <article key={stage.title} id={`mc-journey-panel-${index}`} className={`mc-journey__panel ${selected === index ? "is-active" : ""}`} role="tabpanel" aria-labelledby={`mc-journey-tab-${index}`} hidden={selected !== index} tabIndex={selected === index ? 0 : -1}><div className="mc-journey__panel-copy"><StageTitle number={index + 1} title={stage.heading} description={stage.copy} /><span>تصور واجهة · بيانات افتراضية</span></div><div className={`mc-journey__panel-visual mc-journey__panel-visual--${index + 1}`}>{stage.visual}</div></article>)}
         </div>
+        <div className="mc-journey__trace" aria-live="polite"><div><span className="mc-section-kicker">اتبع حركة واحدة</span><h3>شوف حركة واحدة بتوصل لفين</h3><p>تحصيل مستحق من عميل بقيمة <b dir="ltr">{money(demoTransactions[0].credit)} EGP</b> · مرجع <b dir="ltr">{demoTransactions[0].reference}</b></p></div><div className="mc-journey__trace-detail"><strong>{journeyStages[selected].title}</strong><p>{[
+          "تظهر الحركة في كشف البنك كإيداع؛ يزيد الرصيد من 20,000 إلى 30,000 جنيه.",
+          "يظهر المرجع والتاريخ والمبلغ في صف منظم للمراجعة. هذا تمثيل، وليس استخراجًا فعليًا.",
+          "وُصفت الحركة بأنها مطابقة في المثال؛ يلزم فحص المستند واعتماد بشري قبل أي ترحيل.",
+          "القيد المقترح: 10,000 مدين بنك و10,000 دائن عملاء. تحصيل الذمة ليس إيرادًا جديدًا.",
+          "بعد اعتماد قيد افتراضي، يزيد البنك وتنخفض ذمم العملاء بالمبلغ نفسه. الميزان المعروض يمثل سيناريو أوسع.",
+          "تؤثر الحركة في أرصدة البنك والعملاء والتدفقات النقدية بعد اعتمادها؛ القوائم المعروضة تشمل حركات افتراضية أخرى.",
+        ][selected]}</p></div></div>
       </div>
     </div>
   </section>;

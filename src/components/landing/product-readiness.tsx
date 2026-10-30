@@ -1,0 +1,5 @@
+import { Building2, FileText, Landmark, Scale, Users } from "lucide-react";
+
+export function ProductReadiness() {
+  return <section className="mc-readiness" aria-labelledby="mc-readiness-title"><div className="af-container mc-readiness__inner"><div className="mc-readiness__intro"><span className="mc-section-kicker">وضوح في حالة المنتج</span><h2 id="mc-readiness-title">ما المتاح الآن، وما الذي نطوّره؟</h2><p>يمكنك تأسيس ملف الشركة وفريقها اليوم. الأمثلة المحاسبية في الصفحة تعرض خطة التطوير.</p></div><div className="mc-readiness__columns"><div><span className="mc-readiness__state"><Building2 /> متاح حاليًا</span><ul><li><Building2 /> ملف الشركة وبياناتها</li><li><Landmark /> تسجيل بيانات الحسابات البنكية</li><li><Users /> عضويات وأدوار وتفويضات المكتب</li><li><FileText /> عرض المستندات وفق الصلاحية؛ الرفع بحسب تفعيل الخدمة</li></ul></div><div><span className="mc-readiness__state mc-readiness__state--vision"><Scale /> ضمن خطة التطوير</span><ul><li>استخراج كشوف البنك إلى Excel ومراجعتها</li><li>القيود ودفتر الأستاذ وميزان المراجعة</li><li>القوائم المالية وتحليل النتائج</li><li>تكاليف الإنتاج للمصانع</li></ul></div></div></div></section>;
+}
