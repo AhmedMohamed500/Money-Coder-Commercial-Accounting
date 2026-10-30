@@ -1,7 +1,7 @@
-import { EnterpriseV7Landing } from "@/components/landing/enterprise-v7";
+import { getSessionUser } from "@/lib/auth";
+import { ExecutiveV8Landing } from "@/components/landing/executive-v8";
 
-export function LandingPage() {
-  return (
-    <EnterpriseV7Landing />
-  );
+export async function LandingPage() {
+  const signedIn = Boolean(await getSessionUser());
+  return <ExecutiveV8Landing signedIn={signedIn} />;
 }
