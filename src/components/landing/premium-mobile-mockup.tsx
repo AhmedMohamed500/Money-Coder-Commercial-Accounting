@@ -1,4 +1,4 @@
-import { Building2, Home, Landmark, ShieldCheck, Users } from "lucide-react";
+import { Landmark, ShieldCheck, Users } from "lucide-react";
 
 export function PremiumMobileMockup() {
   return (
@@ -23,7 +23,6 @@ export function PremiumMobileMockup() {
           <div><span><Users /></span><small>الفريق</small><b>أدوار واضحة</b></div>
         </div>
         <div className="mc-phone__activity"><strong>وصول المكتب</strong><span><ShieldCheck /> بعد موافقة الشركة</span></div>
-        <div className="mc-phone__bottom" aria-hidden="true"><Home /><Building2 /><Users /></div>
       </div>
     </div>
   );

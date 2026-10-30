@@ -26,7 +26,7 @@
 .af-header { position: relative; z-index: 20; min-height: 76px; border-bottom: 1px solid var(--af-line); background: #fff; }
 .af-header__inner { min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 22px; direction: ltr; }
 .af-brand { display: inline-flex; align-items: center; gap: 7px; flex: none; color: var(--af-navy); direction: ltr; }
-.af-brand__mark { display: block; width: 76px; height: 52px; flex: none; background: url("/money-coder-logo.jpg") center -7px / 92px 92px no-repeat; }
+.af-brand__mark { display: block; width: 76px; height: 50px; flex: none; background: url("/landing/money-coder-mark-v6-1.png") center / contain no-repeat; }
 .af-brand__name { display: grid; gap: 1px; line-height: 1.1; }
 .af-brand strong { font-family: var(--font-display), sans-serif; font-size: 1rem; font-weight: 800; white-space: nowrap; }
 .af-brand small { color: var(--af-muted); font-size: .55rem; letter-spacing: .07em; white-space: nowrap; }
@@ -191,7 +191,7 @@
   .af-container { width: calc(100% - 30px); }
   .af-section { padding-block: 42px; }
   .af-header, .af-header__inner { min-height: 65px; }
-  .af-brand__mark { width: 58px; height: 42px; background-size: 74px 74px; background-position: center -6px; }
+  .af-brand__mark { width: 58px; height: 42px; }
   .af-brand strong { font-size: .82rem; }
   .af-brand small { font-size: .45rem; }
   .af-header__actions { display: none; }

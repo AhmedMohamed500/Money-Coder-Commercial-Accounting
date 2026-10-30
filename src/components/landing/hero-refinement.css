@@ -4,7 +4,7 @@
 .af-hero__grid { min-height: 630px; }
 .af-hero__copy { padding-block: 55px; }
 .af-eyebrow { border: 1px solid #dce6e8; background: #fffffff0; color: #244b57; letter-spacing: .01em; }
-.af-hero h1 { max-width: 600px; line-height: 1.24; letter-spacing: -.03em; }
+.af-hero h1 { max-width: 600px; line-height: 1.24; letter-spacing: -.01em; }
 .af-hero__copy > p { max-width: 520px; color: #36516a; font-size: .98rem; line-height: 1.86; }
 .af-hero__buttons { margin-top: 28px; }
 .af-hero__buttons a { min-height: 49px; border-radius: 9px; }
@@ -42,38 +42,38 @@
   .af-assurance { display: grid; grid-template-columns: 1fr 1fr; gap: 9px 12px; margin-top: 23px; }
   .af-assurance span { font-size: .66rem; }
   .af-assurance svg { width: 25px; height: 25px; }
-  .af-devices { width: 100%; height: 435px; margin: 8px auto 24px; overflow: hidden; border: 1px solid #dbe6e7; border-radius: 19px; background: linear-gradient(#f8fafc05, #f8fafc52), url("/landing/hero-office-v3.webp") 18% center / auto 100% no-repeat; box-shadow: 0 16px 32px #102b4c13; }
+  .af-devices { width: 100%; height: 455px; margin: 8px auto 24px; overflow: hidden; border: 1px solid #dbe6e7; border-radius: 19px; background: linear-gradient(#f8fafc05, #f8fafc52), url("/landing/hero-office-v3.webp") 18% center / auto 100% no-repeat; box-shadow: 0 16px 32px #102b4c13; }
   .af-devices::before { display: none; }
   .af-devices::after { right: 15%; bottom: 41px; left: 15%; height: 18px; background: #17353a55; }
   .af-laptop, .mc-hero-float { display: none; }
-  .mc-phone { top: 23px; bottom: auto; left: 50%; width: 196px; height: 380px; padding: 5px; border-width: 2px; border-radius: 29px; transform: translateX(-50%) rotateZ(-2deg); box-shadow: 15px 22px 25px #102b4c40, inset 0 0 0 1px #ffffff65; }
+  .mc-phone { top: 22px; right: 0; bottom: auto; left: 0; width: 226px; height: 392px; margin-inline: auto; padding: 5px; border-width: 2px; border-radius: 29px; transform: none; box-shadow: 15px 22px 25px #102b4c40, inset 0 0 0 1px #ffffff65; }
   .mc-phone__camera { top: 8px; width: 19px; height: 4px; }
-  .mc-phone__screen { padding: 17px 10px 11px; border-radius: 23px; }
-  .mc-phone__top { gap: 5px; font-size: .58rem; }
+  .mc-phone__screen { padding: 18px 12px 12px; border-radius: 23px; }
+  .mc-phone__top { gap: 6px; font-size: .7rem; }
   .mc-phone__monogram { width: 18px; height: 18px; border-radius: 5px; font-size: .72rem; }
   .mc-phone__greeting { margin-top: 17px; }
-  .mc-phone__greeting small { font-size: .6rem; }
-  .mc-phone__greeting strong { font-size: .84rem; }
+  .mc-phone__greeting small { font-size: .72rem; }
+  .mc-phone__greeting strong { font-size: .94rem; }
   .mc-phone__balance { gap: 5px; margin-top: 12px; padding: 12px 10px 7px; border-radius: 9px; }
-  .mc-phone__balance small { font-size: .57rem; }
-  .mc-phone__balance strong { font-size: 1.28rem; }
+  .mc-phone__balance small { font-size: .72rem; }
+  .mc-phone__balance strong { font-size: 1.32rem; }
   .mc-phone__balance strong span { font-size: .65rem; }
   .mc-phone__balance svg { height: 30px; }
   .mc-phone__summary { gap: 6px; margin-top: 11px; }
   .mc-phone__summary > div { gap: 3px; padding: 8px 6px; border-radius: 7px; }
   .mc-phone__summary svg { width: 14px; height: 14px; }
-  .mc-phone__summary small { font-size: .55rem; }
-  .mc-phone__summary b { font-size: .77rem; }
-  .mc-phone__activity { display: grid; gap: 5px; margin-top: 10px; font-size: .58rem; }
+  .mc-phone__summary small { font-size: .68rem; }
+  .mc-phone__summary b { font-size: .84rem; }
+  .mc-phone__activity { display: grid; gap: 5px; margin-top: 10px; font-size: .72rem; }
   .mc-phone__activity > span { gap: 4px; padding: 7px; }
   .mc-phone__activity svg { width: 13px; height: 13px; }
-  .mc-phone__activity small { font-size: .54rem; }
+  .mc-phone__activity small { font-size: .68rem; }
   .mc-phone__bottom { display: none; }
   .af-preview-note { right: 10px; bottom: 10px; left: 10px; padding: 5px 7px; border-radius: 6px; background: #ffffffd9; color: #2c4856; font-size: .59rem; text-align: center; text-shadow: none; }
 }
 @media (max-width: 390px) {
-  .af-devices { height: 414px; }
-  .mc-phone { top: 19px; width: 183px; height: 360px; }
-  .mc-phone__balance strong { font-size: 1.16rem; }
+  .af-devices { height: 435px; }
+  .mc-phone { top: 18px; width: 216px; height: 382px; }
+  .mc-phone__balance strong { font-size: 1.24rem; }
   .af-hero__buttons a { font-size: .7rem; }
 }
