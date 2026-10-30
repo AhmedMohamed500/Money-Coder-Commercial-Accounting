@@ -1,0 +1,118 @@
+[
+  {
+    "name": "hero has height",
+    "pass": true
+  },
+  {
+    "name": "registration and login links",
+    "pass": true
+  },
+  {
+    "name": "persona changes command view",
+    "pass": true
+  },
+  {
+    "name": "sector changes company and scene",
+    "pass": true
+  },
+  {
+    "name": "command navigation shows registered accounts",
+    "pass": true
+  },
+  {
+    "name": "command navigation works by keyboard",
+    "pass": true
+  },
+  {
+    "name": "financial x-ray opens source detail",
+    "pass": true
+  },
+  {
+    "name": "money trail changes transaction",
+    "pass": true
+  },
+  {
+    "name": "money trail journal is balanced",
+    "pass": true
+  },
+  {
+    "name": "money trail skip reaches impact",
+    "pass": true
+  },
+  {
+    "name": "money trail play advances",
+    "pass": true
+  },
+  {
+    "name": "bank statement demo advances",
+    "pass": true
+  },
+  {
+    "name": "Horizon table has 15 rows",
+    "pass": true
+  },
+  {
+    "name": "bank transaction selection works by keyboard",
+    "pass": true
+  },
+  {
+    "name": "bank reconciliation is displayed",
+    "pass": true
+  },
+  {
+    "name": "Pocket CFO financial view changes",
+    "pass": true
+  },
+  {
+    "name": "Pocket CFO review view changes",
+    "pass": true
+  },
+  {
+    "name": "Pocket CFO team view changes",
+    "pass": true
+  },
+  {
+    "name": "Decision Lab warns on negative balance",
+    "pass": true
+  },
+  {
+    "name": "Decision Lab reset works",
+    "pass": true
+  },
+  {
+    "name": "factory math is consistent",
+    "pass": true
+  },
+  {
+    "name": "guided tour opens",
+    "pass": true
+  },
+  {
+    "name": "guided tour opens Excel illustration",
+    "pass": true
+  },
+  {
+    "name": "guided tour closes",
+    "pass": true
+  },
+  {
+    "name": "demo made no external requests",
+    "pass": true
+  },
+  {
+    "name": "no browser errors",
+    "pass": true
+  },
+  {
+    "name": "mobile menu opens",
+    "pass": true
+  },
+  {
+    "name": "mobile menu closes after navigation",
+    "pass": true
+  },
+  {
+    "name": "mobile has no overflow",
+    "pass": true
+  }
+]

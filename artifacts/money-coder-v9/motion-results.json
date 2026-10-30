@@ -1,0 +1,110 @@
+{
+  "frames": [
+    {
+      "at": 0,
+      "styles": {
+        "title": {
+          "opacity": "0.75",
+          "transform": "matrix(1, 0, 0, 1, 0, 10)",
+          "animationPlayState": "running"
+        },
+        "desktop": {
+          "opacity": "0.82",
+          "transform": "matrix(1, 0, 0, 1, 0, 15)",
+          "animationPlayState": "running"
+        },
+        "phone": {
+          "opacity": "0.8",
+          "transform": "matrix(1, 0, 0, 1, 0, 18)",
+          "animationPlayState": "running"
+        }
+      }
+    },
+    {
+      "at": 700,
+      "styles": {
+        "title": {
+          "opacity": "0.998585",
+          "transform": "matrix(1, 0, 0, 1, 0, 0.056619)",
+          "animationPlayState": "running"
+        },
+        "desktop": {
+          "opacity": "0.882345",
+          "transform": "matrix(1, 0, 0, 1, 0, 9.80457)",
+          "animationPlayState": "running"
+        },
+        "phone": {
+          "opacity": "0.8",
+          "transform": "matrix(1, 0, 0, 1, 0, 18)",
+          "animationPlayState": "running"
+        }
+      }
+    },
+    {
+      "at": 1500,
+      "styles": {
+        "title": {
+          "opacity": "1",
+          "transform": "matrix(1, 0, 0, 1, 0, 0)",
+          "animationPlayState": "running"
+        },
+        "desktop": {
+          "opacity": "1",
+          "transform": "matrix(1, 0, 0, 1, 0, 0)",
+          "animationPlayState": "running"
+        },
+        "phone": {
+          "opacity": "0.8",
+          "transform": "matrix(1, 0, 0, 1, 0, 18)",
+          "animationPlayState": "running"
+        }
+      }
+    },
+    {
+      "at": 3000,
+      "styles": {
+        "title": {
+          "opacity": "1",
+          "transform": "matrix(1, 0, 0, 1, 0, 0)",
+          "animationPlayState": "running"
+        },
+        "desktop": {
+          "opacity": "1",
+          "transform": "matrix(1, 0, 0, 1, 0, 0)",
+          "animationPlayState": "running"
+        },
+        "phone": {
+          "opacity": "1",
+          "transform": "matrix(1, 0, 0, 1, 0, 0)",
+          "animationPlayState": "running"
+        }
+      }
+    },
+    {
+      "at": 4800,
+      "styles": {
+        "title": {
+          "opacity": "1",
+          "transform": "matrix(1, 0, 0, 1, 0, 0)",
+          "animationPlayState": "running"
+        },
+        "desktop": {
+          "opacity": "1",
+          "transform": "matrix(1, 0, 0, 1, 0, 0)",
+          "animationPlayState": "running"
+        },
+        "phone": {
+          "opacity": "1",
+          "transform": "matrix(1, 0, 0, 1, 0, 0)",
+          "animationPlayState": "running"
+        }
+      }
+    }
+  ],
+  "pauseStable": true,
+  "resumeChanged": true,
+  "skipWorks": true,
+  "reducedDuration": "1e-05s",
+  "recording": null,
+  "recordingBlocker": "Playwright FFmpeg binary is not installed"
+}

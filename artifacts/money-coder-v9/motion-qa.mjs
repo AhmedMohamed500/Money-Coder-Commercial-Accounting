@@ -1,0 +1,58 @@
+import { chromium } from '../../node_modules/playwright-core/index.mjs';
+import { writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+
+const output = resolve('artifacts/money-coder-v9');
+const browser = await chromium.launch({ headless: true, executablePath: 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', args: ['--no-sandbox'] });
+const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'no-preference' });
+const page = await context.newPage();
+await page.route('**/*', route => new URL(route.request().url()).hostname === '127.0.0.1' ? route.continue() : route.abort());
+await page.goto('http://127.0.0.1:3199/', { waitUntil: 'load' });
+await page.evaluate(() => document.fonts.ready);
+await page.locator('.mc9-motion-controls [aria-label="إعادة حركة المقدمة"]').click();
+const frames = [];
+const capture = async (at, wait) => {
+  if (wait) await page.waitForTimeout(wait);
+  const styles = await page.evaluate(() => {
+    const read = selector => { const style = getComputedStyle(document.querySelector(selector)); return { opacity: style.opacity, transform: style.transform, animationPlayState: style.animationPlayState }; };
+    return { title: read('.mc9-hero h1 span:first-child'), desktop: read('.mc9-hero-desktop'), phone: read('.mc9-hero-phone') };
+  });
+  await page.locator('#hero').screenshot({ path: resolve(output, `motion-hero-${at}ms.png`) });
+  frames.push({ at, styles });
+};
+await capture(0, 30);
+await capture(700, 670);
+await capture(1500, 800);
+await capture(3000, 1500);
+await capture(4800, 1800);
+await page.locator('.mc9-motion-controls [aria-label="إعادة حركة المقدمة"]').click();
+await page.waitForTimeout(550);
+await page.locator('.mc9-motion-controls [aria-label="إيقاف الحركة مؤقتًا"]').click();
+const pausedBefore = await page.locator('.mc9-hero-desktop').evaluate(node => getComputedStyle(node).transform);
+await page.waitForTimeout(400);
+const pausedAfter = await page.locator('.mc9-hero-desktop').evaluate(node => getComputedStyle(node).transform);
+await page.locator('.mc9-motion-controls [aria-label="استكمال الحركة"]').click();
+await page.waitForTimeout(350);
+const resumed = await page.locator('.mc9-hero-desktop').evaluate(node => getComputedStyle(node).transform);
+await page.locator('.mc9-motion-controls [aria-label="تجاوز حركة المقدمة"]').click();
+const skipped = await page.locator('#hero').getAttribute('data-motion');
+await page.locator('#command-center .mc9-command-nav').getByRole('button', { name: /الموقف النقدي/ }).click();
+await page.locator('.mc9-trail-controls').getByRole('button', { name: /شغّل الرحلة/ }).click();
+await page.waitForTimeout(1700);
+await page.locator('.mc9-bank-flow').getByRole('button', { name: /مطابقة الرصيد/ }).click();
+await page.locator('.mc9-pocket-tabs').getByRole('button', { name: /النبض المالي/ }).click();
+await page.locator('#decision-lab input[aria-label="المدفوعات المتوقعة"]').focus();
+await page.keyboard.press('End');
+await page.close();
+await context.close();
+
+const reduced = await browser.newPage({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+await reduced.goto('http://127.0.0.1:3199/', { waitUntil: 'load' });
+await reduced.locator('.mc9-motion-controls [aria-label="إعادة حركة المقدمة"]').click();
+const reducedDuration = await reduced.locator('.mc9-hero-desktop').evaluate(node => getComputedStyle(node).animationDuration);
+await reduced.close();
+await browser.close();
+const result = { frames, pauseStable: pausedBefore === pausedAfter, resumeChanged: pausedAfter !== resumed, skipWorks: skipped === 'skip', reducedDuration, recording: null, recordingBlocker: 'Playwright FFmpeg binary is not installed' };
+await writeFile(resolve(output, 'motion-results.json'), JSON.stringify(result, null, 2));
+console.log(JSON.stringify(result));
+if (!result.pauseStable || !result.resumeChanged || !result.skipWorks || !reducedDuration.includes('1e-05')) process.exitCode = 1;

@@ -1,7 +1,7 @@
 import { getSessionUser } from "@/lib/auth";
-import { ExecutiveV8Landing } from "@/components/landing/executive-v8";
+import { FinancialControlV9 } from "@/components/landing/v9/financial-control-v9";
 
 export async function LandingPage() {
   const signedIn = Boolean(await getSessionUser());
-  return <ExecutiveV8Landing signedIn={signedIn} />;
+  return <FinancialControlV9 signedIn={signedIn} />;
 }
