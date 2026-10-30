@@ -94,6 +94,15 @@ const journeyStages = [
   </> },
 ] as const;
 
+function JourneyMiniature({ index }: { index: number }) {
+  if (index === 0) return <div className="mc-stage-mini mc-stage-mini--pdf" aria-hidden="true"><span>PDF · {demoBankName}</span><b>كشف {demoStatementPeriod}</b><div><i /> <i /> <i /></div><strong dir="ltr">{money(closingBankBalance)} EGP</strong></div>;
+  if (index === 1) return <div className="mc-stage-mini mc-stage-mini--excel" aria-hidden="true"><span>Excel · حركات منظمة</span><div className="mc-stage-mini__grid"><b>التاريخ</b><b>البيان</b><b>الرصيد</b>{demoTransactions.slice(0, 2).map(item => <div className="mc-stage-mini__row" key={item.reference}><small dir="ltr">{item.date}</small><small>{item.description}</small><small dir="ltr">{money(item.balance)}</small></div>)}</div></div>;
+  if (index === 2) return <div className="mc-stage-mini mc-stage-mini--review" aria-hidden="true"><span>مراجعة الحركات</span><div><b>{demoTransactions[0].description}</b><em>مطابق</em></div><div><b>{demoTransactions[2].description}</b><em>تحتاج مراجعة</em></div><small>قرار بشري قبل الترحيل</small></div>;
+  if (index === 3) return <div className="mc-stage-mini mc-stage-mini--journal" aria-hidden="true"><span>قيد {customerCollectionEntry.reference}</span><div><b>البنك · مدين</b><strong dir="ltr">{money(customerCollectionEntry.bankDebit)}</strong></div><div><b>العملاء · دائن</b><strong dir="ltr">{money(customerCollectionEntry.receivablesCredit)}</strong></div><small>المدين = الدائن</small></div>;
+  if (index === 4) return <div className="mc-stage-mini mc-stage-mini--ledger" aria-hidden="true"><span>أستاذ البنك وميزان المراجعة</span><div><b>رصيد البنك</b><strong dir="ltr">{money(closingBankBalance)}</strong></div><div><b>إجمالي المدين</b><strong dir="ltr">{money(trialDebitTotal)}</strong></div><div><b>إجمالي الدائن</b><strong dir="ltr">{money(trialCreditTotal)}</strong></div></div>;
+  return <div className="mc-stage-mini mc-stage-mini--report" aria-hidden="true"><span>قائمة دخل توضيحية</span><div><b>الإيراد</b><strong dir="ltr">{money(incomeStatement.revenue)}</strong></div><div><b>المصروفات</b><strong dir="ltr">{money(incomeStatement.expenses)}</strong></div><div className="mc-stage-mini__total"><b>صافي الربح</b><strong dir="ltr">{money(incomeStatement.profit)} EGP</strong></div></div>;
+}
+
 export function AccountingJourney() {
   const [selected, setSelected] = useState(0);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -109,13 +118,13 @@ export function AccountingJourney() {
 
   return <section className="mc-journey af-section" id="journey" aria-labelledby="mc-journey-title">
     <div className="af-container">
-      <div className="mc-journey__intro"><span className="mc-vision-label">تصوّر مراحل المحاسبة القادمة · غير مفعّل في الموقع الحالي</span><h2 id="mc-journey-title">رحلة بياناتك المالية... من المستند إلى القرار</h2><p>شوف رحلة بيانات شركتك من أول مستند بنكي لحد تقارير تساعدك تفهم أرقامك وتاخد قرارات أفضل.</p><small>واجهة استكشافية ببيانات افتراضية، دون معالجة أو ترحيل أو اعتماد فعلي.</small><FinancialFlowSignature /></div>
+      <div className="mc-journey__intro"><span className="mc-vision-label">تصوّر مراحل المحاسبة القادمة · غير مفعّل في الموقع الحالي</span><h2 id="mc-journey-title">رحلة بياناتك المحاسبية</h2><p>ست مراحل واضحة من كشف البنك إلى التقارير، مع معاينة تفصيلية لكل مرحلة عند اختيارها.</p><small>واجهة استكشافية ببيانات افتراضية، دون معالجة أو ترحيل أو اعتماد فعلي.</small><FinancialFlowSignature /></div>
       <div className="mc-journey__experience">
         <div className="mc-journey__tabs" role="tablist" aria-label="مراحل رحلة البيانات المالية">
-          {journeyStages.map((stage, index) => <button key={stage.title} ref={element => { tabRefs.current[index] = element; }} id={`mc-journey-tab-${index}`} type="button" role="tab" aria-selected={selected === index} aria-controls={`mc-journey-panel-${index}`} tabIndex={selected === index ? 0 : -1} className={selected === index ? "is-active" : ""} onClick={() => setSelected(index)} onKeyDown={event => handleKeys(event, index)}><span>{String(index + 1).padStart(2, "0")}</span>{stage.title}</button>)}
+          {journeyStages.map((stage, index) => <button key={stage.title} ref={element => { tabRefs.current[index] = element; }} id={`mc-journey-tab-${index}`} type="button" role="tab" aria-selected={selected === index} aria-controls={`mc-journey-panel-${index}`} tabIndex={selected === index ? 0 : -1} className={selected === index ? "is-active" : ""} onClick={() => setSelected(index)} onKeyDown={event => handleKeys(event, index)}><span className="mc-journey__tab-number">{String(index + 1).padStart(2, "0")}</span><strong>{stage.title}</strong><small>{stage.copy}</small><JourneyMiniature index={index} /></button>)}
         </div>
         <div className="mc-journey__panels">
-          {journeyStages.map((stage, index) => <article key={stage.title} id={`mc-journey-panel-${index}`} className={`mc-journey__panel ${selected === index ? "is-active" : ""}`} role="tabpanel" aria-labelledby={`mc-journey-tab-${index}`} tabIndex={0}><div className="mc-journey__panel-copy"><StageTitle number={index + 1} title={stage.heading} description={stage.copy} /><span>تصور واجهة · بيانات افتراضية</span></div><div className={`mc-journey__panel-visual mc-journey__panel-visual--${index + 1}`}>{stage.visual}</div></article>)}
+          {journeyStages.map((stage, index) => <article key={stage.title} id={`mc-journey-panel-${index}`} className={`mc-journey__panel ${selected === index ? "is-active" : ""}`} role="tabpanel" aria-labelledby={`mc-journey-tab-${index}`} hidden={selected !== index} tabIndex={selected === index ? 0 : -1}><div className="mc-journey__panel-copy"><StageTitle number={index + 1} title={stage.heading} description={stage.copy} /><span>تصور واجهة · بيانات افتراضية</span></div><div className={`mc-journey__panel-visual mc-journey__panel-visual--${index + 1}`}>{stage.visual}</div></article>)}
         </div>
       </div>
     </div>

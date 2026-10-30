@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, BarChart3, Building2, Check, ChevronLeft, CirclePlay, FileText, Headphones, Landmark, LockKeyhole, PieChart, ShieldCheck, Sparkles, TrendingUp, UserRound, Users } from "lucide-react";
+import { ArrowLeft, BarChart3, Building2, Check, ChevronLeft, CirclePlay, FileText, Headphones, Landmark, PieChart, ShieldCheck, Sparkles, UserRound, Users } from "lucide-react";
 import { MobileNav } from "@/components/landing/mobile-nav";
 import { PremiumMobileMockup } from "@/components/landing/premium-mobile-mockup";
 import { BankProcessingShowcase } from "@/components/landing/bank-processing-showcase";
@@ -18,15 +18,22 @@ import "./dimensional-art.css";
 import "./enterprise-v2.css";
 import "./hero-refinement.css";
 import "./results-conversation.css";
+import "./corporate-v5.css";
 
 const nav = [["الرئيسية", "#top"], ["الحلول", "#solutions"], ["المميزات", "#features"], ["رحلة البيانات", "#journey"], ["كيف تبدأ", "#process"], ["ابدأ الآن", "#contact"]] as const;
+const benefits = [
+  { icon: FileText, title: "مستندات خاصة", copy: "عرض بالصلاحية · رفع حسب الجاهزية" },
+  { icon: Landmark, title: "حسابات بنكية", copy: "حسابات متعددة داخل ملف الشركة" },
+  { icon: BarChart3, title: "رؤية مالية", copy: "تقارير توضيحية قيد التطوير" },
+  { icon: Building2, title: "إدارة الشركات", copy: "كيانات وأدوار في مكان واحد" },
+];
 const features = [
-  { icon: ShieldCheck, title: "أمان وخصوصية", copy: "صلاحيات بحسب الدور وعزل بيانات كل شركة." },
-  { icon: Sparkles, title: "سهولة الاستخدام", copy: "واجهة عربية واضحة لتنظيم معلوماتك." },
-  { icon: Users, title: "إدارة الشركات", copy: "بيانات الشركة وفريقها في مساحة واحدة." },
-  { icon: Landmark, title: "مراجعة البنوك", copy: "تنظيم الحسابات؛ مطابقة الحركات قيد التطوير." },
-  { icon: FileText, title: "إدارة المستندات", copy: "تنظيم الملفات؛ الرفع حسب جاهزية الخدمة." },
-  { icon: BarChart3, title: "تقارير محاسبية احترافية", copy: "التقارير المالية المتقدمة قيد التطوير." },
+  { icon: ShieldCheck, title: "صلاحيات وأمان", copy: "أدوار واضحة وعزل لبيانات كل شركة." },
+  { icon: BarChart3, title: "التقارير المالية", copy: "تصور للنتائج؛ التقارير الحية قيد التطوير." },
+  { icon: PieChart, title: "القيود المحاسبية", copy: "قيد تجريبي متوازن؛ المحرك قيد التطوير." },
+  { icon: Landmark, title: "الحسابات البنكية", copy: "إضافة حسابات شركتك وإدارتها في ملفها." },
+  { icon: FileText, title: "المستندات", copy: "عرض حسب الصلاحية؛ الرفع حسب الجاهزية." },
+  { icon: Building2, title: "إدارة الشركات", copy: "ملفات الشركة وفريقها في مساحة عربية." },
 ];
 const steps = [
   { icon: UserRound, title: "إنشاء حساب", copy: "سجل حساب شركتك في المنصة." },
@@ -51,6 +58,10 @@ function Devices() {
   </div>;
 }
 
+function BenefitsStrip() {
+  return <div className="mc-approved-benefits"><div className="af-container mc-approved-benefits__inner">{benefits.map(({ icon: Icon, title, copy }) => <div key={title}><span><Icon aria-hidden="true" /></span><div><strong>{title}</strong><small>{copy}</small></div></div>)}</div></div>;
+}
+
 function LandingBrand() {
   return <Link className="af-brand" href="/" aria-label="Money Coder — الصفحة الرئيسية"><span className="af-brand__mark" aria-hidden="true"/><span className="af-brand__name"><strong>Money Coder</strong><small>SMART ACCOUNTING</small></span></Link>;
 }
@@ -63,17 +74,18 @@ export async function ReferenceLanding() {
   const signedIn = Boolean(await getSessionUser());
   const startHref = signedIn ? "/dashboard" : "/auth/register";
   return <div className="af-landing" id="top" dir="rtl"><Header signedIn={signedIn}/><main>
-    <section className="af-hero"><div className="af-container af-hero__grid"><div className="af-hero__copy"><span className="af-eyebrow">أساس مالي منظم لشركتك التجارية</span><h1>إدارة مالية <em>أسهل</em> لنمو <span>أسرع</span> لشركتك</h1><p>نظّم بيانات شركتك وفريقها وحساباتها البنكية ومستنداتها في مساحة عربية واحدة. واستكشف تصورًا واضحًا لرحلتها المالية القادمة.</p><div className="af-hero__buttons"><Link className="af-primary" href={startHref}>ابدأ الآن <ArrowLeft/></Link><Link className="af-outline" href="#about">شاهد جولة سريعة <CirclePlay/></Link></div><div className="af-assurance"><span><ShieldCheck/>صلاحيات واضحة</span><span><FileText/>تنظيم البيانات</span><span><Sparkles/>واجهة عربية</span><span><Headphones/>بداية سهلة</span></div></div><Devices/></div></section>
-    <ResultsConversation/>
+    <section className="af-hero"><div className="af-container af-hero__grid"><div className="af-hero__copy"><span className="af-eyebrow">منصة عربية لشركتك التجارية</span><h1>إدارة مالية <em>أسهل</em> لنمو <span>أسرع</span> لشركتك</h1><p>نظّم ملف شركتك وحساباتها البنكية وفريقها في مساحة واحدة. وتعرّف إلى رحلتنا القادمة لمراجعة البيانات المحاسبية.</p><div className="af-hero__buttons"><Link className="af-primary" href={startHref}>ابدأ الآن <ArrowLeft/></Link><Link className="af-outline" href="#about">شاهد جولة تعريفية <CirclePlay/></Link></div><div className="af-assurance"><span><ShieldCheck/>صلاحيات واضحة</span><span><FileText/>تنظيم البيانات</span><span><Sparkles/>واجهة عربية</span><span><Headphones/>بداية سهلة</span></div></div><Devices/></div></section>
+    <BenefitsStrip/>
     <FinancialClarity/>
     <IndustrySolutions/>
-    <section className="af-features af-section" id="features"><div className="af-container"><div className="af-heading"><i/><h2>مميزات المنصة</h2><p>كل ما تحتاجه لبدء تنظيم شركتك المالية في مكان واحد</p></div><div className="af-feature-grid">{features.map(({ icon: Icon, title, copy }) => <article className="af-feature" key={title}><span><Icon/></span><h3>{title}</h3><p>{copy}</p></article>)}</div></div></section>
+    <section className="af-features af-section" id="features"><div className="af-container"><div className="mc-approved-heading"><span className="mc-section-kicker">أساس قوي ورؤية واضحة</span><h2>مميزات قوية تدعم نمو أعمالك</h2><p>وظائف تأسيس وإدارة متاحة الآن، مع تصور صريح للوظائف المحاسبية القادمة.</p></div><div className="af-feature-grid">{features.map(({ icon: Icon, title, copy }) => <article className="af-feature" key={title}><span><Icon aria-hidden="true"/></span><h3>{title}</h3><p>{copy}</p></article>)}</div></div></section>
     <BankProcessingShowcase/>
     <AccountingJourney/>
     <FactoryFinanceStory/>
-    <FinancialControl/>
     <ProductReadiness/>
     <section className="af-steps af-section" id="process"><div className="af-container"><div className="af-heading"><h2>كيف تبدأ؟</h2><p>خطوات واضحة للبدء بتنظيم بيانات شركتك</p></div><div className="af-steps__grid">{steps.map(({ icon: Icon, title, copy }, index) => <article className="af-step" key={title}><span className="af-step__number">{index + 1}</span><span className="af-step__icon"><Icon/></span><div><h3>{title}</h3><p>{copy}</p></div>{index < 3 ? <ChevronLeft className="af-step__arrow"/> : null}</article>)}</div></div></section>
-    <section className="af-final" id="contact"><div className="af-container af-final__inner"><div><h2>ابدأ رحلتك مع موني كودر اليوم</h2><p>مساحة أوضح لتنظيم بيانات شركتك التجارية وفريقها.</p></div><Link className="af-gold" href={startHref}>{signedIn ? "افتح لوحة التحكم" : "إنشاء حساب مجاني"}<UserRound/></Link><div className="af-final__notes"><span><Check/>تسجيل مباشر</span><span><LockKeyhole/>صلاحيات واضحة</span><span><TrendingUp/>قابل للتوسع</span></div></div></section>
+    <FinancialControl/>
+    <ResultsConversation/>
+    <section className="af-final" id="contact"><div className="af-container af-final__inner"><div className="af-final__copy"><span>ابدأ مع Money Coder</span><h2>ابدأ الآن في إدارة شركتك باحترافية</h2><p>ملف شركتك وفريقك وحساباتها في مساحة منظمة، مع رؤية واضحة لما نبنيه بعد ذلك.</p><div className="af-final__actions"><Link className="af-gold" href={startHref}>{signedIn ? "افتح لوحة التحكم" : "ابدأ الآن"}<ArrowLeft/></Link><Link className="af-outline" href="#about">شاهد جولة تعريفية <CirclePlay/></Link></div></div><div className="af-final__visual" aria-hidden="true"><div className="af-final__mock"><div><b>Money Coder</b><span>نظرة مالية</span></div><div className="af-final__mock-stats"><i /><i /><i /></div><div className="af-final__mock-chart"><i /><i /><i /><i /><i /><i /><i /></div></div><span>معاينة توضيحية للمنتج</span></div></div></section>
   </main><footer className="af-footer"><div className="af-container af-footer__inner"><LandingBrand/><nav aria-label="روابط التذييل">{nav.map(([label, href]) => <Link key={href} href={href}>{label}</Link>)}</nav><small>© 2026 Money Coder. جميع الحقوق محفوظة.</small></div></footer></div>;
 }

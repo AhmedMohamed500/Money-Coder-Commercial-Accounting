@@ -1,20 +1,53 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, CircleAlert, FileSpreadsheet, FileText, FolderCheck, Landmark, ReceiptText, ScanLine } from "lucide-react";
+import Image from "next/image";
+import { ArrowLeft, Check, CircleX, FileSpreadsheet, FolderCheck, ShieldCheck } from "lucide-react";
 
 export function FinancialClarity() {
   const [view, setView] = useState<"before" | "after">("after");
 
-  return <section className="mc-clarity af-section" id="clarity" aria-labelledby="mc-clarity-title">
+  return <section className="mc-approved-clarity af-section" id="clarity" aria-labelledby="mc-clarity-title">
     <div className="af-container">
-      <div className="mc-clarity__heading"><div><span className="mc-section-kicker">من المعاملة إلى القرار</span><h2 id="mc-clarity-title">من فوضى الحسابات إلى وضوح القرار</h2><p>بدل البيانات المتفرقة والملفات المتعددة، اكتشف طريقة أوضح لتنظيم ومراجعة معلومات شركتك المالية.</p></div><div className="mc-clarity__switch" aria-label="عرض قبل التنظيم أو بعده"><button type="button" aria-pressed={view === "before"} onClick={() => setView("before")}>قبل التنظيم</button><button type="button" aria-pressed={view === "after"} onClick={() => setView("after")}>بعد التنظيم</button></div></div>
-      <div className={`mc-clarity__scene ${view === "after" ? "is-after" : "is-before"}`}>
-        <div className="mc-clarity__before"><span className="mc-clarity__scene-label">ملفات متفرقة · مثال توضيحي</span><div className="mc-clarity__loose"><article><FileText /><strong>كشف-بنك.pdf</strong><small>حركات بحاجة للفحص</small></article><article><FileSpreadsheet /><strong>حركات-يونيو.xlsx</strong><small>نسخ متعددة</small></article><article><ReceiptText /><strong>فواتير ومرفقات</strong><small>مرجع منفصل</small></article><article><Landmark /><strong>إيصال دفع</strong><small>ملف مستقل</small></article><article><CircleAlert /><strong>حركة غير مراجعة</strong><small>مصدر غير واضح</small></article></div><p><CircleAlert /> مراجعة يدوية متكررة وصعوبة في تتبع مصدر كل رقم.</p></div>
-        <span className="mc-clarity__arrow" aria-hidden="true"><ArrowLeft /></span>
-        <div className="mc-clarity__after"><span className="mc-clarity__scene-label">رؤية منظمة · تصور للمنتج</span><div className="mc-clarity__organized"><div><FolderCheck /><span><b>مستندات الشركة</b><small>في مساحة واضحة</small></span><strong>04</strong></div><div><ScanLine /><span><b>حركات قابلة للمراجعة</b><small>مصدر وحالة لكل حركة</small></span><strong>04</strong></div><div><FileSpreadsheet /><span><b>ملخص مالي مفهوم</b><small>خطوة قادمة بعد المحاسبة</small></span><strong>EGP</strong></div></div><div className="mc-clarity__summary"><span>مستند</span><i/><span>حركة</span><i/><span>قرار</span></div><p>تنظيم الشركة والصلاحيات متاحان؛ معالجة الحركات والقوائم المالية جزء من الرؤية القادمة.</p></div>
+      <div className="mc-approved-heading">
+        <span className="mc-section-kicker">من المستند إلى رؤية أوضح</span>
+        <h2 id="mc-clarity-title">من فوضى البيانات إلى وضوح القرار</h2>
+        <p>ملف الشركة وصلاحيات الفريق أساس منظم اليوم؛ مراجعة الحركات والتقارير المعروضة هنا تصور لما نطوره لاحقًا.</p>
       </div>
-      <p className="mc-clarity__caption" aria-live="polite">{view === "after" ? "المشهد الحالي يبرز شكل البيانات بعد تنظيمها ومراجعتها في التصور المستقبلي." : "المشهد الحالي يبرز مشكلة تشتت الملفات قبل تنظيم بيانات الشركة."}</p>
+      <div className="mc-approved-clarity__switch" role="group" aria-label="اختر مشهد المقارنة">
+        <button type="button" aria-pressed={view === "before"} onClick={() => setView("before")}>قبل التنظيم</button>
+        <button type="button" aria-pressed={view === "after"} onClick={() => setView("after")}>بعد التنظيم</button>
+      </div>
+      <div className={`mc-approved-compare is-${view}`}>
+        <article className="mc-approved-compare__card mc-approved-compare__card--before">
+          <Image src="/landing/before-paperwork-v5.webp" fill sizes="(max-width: 780px) 100vw, 48vw" alt="مكتب عليه كشوف وأوراق كثيرة قبل تنظيمها" loading="lazy" />
+          <span className="mc-approved-compare__badge">قبل</span>
+          <div className="mc-approved-compare__overlay">
+            <strong>بيانات موزعة بين ملفات</strong>
+            <span><CircleX aria-hidden="true" /> بحث يدوي متكرر</span>
+            <span><CircleX aria-hidden="true" /> نسخ متعددة يصعب تتبعها</span>
+            <span><CircleX aria-hidden="true" /> صورة مالية غير مكتملة</span>
+          </div>
+        </article>
+        <span className="mc-approved-compare__arrow" aria-hidden="true"><ArrowLeft /></span>
+        <article className="mc-approved-compare__card mc-approved-compare__card--after">
+          <Image src="/landing/hero-office-v3.webp" fill sizes="(max-width: 780px) 100vw, 48vw" alt="مكتب حديث يعرض تصورًا لتنظيم بيانات الشركة" loading="lazy" />
+          <span className="mc-approved-compare__badge">بعد</span>
+          <div className="mc-approved-compare__screen" aria-label="معاينة توضيحية لواجهة بيانات مالية افتراضية">
+            <div className="mc-approved-compare__screen-top"><b>Money Coder</b><span>نظرة مالية · بيانات افتراضية</span></div>
+            <div className="mc-approved-compare__screen-metrics"><span><small>رصيد البنك</small><strong>32,000</strong></span><span><small>حركات الكشف</small><strong>4</strong></span><span><small>للمراجعة</small><strong>1</strong></span></div>
+            <div className="mc-approved-compare__screen-chart"><i /><i /><i /><i /><i /><i /><i /><i /><i /></div>
+            <div className="mc-approved-compare__screen-foot"><span>مراجعة الحركات</span><span>تقرير توضيحي</span></div>
+          </div>
+          <div className="mc-approved-compare__product" aria-label="واجهة توضيحية لتنظيم بيانات الشركة">
+            <header><FolderCheck aria-hidden="true" /><span><b>شركة المثال التجارية</b><small>مساحة عمل توضيحية</small></span><ShieldCheck aria-hidden="true" /></header>
+            <div><span>ملف الشركة</span><strong><Check aria-hidden="true" /> منظم</strong></div>
+            <div><span>صلاحيات الفريق</span><strong><Check aria-hidden="true" /> محددة</strong></div>
+            <div><span>مراجعة الحركات</span><strong className="is-future"><FileSpreadsheet aria-hidden="true" /> قيد التطوير</strong></div>
+          </div>
+        </article>
+      </div>
+      <p className="mc-approved-clarity__caption" aria-live="polite">{view === "before" ? "المشهد الأول يوضح صعوبة مراجعة الملفات المتفرقة يدويًا." : "المشهد الثاني يوضح تنظيم البيانات الحالي مع تصور للمراجعة المالية القادمة."}</p>
     </div>
   </section>;
 }
