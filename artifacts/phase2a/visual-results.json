@@ -1,0 +1,34 @@
+{
+  "results": [
+    {
+      "width": 1440,
+      "overflow": 0,
+      "title": "",
+      "chartRows": 82,
+      "screenshot": "E:\\My Portofolio\\Money-Coder-Commercial-Accounting\\artifacts\\phase2a\\chart-1440.png"
+    },
+    {
+      "width": 768,
+      "overflow": 0,
+      "title": "",
+      "chartRows": 82,
+      "screenshot": "E:\\My Portofolio\\Money-Coder-Commercial-Accounting\\artifacts\\phase2a\\chart-768.png"
+    },
+    {
+      "width": 390,
+      "overflow": 0,
+      "title": "",
+      "chartRows": 82,
+      "screenshot": "E:\\My Portofolio\\Money-Coder-Commercial-Accounting\\artifacts\\phase2a\\chart-390.png"
+    },
+    {
+      "width": 360,
+      "overflow": 0,
+      "title": "",
+      "chartRows": 82,
+      "screenshot": "E:\\My Portofolio\\Money-Coder-Commercial-Accounting\\artifacts\\phase2a\\chart-360.png"
+    }
+  ],
+  "errors": [],
+  "accountCount": 226
+}

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authorizeOrganization, getSessionUser } from "@/lib/auth";
+import { privateStorageUploadPolicy } from "@/lib/config";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { DocumentValidationError, validateDeclaredDocument } from "@/lib/document-files";
 import { createDocumentUploadTicket, UploadTicketError, verifyDocumentUploadTicket } from "@/lib/document-upload";
@@ -30,7 +31,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const user = await getSessionUser();
   const { id } = await params;
   if (!user || !(await authorizeOrganization(user.id, id, "documents:manage"))) return NextResponse.json({ error: "غير مصرح." }, { status: 403, headers: noStore });
-  if (!checkRateLimit(`document-upload:${user.id}:${clientIp(request)}`, 20, 15 * 60_000).allowed) return NextResponse.json({ error: "محاولات رفع كثيرة. حاول لاحقًا." }, { status: 429, headers: noStore });
+  const uploadPolicy = privateStorageUploadPolicy();
+  if (!uploadPolicy.acceptsNewUploads) {
+    const error = uploadPolicy.mode === "drain" ? "تم إيقاف عمليات الرفع الجديدة مؤقتًا." : "رفع المستندات متوقف مؤقتًا.";
+    return NextResponse.json({ error }, { status: 503, headers: noStore });
+  }
+  if (!(await checkRateLimit(`document-upload:${user.id}:${clientIp(request)}`, 20, 15 * 60_000)).allowed) return NextResponse.json({ error: "محاولات رفع كثيرة. حاول لاحقًا." }, { status: 429, headers: noStore });
   try {
     const parsed = inputSchema.parse(await request.json());
     const declared = validateDeclaredDocument(parsed);
@@ -47,7 +53,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const metadata = { organizationId: id, uploadedById: user.id, uploadId: payload.jti, declaredMime: payload.mimeType, declaredSize: String(payload.sizeBytes) };
     if (await adapter.headObject(payload.pendingKey) || await adapter.headObject(payload.finalKey)) throw new StorageOperationError("conflict");
     const upload = await adapter.createUploadTarget(payload.pendingKey, payload.mimeType, metadata, payload.expiresAt - payload.issuedAt);
-    if (adapter.provider !== "neon") upload.headers["x-money-coder-upload-token"] = token;
+    if (adapter.provider !== "neon" && upload.method === "PUT") upload.headers["x-money-coder-upload-token"] = token;
     return NextResponse.json({ token, upload, expiresAt: new Date(payload.expiresAt * 1_000).toISOString() }, { headers: noStore });
   } catch (cause) {
     return safeFailure(cause);

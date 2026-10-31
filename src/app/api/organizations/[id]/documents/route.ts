@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { authorizeOrganization, getSessionUser } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
+import { privateStorageUploadPolicy } from "@/lib/config";
 import { DocumentValidationError, validateStoredDocument } from "@/lib/document-files";
 import { UploadTicketError, verifyDocumentUploadTicket } from "@/lib/document-upload";
 import { organizationHasDocumentCapacity } from "@/lib/document-storage-policy";
@@ -23,6 +24,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const user = await getSessionUser();
   const { id } = await params;
   if (!user || !(await authorizeOrganization(user.id, id, "documents:manage"))) return NextResponse.json({ error: "غير مصرح." }, { status: 403, headers: noStore });
+  if (!privateStorageUploadPolicy().acceptsFinalization) return NextResponse.json({ error: "إنهاء رفع المستندات متوقف مؤقتًا. يمكنك إلغاء الرفع المعلّق." }, { status: 503, headers: noStore });
 
   let pendingKey: string | undefined;
   let finalKey: string | undefined;
@@ -68,16 +70,29 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json(document, { status: 201, headers: noStore });
   } catch (cause) {
     if (cause instanceof DocumentValidationError && pendingKey) await getStorageAdapter().deleteObject(pendingKey).catch(() => undefined);
+    let finalizedByAnotherRequest = false;
     if (promoted && finalKey) {
       const adapter = getStorageAdapter();
-      await Promise.all([adapter.deleteObject(finalKey).catch(() => undefined), pendingKey ? adapter.deleteObject(pendingKey).catch(() => undefined) : Promise.resolve()]);
+      const owner = await db.fileAsset.findUnique({ where: { storageKey: finalKey }, select: { id: true } }).catch(lookupCause => {
+        console.error("document finalize ownership check failed", lookupCause instanceof Error ? lookupCause.name : "unknown");
+        return undefined;
+      });
+      if (owner) {
+        finalizedByAnotherRequest = true;
+        if (pendingKey) await adapter.deleteObject(pendingKey).catch(() => undefined);
+      } else if (owner === null) {
+        await Promise.all([adapter.deleteObject(finalKey).catch(() => undefined), pendingKey ? adapter.deleteObject(pendingKey).catch(() => undefined) : Promise.resolve()]);
+      } else {
+        console.error("document finalize cleanup deferred because ownership is unknown");
+      }
     }
+    if (finalizedByAnotherRequest) return NextResponse.json({ error: "تم إنهاء هذا الرفع من قبل." }, { status: 409, headers: noStore });
     if (cause instanceof UploadTicketError || cause instanceof DocumentValidationError || cause instanceof z.ZodError) return NextResponse.json({ error: cause instanceof z.ZodError ? "طلب الإنهاء غير صالح." : cause.message }, { status: 400, headers: noStore });
     if (cause instanceof StorageOperationError) {
       const status = cause.code === "conflict" ? 409 : cause.code === "quota" ? 507 : 503;
       return NextResponse.json({ error: status === 409 ? "تم استخدام هذا التصريح أو تعارض الملف." : status === 507 ? "سعة التخزين غير كافية." : "التخزين الآمن غير متاح مؤقتًا." }, { status, headers: noStore });
     }
     console.error("document finalize failed", cause instanceof Error ? cause.name : "unknown");
-    return NextResponse.json({ error: "تعذر حفظ بيانات المستند. لم يتم الاحتفاظ بالملف." }, { status: 500, headers: noStore });
+    return NextResponse.json({ error: "تعذر حفظ بيانات المستند بأمان. لم يتم إنشاء مستند متاح للمستخدم." }, { status: 500, headers: noStore });
   }
 }

@@ -12,6 +12,7 @@ import {
   type GetObjectCommandOutput,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { privateStorageConfiguration } from "@/lib/config";
 
 export { validateUpload } from "@/lib/document-files";
@@ -31,7 +32,9 @@ export type StoredObject = {
   metadata: StorageObjectMetadata;
 };
 
-export type UploadTarget = { url: string; method: "PUT"; headers: Record<string, string> };
+export type UploadTarget =
+  | { url: string; method: "PUT"; headers: Record<string, string> }
+  | { url: string; method: "POST"; headers: Record<string, string>; fields: Record<string, string> };
 export type StorageAvailability = { available: boolean; state: "connected" | "misconfigured" | "unavailable" | "development-only" };
 
 export class StorageOperationError extends Error {
@@ -127,6 +130,7 @@ class NeonStorageAdapter implements PrivateStorageAdapter {
       forcePathStyle: true,
       credentials: { accessKeyId: config.details.accessKeyId, secretAccessKey: config.details.secretAccessKey },
       maxAttempts: 3,
+      requestChecksumCalculation: "WHEN_REQUIRED",
     });
   }
 
@@ -149,10 +153,18 @@ class NeonStorageAdapter implements PrivateStorageAdapter {
   }
 
   async createUploadTarget(key: string, contentType: string, metadata: StorageObjectMetadata, expiresIn: number) {
-    const command = new PutObjectCommand({ Bucket: this.bucket, Key: key, ContentType: contentType, Metadata: s3Metadata(metadata), CacheControl: "private, no-store" });
+    const expectedSize = Number(metadata.declaredSize);
+    if (!Number.isSafeInteger(expectedSize) || expectedSize < 1) throw new StorageOperationError("invalid-object");
+    const fields = { "Content-Type": contentType, ...metadataHeaders(metadata) };
     try {
-      const url = await getSignedUrl(this.client, command, { expiresIn });
-      return { url, method: "PUT" as const, headers: { "content-type": contentType, ...metadataHeaders(metadata) } };
+      const target = await createPresignedPost(this.client, {
+        Bucket: this.bucket,
+        Key: key,
+        Expires: expiresIn,
+        Fields: fields,
+        Conditions: [["content-length-range", expectedSize, expectedSize]],
+      });
+      return { ...target, method: "POST" as const, headers: {} };
     } catch (cause) { throw mapStorageFailure(cause); }
   }
 
@@ -189,8 +201,19 @@ class NeonStorageAdapter implements PrivateStorageAdapter {
 
   async listPendingObjects(organizationId: string) {
     const prefix = `organizations/${organizationId}/pending/`;
-    const output = await this.run(signal => this.client.send(new ListObjectsV2Command({ Bucket: this.bucket, Prefix: prefix, MaxKeys: 100 }), { abortSignal: signal }));
-    return (output.Contents ?? []).flatMap(item => item.Key && item.LastModified ? [{ key: item.Key, lastModified: item.LastModified }] : []);
+    const objects: Array<{ key: string; lastModified: Date }> = [];
+    const seenTokens = new Set<string>();
+    let continuationToken: string | undefined;
+    do {
+      const output = await this.run(signal => this.client.send(new ListObjectsV2Command({ Bucket: this.bucket, Prefix: prefix, MaxKeys: 100, ContinuationToken: continuationToken }), { abortSignal: signal }));
+      objects.push(...(output.Contents ?? []).flatMap(item => item.Key && item.LastModified ? [{ key: item.Key, lastModified: item.LastModified }] : []));
+      const nextToken = output.NextContinuationToken;
+      if (!nextToken) break;
+      if (seenTokens.has(nextToken)) throw new StorageOperationError("unavailable", true);
+      seenTokens.add(nextToken);
+      continuationToken = nextToken;
+    } while (objects.length < 1_000);
+    return objects.slice(0, 1_000);
   }
 
   async createDownloadUrl(key: string, filename: string, contentType: string, expiresIn: number) {
@@ -269,7 +292,17 @@ class LocalStorageAdapter implements PrivateStorageAdapter {
 
 type MemoryObject = { bytes: Buffer; contentType: string; metadata: StorageObjectMetadata; lastModified: Date };
 const memoryObjects = new Map<string, MemoryObject>();
-const testFailures = { unavailable: false, failDelete: false, failPromote: false };
+const testFailures = { unavailable: false, failDelete: false, failPromote: false, allowPromoteOverwrite: false, synchronizePromotions: false };
+const promotionBarrierResolvers: Array<() => void> = [];
+
+async function waitForConcurrentTestPromotions() {
+  if (!testFailures.synchronizePromotions) return;
+  await new Promise<void>(resolve => {
+    promotionBarrierResolvers.push(resolve);
+    if (promotionBarrierResolvers.length < 2) return;
+    for (const release of promotionBarrierResolvers.splice(0)) release();
+  });
+}
 
 class TestMemoryStorageAdapter implements PrivateStorageAdapter {
   readonly provider = "test-memory";
@@ -279,7 +312,7 @@ class TestMemoryStorageAdapter implements PrivateStorageAdapter {
   async putObject(key: string, bytes: Buffer, contentType: string, metadata: StorageObjectMetadata) { this.check(); if (memoryObjects.has(key)) throw new StorageOperationError("conflict"); memoryObjects.set(key, { bytes: Buffer.from(bytes), contentType, metadata, lastModified: new Date() }); }
   async headObject(key: string) { this.check(); const object = memoryObjects.get(key); return object ? { contentType: object.contentType, sizeBytes: object.bytes.length, metadata: object.metadata } : null; }
   async readObject(key: string) { this.check(); const object = memoryObjects.get(key); if (!object) throw new StorageOperationError("not-found"); return { bytes: Buffer.from(object.bytes), contentType: object.contentType, sizeBytes: object.bytes.length, metadata: object.metadata }; }
-  async promoteObject(pendingKey: string, finalKey: string, contentType: string, metadata: StorageObjectMetadata) { this.check(); if (testFailures.failPromote) throw new StorageOperationError("unavailable", true); const pending = memoryObjects.get(pendingKey); if (!pending) throw new StorageOperationError("not-found"); if (memoryObjects.has(finalKey)) throw new StorageOperationError("conflict"); memoryObjects.set(finalKey, { ...pending, contentType, metadata, bytes: Buffer.from(pending.bytes), lastModified: new Date() }); }
+  async promoteObject(pendingKey: string, finalKey: string, contentType: string, metadata: StorageObjectMetadata) { this.check(); if (testFailures.failPromote) throw new StorageOperationError("unavailable", true); const pending = memoryObjects.get(pendingKey); if (!pending) throw new StorageOperationError("not-found"); await waitForConcurrentTestPromotions(); if (memoryObjects.has(finalKey) && !testFailures.allowPromoteOverwrite) throw new StorageOperationError("conflict"); memoryObjects.set(finalKey, { ...pending, contentType, metadata, bytes: Buffer.from(pending.bytes), lastModified: new Date() }); }
   async deleteObject(key: string) { this.check(); if (testFailures.failDelete) throw new StorageOperationError("delete-pending", true); memoryObjects.delete(key); }
   async listPendingObjects(organizationId: string) { this.check(); const prefix = `organizations/${organizationId}/pending/`; return [...memoryObjects.entries()].flatMap(([key, value]) => key.startsWith(prefix) ? [{ key, lastModified: value.lastModified }] : []); }
   async createDownloadUrl() { this.check(); return null; }
@@ -291,6 +324,9 @@ export function resetTestStorage() {
   testFailures.unavailable = false;
   testFailures.failDelete = false;
   testFailures.failPromote = false;
+  testFailures.allowPromoteOverwrite = false;
+  testFailures.synchronizePromotions = false;
+  for (const release of promotionBarrierResolvers.splice(0)) release();
 }
 
 export function configureTestStorageFailure(next: Partial<typeof testFailures>) {

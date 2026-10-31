@@ -1,4 +1,10 @@
 export type ServiceConfiguration = { configured: boolean; reason?: string };
+export type PrivateStorageUploadMode = "disabled" | "drain" | "enabled";
+export type PrivateStorageUploadPolicy = {
+  mode: PrivateStorageUploadMode;
+  acceptsNewUploads: boolean;
+  acceptsFinalization: boolean;
+};
 export type PrivateStorageConfiguration = ServiceConfiguration & {
   details?: {
     endpoint: string;
@@ -8,6 +14,23 @@ export type PrivateStorageConfiguration = ServiceConfiguration & {
     secretAccessKey: string;
   };
 };
+
+const PRIVATE_STORAGE_UPLOAD_MODES = new Set<PrivateStorageUploadMode>(["disabled", "drain", "enabled"]);
+
+export function privateStorageUploadPolicy(): PrivateStorageUploadPolicy {
+  const configuredMode = process.env.PRIVATE_STORAGE_UPLOAD_MODE?.trim();
+  const mode: PrivateStorageUploadMode = PRIVATE_STORAGE_UPLOAD_MODES.has(configuredMode as PrivateStorageUploadMode)
+    ? configuredMode as PrivateStorageUploadMode
+    : !configuredMode && process.env.NODE_ENV !== "production"
+      ? "enabled"
+      : "disabled";
+
+  return {
+    mode,
+    acceptsNewUploads: mode === "enabled",
+    acceptsFinalization: mode === "enabled" || mode === "drain",
+  };
+}
 
 function isLocalHost(hostname: string) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";

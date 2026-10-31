@@ -48,6 +48,7 @@ Remove-Item Env:DATABASE_URL
 | `PRIVATE_STORAGE_PROVIDER` | `neon` بعد التحقق | `neon` أو `local-dev` محليًا | لا تستخدم `local-dev` في Production |
 | `PRIVATE_STORAGE_BUCKET` | مطلوب للتفعيل | bucket منفصل | اسم مقترح `money-coder-documents` |
 | `PRIVATE_STORAGE_ACCESS` | `private` فقط | `private` فقط | إقرار تشغيلي بأن access مضبوط من Neon؛ غير سري |
+| `PRIVATE_STORAGE_UPLOAD_MODE` | ابدأ بـ`disabled` | `enabled` للاختبار المعزول | `disabled` يمنع البدء والإنهاء، `drain` يكمل التصاريح السابقة فقط، `enabled` يفتح الرفع |
 | `AWS_ACCESS_KEY_ID` | Secret مطلوب | Secret مختلف | Storage credential؛ ليس متغيرًا عامًا |
 | `AWS_SECRET_ACCESS_KEY` | Secret مطلوب | Secret مختلف | لا يُنسخ إلى المتصفح أو Git |
 | `AWS_ENDPOINT_URL_S3` | مطلوب | endpoint الفرع المنفصل | Neon S3 HTTPS endpoint |
@@ -81,28 +82,29 @@ Remove-Item Env:DATABASE_URL
 3. أنشئ bucket خاصًا باسم `money-coder-documents` إن لم يكن موجودًا. اترك access خاصًا؛ لا تختَر `public_read` أو anonymous access. راجع [إدارة buckets](https://neon.com/docs/storage/buckets).
 4. أنشئ credentials محدودة لهذا الفرع وبصلاحيات القراءة والكتابة المطلوبة فقط. انسخ مرة واحدة القيم الموثقة في [Neon storage quickstart](https://neon.com/docs/storage/get-started): `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL_S3`, `AWS_REGION`.
 5. لا تفترض أن bucket ظهر في branch قديم تلقائيًا. افتح branch `development` نفسه وتأكد من ظهور bucket/credentials الخاصة به.
-6. اضبط CORS للـbucket ليقبل فقط origins المطلوبة (مثل URL Preview أو localhost للاختبار)، والطريقة `PUT`، والـheaders الموقعة التي يعيدها التطبيق، وليس `*` مع origins غير موثوقة. احتفظ بالتنزيل عبر GET موقع قصير العمر من الخادم. راجع [عمليات objects وpresigned URLs](https://neon.com/docs/storage/objects).
+6. اضبط CORS للـbucket ليقبل فقط origins المطلوبة (مثل URL Preview أو localhost للاختبار) والطريقة `POST` المستخدمة في browser form upload، وليس `*` مع origins غير موثوقة. لا تضف `content-type` يدويًا للطلب؛ المتصفح ينشئ multipart boundary، بينما سياسة POST تثبت MIME والmetadata والحجم الدقيق. احتفظ بالتنزيل عبر GET موقع قصير العمر من الخادم. راجع [عمليات objects وpresigned URLs](https://neon.com/docs/storage/objects).
 7. في ملف `.env.local` غير المتتبع أو Vercel Preview Secrets اضبط:
 
 ```text
 PRIVATE_STORAGE_PROVIDER=neon
 PRIVATE_STORAGE_BUCKET=money-coder-documents
 PRIVATE_STORAGE_ACCESS=private
+PRIVATE_STORAGE_UPLOAD_MODE=enabled
 AWS_ACCESS_KEY_ID=<development credential>
 AWS_SECRET_ACCESS_KEY=<development secret>
 AWS_ENDPOINT_URL_S3=<development HTTPS endpoint>
 AWS_REGION=eu-central-1
 ```
 
-8. أعد التشغيل، ثم افحص `/api/health`. المطلوب `privateStorage=connected`، لا مجرد وجود المتغيرات.
-9. استخدم حسابًا وملف PDF وهميًا صغيرًا: ارفع، حدّث الصفحة، نزّل وقارن المحتوى، جرّب حساب مؤسسة أخرى، ثم احذف. لا تستخدم بيانات عميل حقيقية.
+8. أعد التشغيل، ثم افحص `/api/health`. المطلوب `privateStorage=connected` و`documentUploads.mode=enabled` في Development، لا مجرد وجود credentials.
+9. استخدم حسابًا وملف PDF وهميًا صغيرًا: ارفع، حدّث الصفحة، نزّل وقارن المحتوى، جرّب جسمًا أكبر من الحجم الموجود في سياسة POST وتأكد من رفضه، جرّب حساب مؤسسة أخرى، ثم احذف. لا تستخدم بيانات عميل حقيقية.
 
 ### ب. تفعيل Production بعد نجاح Development
 
 1. كرر الخطوات على branch `production` وبـbucket/credentials خاصة به. لا تعِد استخدام مفاتيح Development.
-2. أضف المتغيرات السابقة إلى Vercel → Project → Settings → Environment Variables → **Production**. علّم access key وsecret كـSecrets، ولا تستخدم بادئة `NEXT_PUBLIC_`.
+2. أضف المتغيرات السابقة إلى Vercel → Project → Settings → Environment Variables → **Production**، لكن اضبط `PRIVATE_STORAGE_UPLOAD_MODE=disabled` أولًا. علّم access key وsecret كـSecrets، ولا تستخدم بادئة `NEXT_PUBLIC_`.
 3. تحقق داخل Neon أن bucket ما زال `private` ثم اضبط `PRIVATE_STORAGE_ACCESS=private`. Neon يدير مستوى access عبر Console/API وليس S3 ACL؛ التطبيق يرفض configuration إن لم يوجد هذا الإقرار، ويستخدم `HeadBucket` للتحقق الفعلي من الاتصال، لكن المراجعة اليدوية داخل Neon تظل إلزامية.
-4. أعد Redeploy. افحص `/api/health`، ثم نفّذ اختبارًا وهميًا صغيرًا فقط بعد موافقة صريحة على الاختبار الإنتاجي.
+4. أعد Redeploy. افحص أن `/api/health` يعرض اتصال التخزين مستقلًا مع `documentUploads.mode=disabled`. لا تغيّر الوضع إلى `enabled` إلا بعد اجتياز بوابات الأمان وموافقة صريحة على اختبار إنتاجي وهمي صغير. استخدم `drain` لإيقاف التصاريح الجديدة مع السماح للتصاريح الصادرة سابقًا بالاكتمال أو الإلغاء.
 5. إذا ظهر quota error، أوقف الرفع أو نظف ملفات اختبار مصرح بها فقط؛ لا تفعل paid upgrade تلقائيًا.
 
 ### ج. التدوير والإلغاء
@@ -147,6 +149,6 @@ npm test
 3. راجع وطبق migrations على Production عبر direct TLS URL.
 4. أضف runtime pooled `DATABASE_URL` وSMTP إلى Vercel.
 5. انشر وافحص health؛ اختبر بحسابات وهمية لا ببيانات عملاء.
-6. لا تفعّل رفع المستندات حتى نجاح `privateStorage=connected` واختبار Development المعزول.
+6. لا تغيّر `PRIVATE_STORAGE_UPLOAD_MODE` من `disabled` حتى نجاح `privateStorage=connected` واختبار Development المعزول؛ credentials الصحيحة وحدها لا تفعّل الرفع.
 7. فعّل backups والمراقبة والتنبيهات.
 8. لا تبدأ Phase 2 قبل نجاح E2E إنتاجي موثق ومسح أمني نهائي.

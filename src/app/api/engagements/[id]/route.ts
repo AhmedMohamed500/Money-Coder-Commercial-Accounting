@@ -3,13 +3,16 @@ import { db } from "@/lib/db";
 import { authorizeOrganization, getSessionUser } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { z } from "zod";
-const schema=z.object({action:z.enum(["ACCEPT","REJECT","REVOKE"]),permissions:z.array(z.enum(["organization:view","organization:edit","documents:view","documents:manage","audit:view"])).optional()});
+import { CHART_PERMISSIONS, type Permission } from "@/lib/permissions";
+const schema=z.object({action:z.enum(["ACCEPT","REJECT","REVOKE"]),permissions:z.array(z.enum(["organization:view","organization:edit","documents:view","documents:manage","audit:view",...CHART_PERMISSIONS])).optional()});
 export async function PATCH(request:Request,{params}:{params:Promise<{id:string}>}) {
   const user=await getSessionUser(); const {id}=await params;
   const engagement=await db.officeCompanyEngagement.findUnique({where:{id}});
   if(!user||!engagement||!(await authorizeOrganization(user.id,engagement.companyOrganizationId,"engagements:manage"))) return NextResponse.json({error:"غير مصرح."},{status:403});
   const parsed=schema.safeParse(await request.json().catch(()=>null));
   if(!parsed.success) return NextResponse.json({error:"الإجراء غير صالح."},{status:400});
+  const requestedChartPermissions=(parsed.data.permissions??[]).filter(permission=>permission.startsWith("accounting:chart:"));
+  for(const permission of requestedChartPermissions) if(!(await authorizeOrganization(user.id,engagement.companyOrganizationId,permission as Permission))) return NextResponse.json({error:"لا يمكن تفويض صلاحية محاسبية لا تملكها."},{status:403});
   const allowed=parsed.data.action==="REVOKE"?engagement.status==="ACTIVE":engagement.status==="PENDING";
   if(!allowed) return NextResponse.json({error:"انتقال حالة التفويض غير مسموح."},{status:409});
   const status=parsed.data.action==="ACCEPT"?"ACTIVE":parsed.data.action==="REJECT"?"REJECTED":"REVOKED";
