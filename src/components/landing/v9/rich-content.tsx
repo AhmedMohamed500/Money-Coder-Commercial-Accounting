@@ -34,7 +34,7 @@ const roles: { id: Persona; image: string; label: string; detail: string }[] = [
 export function TeamInFocus({ onChooseRole }: { onChooseRole: (role: Persona) => void }) {
   return <section id="team-in-focus" className="mc9-people mc9-section" aria-labelledby="mc9-people-title">
     <div className="mc9-wrap mc9-people-layout">
-      <div className="mc9-people-visual"><Image src="/landing/finance-team-review-v4.webp" alt="فريق عمل يراجع رسمًا ماليًا معًا في اجتماع توضيحي" fill sizes="(max-width: 900px) 100vw, 52vw" />
+      <div className="mc9-people-visual"><Image src="/landing/global-finance-team-v10.webp" alt="فريق مالي يناقش رسمًا بيانيًا في غرفة اجتماعات حديثة، مشهد توضيحي" fill sizes="(max-width: 900px) 100vw, 52vw" />
         <div className="mc9-people-caption"><span>مشهد توضيحي</span><strong>النقاش يبدأ عندما تكون البيانات واضحة للجميع.</strong></div>
       </div>
       <div className="mc9-people-copy"><span className="mc9-overline">الأشخاص وراء كل قرار</span><h2 id="mc9-people-title">نفس الشركة.<br /><em>رؤية مناسبة لكل دور.</em></h2>

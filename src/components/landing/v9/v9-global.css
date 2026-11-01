@@ -1,0 +1,26 @@
+.mc9{--mc9-navy:#0b2847;--mc9-deep:#071d34;--mc9-teal:#075d62;--mc9-accent:#078493;--mc9-ivory:#f3f7f7;--mc9-gold:#d0a164;--mc9-ink:#173247;--mc9-muted:#5b7481;--mc9-line:#d3e0df;background:var(--mc9-ivory)}
+.mc9 .mc9-header{background:#fffffff0;border-bottom-color:#d7e3e3;box-shadow:0 8px 28px #0a28470b}
+.mc9 .mc9-header-links a:hover,.mc9 .mc9-login:hover{color:var(--mc9-accent)}
+.mc9 .mc9-hero{background:radial-gradient(circle at 8% 14%,#cfe8e940,transparent 38%),linear-gradient(112deg,#eaf2f2 0%,#f7f9f7 47%,#fff 100%)}
+.mc9 .mc9-hero-ambient{background:radial-gradient(circle at 75% 10%,#d7b98824,transparent 30%),linear-gradient(90deg,transparent 96%,#0b284706 96%);background-size:auto,56px 56px}
+.mc9 .mc9-hero-photo{background-image:linear-gradient(120deg,#0a304214,#061e3822),url('/landing/global-office-v10.webp');background-position:center;background-size:cover;opacity:1;box-shadow:0 28px 75px #082b4624}
+.mc9 .mc9-hero-desktop{border-color:#0b2948;box-shadow:0 28px 68px #092f4a45}
+.mc9 .mc9-hero h1 em{background:linear-gradient(110deg,#075d62,#158795);-webkit-background-clip:text;background-clip:text;color:transparent}
+.mc9 .mc9-hero-team-faces img{box-shadow:0 3px 12px #0a28472b}
+.mc9 .mc9-foundation{background:linear-gradient(180deg,#eaf3f2 0%,#f5f8f7 75%,#fff 100%)}
+.mc9 .mc9-foundation-card{position:relative;overflow:hidden;border-color:#d3e1df;box-shadow:0 16px 35px #0a2e4510}
+.mc9 .mc9-foundation-card:before{content:"";position:absolute;top:0;right:0;left:0;height:3px;background:linear-gradient(90deg,#d0a164,#148390,#0b2847)}
+.mc9 .mc9-dna{background:#fff}
+.mc9 .mc9-dna-scene{box-shadow:0 28px 65px #0b28471f}
+.mc9 .mc9-command{background:radial-gradient(circle at 15% 16%,#135a6940,transparent 32%),linear-gradient(155deg,#071d34 0%,#0d3453 100%)}
+.mc9 .mc9-people{background:linear-gradient(145deg,#fff 15%,#edf5f3 100%)}
+.mc9 .mc9-people-visual{box-shadow:0 30px 65px #0b284728;border:1px solid #d5e0dc}
+.mc9 .mc9-role-list button{background:#ffffffed;border-color:#d5e2df;box-shadow:0 8px 20px #0a2b4409}
+.mc9 .mc9-questions{background:linear-gradient(145deg,#edf4f3,#f8faf8)}
+.mc9 .mc9-final{position:relative;background:linear-gradient(90deg,#06283beb 0%,#073042d8 54%,#091e34c9 100%),url('/landing/global-skyline-v10.webp') center 50%/cover;color:#fff;border-top:4px solid var(--mc9-gold)}
+.mc9 .mc9-final .mc9-overline{color:#e3bc82}
+.mc9 .mc9-final h2 em{color:#b7e0dc}
+.mc9 .mc9-final p{color:#e2eeed}
+.mc9 .mc9-final-signature{border-right-color:#91b7b18c}
+.mc9 .mc9-footer{background:#fbfcfc}
+@media(max-width:650px){.mc9 .mc9-hero{background:linear-gradient(170deg,#f8faf9 0%,#eaf2f2 100%)}.mc9 .mc9-hero-photo{background-position:44% center}.mc9 .mc9-final{background-image:linear-gradient(180deg,#06283bec,#081f34e0),url('/landing/global-skyline-v10.webp');background-position:58% center}.mc9 .mc9-hero-team{margin-top:18px}}
