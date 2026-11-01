@@ -17,6 +17,7 @@ import "./v9-experiences.css";
 import "./v9-showcases.css";
 import "./v9-responsive.css";
 import "./v9-content.css";
+import "./v9-global.css";
 
 const tourStops = [
   { label: "اختار سياق شغلك", target: "business-dna" },
