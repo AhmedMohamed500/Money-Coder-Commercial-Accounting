@@ -50,9 +50,71 @@ enum FileKind {
   OTHER
 }
 
+enum DocumentScanStatus {
+  PENDING_SCAN
+  SCANNING
+  CLEAN
+  REJECTED
+  SCAN_FAILED
+}
+
 enum InventoryMethod {
   PERIODIC
   PERPETUAL
+}
+
+enum CompanyBusinessActivity {
+  COMMERCIAL
+  INDUSTRIAL
+  SERVICE
+}
+
+enum ChartAccountClass {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum ChartReportGroup {
+  ASSET_TOTAL
+  LIABILITY_TOTAL
+  REVENUE_TOTAL
+  EXPENSE_TOTAL
+  CURRENT_ASSET
+  NONCURRENT_ASSET
+  CURRENT_LIABILITY
+  NONCURRENT_LIABILITY
+  EQUITY
+  TRADING_REVENUE
+  CONTRA_REVENUE
+  OTHER_INCOME
+  COST_OF_SALES
+  SELLING_EXPENSE
+  ADMIN_EXPENSE
+  STAFF_EXPENSE
+  DEPRECIATION_EXPENSE
+  FINANCE_COST
+  OTHER_EXPENSE
+  INCOME_TAX_EXPENSE
+}
+
+enum ChartNormalBalance {
+  DEBIT
+  CREDIT
+}
+
+enum ChartChangeAction {
+  UPDATE
+  DEACTIVATE
+  DELETE
+}
+
+enum ChartChangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 model User {
@@ -138,6 +200,9 @@ model Organization {
   companyEngagements OfficeCompanyEngagement[] @relation("CompanyEngagements")
   invitations        Invitation[]
   auditEvents        AuditEvent[]
+  chartAccounts      ChartAccount[]
+  chartInstallation  ChartInstallation?
+  chartChanges       ChartChangeRequest[]
 
   @@index([type, deletedAt])
   @@index([createdById])
@@ -258,10 +323,76 @@ model CompanyAccountingSettings {
   fiscalYearEndDay     Int             @default(31)
   openingBalanceDate   DateTime?
   inventoryMethod      InventoryMethod @default(PERIODIC)
+  businessActivity     CompanyBusinessActivity?
   taxSettings          Json            @default("{}")
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
   organization         Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model ChartInstallation {
+  organizationId String                  @id @db.Uuid
+  activity       CompanyBusinessActivity
+  templateVersion String
+  accountCount   Int
+  installedById  String                  @db.Uuid
+  installedAt    DateTime                @default(now())
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+}
+
+model ChartAccount {
+  id              String             @id @default(uuid()) @db.Uuid
+  organizationId  String             @db.Uuid
+  code            String             @db.VarChar(24)
+  nameAr          String             @db.VarChar(180)
+  nameEn          String?            @db.VarChar(180)
+  description     String?
+  parentId        String?            @db.Uuid
+  accountClass    ChartAccountClass
+  reportGroup     ChartReportGroup
+  normalBalance   ChartNormalBalance
+  isContra        Boolean            @default(false)
+  isPostable      Boolean            @default(false)
+  isActive        Boolean            @default(true)
+  inventoryMethod InventoryMethod?
+  origin          String             @default("MANUAL")
+  templateVersion String?
+  revision        Int                @default(1)
+  createdById     String?            @db.Uuid
+  updatedById     String?            @db.Uuid
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  deletedAt       DateTime?
+  organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  parent          ChartAccount?      @relation("ChartTree", fields: [parentId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  children        ChartAccount[]     @relation("ChartTree")
+  changes         ChartChangeRequest[]
+
+  @@unique([id, organizationId])
+  @@unique([organizationId, code])
+  @@index([organizationId, parentId, deletedAt])
+  @@index([organizationId, accountClass, isActive])
+}
+
+model ChartChangeRequest {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @db.Uuid
+  accountId      String            @db.Uuid
+  accountRevision Int
+  action         ChartChangeAction
+  proposed       Json              @default("{}")
+  reason         String
+  status         ChartChangeStatus @default(PENDING)
+  requestedById  String            @db.Uuid
+  decidedById    String?           @db.Uuid
+  decisionReason String?
+  createdAt      DateTime          @default(now())
+  decidedAt      DateTime?
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  account        ChartAccount      @relation(fields: [accountId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([organizationId, status, createdAt])
+  @@index([organizationId, accountId, createdAt])
 }
 
 model CompanyFiscalYear {
@@ -290,13 +421,53 @@ model FileAsset {
   sizeBytes      Int
   sha256         String
   storageProvider String
+  scanStatus     DocumentScanStatus?
+  scanRevision   Int               @default(0)
+  scanAttemptCount Int             @default(0)
+  scanNextAttemptAt DateTime?
+  scanLeaseToken String?           @db.Uuid
+  scanLeaseExpiresAt DateTime?
+  scanStartedAt  DateTime?
+  scanCompletedAt DateTime?
+  scanProvider   String?
+  scanEngineVersion String?
+  scanDefinitionsVersion String?
+  scanResultSha256 String?
+  scanErrorCode String?
+  scanUpdatedAt DateTime?
   createdAt      DateTime          @default(now())
   deletedAt      DateTime?
   organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   companyDocument CompanyDocument?
   logoFor         OrganizationProfile? @relation("OrganizationLogo")
+  scanAttempts    DocumentScanAttempt[]
 
   @@index([organizationId, deletedAt])
+  @@index([scanStatus, scanNextAttemptAt])
+  @@index([scanStatus, scanLeaseExpiresAt])
+}
+
+model DocumentScanAttempt {
+  id                     String             @id @default(uuid()) @db.Uuid
+  fileAssetId            String?            @db.Uuid
+  fileAssetIdentity      String             @db.Uuid
+  revision               Int
+  attemptNumber          Int
+  leaseToken             String             @unique @db.Uuid
+  status                 DocumentScanStatus
+  expectedSha256         String
+  resultSha256           String?
+  provider               String?
+  engineVersion          String?
+  definitionsVersion     String?
+  errorCode              String?
+  startedAt              DateTime
+  completedAt            DateTime?
+  createdAt              DateTime           @default(now())
+  fileAsset              FileAsset?         @relation(fields: [fileAssetId], references: [id], onDelete: SetNull)
+
+  @@unique([fileAssetIdentity, revision, attemptNumber])
+  @@index([fileAssetId, createdAt])
 }
 
 model CompanyDocument {
@@ -313,6 +484,15 @@ model CompanyDocument {
   fileAsset      FileAsset    @relation(fields: [fileAssetId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, category, deletedAt])
+}
+
+model RateLimitBucket {
+  keyHash   String   @id @db.VarChar(64)
+  count     Int
+  resetAt   DateTime
+  updatedAt DateTime @updatedAt
+
+  @@index([resetAt])
 }
 
 model OfficeCompanyEngagement {

@@ -13,7 +13,7 @@ export async function POST(request: Request) {
 async function forgotRequest(request: Request) {
   if(!databaseConfigured()) return NextResponse.json({error:"خدمة الاستعادة غير مهيأة على هذه البيئة."},{status:503});
   if(process.env.NODE_ENV==="production"&&!emailConfigured()) return NextResponse.json({error:"خدمة الاستعادة معطلة حتى تهيئة البريد الإنتاجي."},{status:503});
-  if (!checkRateLimit(`forgot:${clientIp(request)}`, 5, 15*60_000).allowed) return NextResponse.json({ error: "محاولات كثيرة." }, { status: 429 });
+  if (!(await checkRateLimit(`forgot:${clientIp(request)}`, 5, 15*60_000)).allowed) return NextResponse.json({ error: "محاولات كثيرة." }, { status: 429 });
   const email = emailSchema.safeParse((await request.json().catch(()=>null))?.email);
   if (!email.success) return NextResponse.json({ error: "بريد غير صالح." }, { status: 400 });
   const user = await db.user.findUnique({ where: { email: email.data } }); let devResetUrl: string | undefined;
