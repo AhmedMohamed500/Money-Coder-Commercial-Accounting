@@ -16,6 +16,7 @@ import { DELETE as cancelUpload } from "@/app/api/organizations/[id]/documents/u
 import { PUT as receiveUpload } from "@/app/api/private-storage/uploads/route";
 import { POST as finalizeUpload } from "@/app/api/organizations/[id]/documents/route";
 import { DELETE as deleteDocument, GET as downloadDocument } from "@/app/api/documents/[documentId]/route";
+import { GET as health } from "@/app/api/health/route";
 
 const enabled = process.env.RUN_DB_TESTS === "1";
 const marker = randomUUID();
@@ -83,7 +84,7 @@ describe.skipIf(!enabled)("private document storage lifecycle", () => {
     const orgB=await db.organization.create({data:{type:"COMMERCIAL_COMPANY",legalName:"Storage Company B",createdById:b.id,memberships:{create:{userId:b.id,role:"COMPANY_OWNER"}}}});
     companyA=orgA.id;companyB=orgB.id;ids.organizations.push(orgA.id,orgB.id);
   });
-  beforeEach(()=>{configureTestStorageFailure({unavailable:false,failDelete:false,failPromote:false});cookieState.jar.clear();});
+  beforeEach(()=>{configureTestStorageFailure({unavailable:false,failDelete:false,failPromote:false});cookieState.jar.clear();delete process.env.PRIVATE_STORAGE_UPLOAD_MODE;});
   afterAll(async()=>{cookieState.jar.clear();resetTestStorage();await db.organization.deleteMany({where:{id:{in:ids.organizations}}});await db.user.deleteMany({where:{id:{in:ids.users}}});await db.$disconnect();});
 
   it.each([
@@ -118,4 +119,29 @@ describe.skipIf(!enabled)("private document storage lifecycle", () => {
   it("does not expose public object access or alter unrelated company data",async()=>{await loginAs(ownerA);const created=await upload(companyA,"isolated.pdf","application/pdf",pdf);expect(await getStorageAdapter().createDownloadUrl(created.payload.finalKey,"isolated.pdf","application/pdf",60)).toBeNull();const direct=await receiveUpload(new Request("http://local.test/api/private-storage/uploads",{method:"PUT",headers:{"content-type":"application/pdf"},body:new Uint8Array(pdf)}));expect(direct.status).toBe(400);expect((await db.organization.findUniqueOrThrow({where:{id:companyA}})).tradeName).toBe("Untouched Trade Name");});
 
   it("allows cancellation only for the issuing tenant",async()=>{await loginAs(ownerA);const started=await initUpload(companyA,"cancel.pdf","application/pdf",pdf);expect((await putUpload(started.body,pdf)).status).toBe(204);const payload=verifyDocumentUploadTicket(started.body.token).payload;await loginAs(ownerB);expect((await cancelUpload(jsonRequest(`http://local.test/api/organizations/${companyA}/documents/uploads`,"DELETE",{token:started.body.token}),{params:Promise.resolve({id:companyA})})).status).toBe(403);expect(testStorageHas(payload.pendingKey)).toBe(true);await loginAs(ownerA);expect((await cancelUpload(jsonRequest(`http://local.test/api/organizations/${companyA}/documents/uploads`,"DELETE",{token:started.body.token}),{params:Promise.resolve({id:companyA})})).status).toBe(200);expect(testStorageHas(payload.pendingKey)).toBe(false);});
+
+  it("blocks API upload initiation and finalization in disabled mode even with working storage",async()=>{
+    await loginAs(ownerA);
+    const started=await initUpload(companyA,"before-switch.pdf","application/pdf",pdf);
+    expect(started.response.status).toBe(200);
+    expect((await putUpload(started.body,pdf)).status).toBe(204);
+    process.env.PRIVATE_STORAGE_UPLOAD_MODE="disabled";
+    expect((await initUpload(companyA,"blocked.pdf","application/pdf",pdf)).response.status).toBe(503);
+    expect((await complete(companyA,started.body.token)).status).toBe(503);
+    const status=await health(); const body=await status.json();
+    expect(body.privateStorage).toBe("connected");
+    expect(body.documentUploads).toMatchObject({mode:"disabled",acceptsNew:false,acceptsFinalization:false});
+    expect(await db.companyDocument.count({where:{organizationId:companyA,fileAsset:{storageKey:verifyDocumentUploadTicket(started.body.token).payload.finalKey}}})).toBe(0);
+  });
+
+  it("drains only previously issued tickets and rejects new initiation",async()=>{
+    await loginAs(ownerA);
+    const started=await initUpload(companyA,"drain.pdf","application/pdf",pdf);
+    expect((await putUpload(started.body,pdf)).status).toBe(204);
+    process.env.PRIVATE_STORAGE_UPLOAD_MODE="drain";
+    expect((await initUpload(companyA,"new.pdf","application/pdf",pdf)).response.status).toBe(503);
+    expect((await complete(companyA,started.body.token)).status).toBe(201);
+    const body=await (await health()).json();
+    expect(body.documentUploads).toMatchObject({mode:"drain",acceptsNew:false,acceptsFinalization:true});
+  });
 });

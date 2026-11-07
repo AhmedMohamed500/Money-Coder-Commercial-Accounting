@@ -45,6 +45,15 @@ export function emailConfigured() {
   return emailConfiguration().configured;
 }
 
+export type PrivateStorageUploadMode = "disabled" | "drain" | "enabled";
+
+/** Production never enables document writes because credentials happen to exist. */
+export function privateStorageUploadMode(): PrivateStorageUploadMode {
+  const value = process.env.PRIVATE_STORAGE_UPLOAD_MODE?.trim().toLowerCase();
+  if (value === "disabled" || value === "drain" || value === "enabled") return value;
+  return process.env.NODE_ENV === "production" ? "disabled" : value ? "disabled" : "enabled";
+}
+
 export function privateStorageConfiguration(): PrivateStorageConfiguration {
   const provider = process.env.PRIVATE_STORAGE_PROVIDER?.trim() || (process.env.NODE_ENV === "production" ? "" : "local-dev");
   if (provider === "local-dev" && process.env.NODE_ENV !== "production") return { configured: true };

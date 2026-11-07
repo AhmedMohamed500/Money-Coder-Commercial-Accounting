@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authorizeOrganization, getSessionUser } from "@/lib/auth";
 import { z } from "zod";
-import { mergePermissions, validPermissions } from "@/lib/permissions";
+import { CHART_PERMISSIONS, OPENING_PERMISSIONS, mergePermissions, validPermissions } from "@/lib/permissions";
 import { writeAudit } from "@/lib/audit";
-const schema=z.object({membershipId:z.string().uuid(),permissions:z.array(z.enum(["organization:view","organization:edit","documents:view","documents:manage","audit:view"])).min(1)});
+const schema=z.object({membershipId:z.string().uuid(),permissions:z.array(z.enum(["organization:view","organization:edit","documents:view","documents:manage","audit:view",...CHART_PERMISSIONS,...OPENING_PERMISSIONS])).min(1)});
 export async function POST(request:Request,{params}:{params:Promise<{id:string}>}) {
   const user=await getSessionUser(); const {id}=await params;
   const engagement=await db.officeCompanyEngagement.findUnique({where:{id}});

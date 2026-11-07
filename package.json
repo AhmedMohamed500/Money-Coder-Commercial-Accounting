@@ -24,6 +24,7 @@
     "@hookform/resolvers": "5.2.2",
     "@prisma/client": "6.12.0",
     "bcryptjs": "latest",
+    "exceljs": "4.4.0",
     "jose": "latest",
     "lucide-react": "latest",
     "next": "16.4.3",

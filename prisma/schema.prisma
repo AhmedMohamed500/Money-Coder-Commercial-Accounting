@@ -55,6 +55,98 @@ enum InventoryMethod {
   PERPETUAL
 }
 
+enum CompanyBusinessActivity {
+  COMMERCIAL
+  INDUSTRIAL
+  SERVICE
+}
+
+enum ChartAccountClass {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum ChartReportGroup {
+  ASSET_TOTAL
+  LIABILITY_TOTAL
+  REVENUE_TOTAL
+  EXPENSE_TOTAL
+  CURRENT_ASSET
+  NONCURRENT_ASSET
+  CURRENT_LIABILITY
+  NONCURRENT_LIABILITY
+  EQUITY
+  TRADING_REVENUE
+  CONTRA_REVENUE
+  OTHER_INCOME
+  COST_OF_SALES
+  SELLING_EXPENSE
+  ADMIN_EXPENSE
+  STAFF_EXPENSE
+  DEPRECIATION_EXPENSE
+  FINANCE_COST
+  OTHER_EXPENSE
+  INCOME_TAX_EXPENSE
+}
+
+enum ChartNormalBalance {
+  DEBIT
+  CREDIT
+}
+
+enum ChartChangeAction {
+  UPDATE
+  DEACTIVATE
+  DELETE
+}
+
+enum ChartChangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum OpeningBalanceStatus {
+  DRAFT
+  SUBMITTED
+  REJECTED
+  APPROVED
+  SUPERSEDED
+}
+
+enum OpeningImportStatus {
+  PREVIEW
+  APPLIED
+  REJECTED
+}
+
+enum AutomationJobStatus {
+  CREATED
+  QUEUED
+  PROCESSING
+  NEEDS_REVIEW
+  REVIEWED
+  REVIEW_REJECTED
+  PROCESSING_FAILED
+  TIMED_OUT
+  CANCELLED
+}
+
+enum BankReviewStatus {
+  PENDING_REVIEW
+  CORRECTION_REQUESTED
+  REVIEWED
+  REJECTED
+}
+
+enum BankMathStatus {
+  MATCHED
+  MISMATCHED
+}
+
 model User {
   id                   String                   @id @default(uuid()) @db.Uuid
   email                String                   @unique
@@ -73,6 +165,8 @@ model User {
   passwordResetTokens  PasswordResetToken[]
   sessions             Session[]
   engagementAssignments EngagementStaff[]
+  automationJobs AutomationJob[]
+  bankReviewDecisions BankReviewDecision[]
 
   @@index([deletedAt])
 }
@@ -138,6 +232,12 @@ model Organization {
   companyEngagements OfficeCompanyEngagement[] @relation("CompanyEngagements")
   invitations        Invitation[]
   auditEvents        AuditEvent[]
+  chartAccounts      ChartAccount[]
+  chartInstallation  ChartInstallation?
+  chartChanges       ChartChangeRequest[]
+  openingBatches     OpeningBalanceBatch[]
+  automationJobs     AutomationJob[]
+  bankStatements     BankStatement[]
 
   @@index([type, deletedAt])
   @@index([createdById])
@@ -243,7 +343,10 @@ model CompanyBankAccount {
   updatedAt      DateTime     @updatedAt
   deletedAt      DateTime?
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  statements     BankStatement[]
+  automationJobs AutomationJob[]
 
+  @@unique([id, organizationId])
   @@unique([organizationId, accountNumber])
   @@index([organizationId, deletedAt])
 }
@@ -258,10 +361,77 @@ model CompanyAccountingSettings {
   fiscalYearEndDay     Int             @default(31)
   openingBalanceDate   DateTime?
   inventoryMethod      InventoryMethod @default(PERIODIC)
+  businessActivity     CompanyBusinessActivity?
   taxSettings          Json            @default("{}")
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
   organization         Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model ChartInstallation {
+  organizationId  String                  @id @db.Uuid
+  activity        CompanyBusinessActivity
+  templateVersion String
+  accountCount    Int
+  installedById   String                  @db.Uuid
+  installedAt     DateTime                @default(now())
+  organization    Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+}
+
+model ChartAccount {
+  id              String             @id @default(uuid()) @db.Uuid
+  organizationId  String             @db.Uuid
+  code            String             @db.VarChar(24)
+  nameAr          String             @db.VarChar(180)
+  nameEn          String?            @db.VarChar(180)
+  description     String?
+  parentId        String?            @db.Uuid
+  accountClass    ChartAccountClass
+  reportGroup     ChartReportGroup
+  normalBalance   ChartNormalBalance
+  isContra        Boolean            @default(false)
+  isPostable      Boolean            @default(false)
+  isActive        Boolean            @default(true)
+  inventoryMethod InventoryMethod?
+  origin          String             @default("MANUAL")
+  templateVersion String?
+  revision        Int                @default(1)
+  createdById     String?            @db.Uuid
+  updatedById     String?            @db.Uuid
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  deletedAt       DateTime?
+  organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  parent          ChartAccount?      @relation("ChartTree", fields: [parentId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  children        ChartAccount[]     @relation("ChartTree")
+  changes         ChartChangeRequest[]
+  openingLines    OpeningBalanceLine[]
+
+  @@unique([id, organizationId])
+  @@unique([organizationId, code])
+  @@index([organizationId, parentId, deletedAt])
+  @@index([organizationId, accountClass, isActive])
+}
+
+model ChartChangeRequest {
+  id              String            @id @default(uuid()) @db.Uuid
+  organizationId  String            @db.Uuid
+  accountId       String            @db.Uuid
+  accountRevision Int
+  action          ChartChangeAction
+  proposed        Json              @default("{}")
+  reason          String
+  status          ChartChangeStatus @default(PENDING)
+  requestedById   String            @db.Uuid
+  decidedById     String?           @db.Uuid
+  decisionReason  String?
+  createdAt       DateTime          @default(now())
+  decidedAt       DateTime?
+  organization    Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  account         ChartAccount      @relation(fields: [accountId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([organizationId, status, createdAt])
+  @@index([organizationId, accountId, createdAt])
 }
 
 model CompanyFiscalYear {
@@ -274,9 +444,221 @@ model CompanyFiscalYear {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  openingBatches OpeningBalanceBatch[]
 
+  @@unique([id, organizationId])
   @@unique([organizationId, startsAt, endsAt])
   @@index([organizationId, isClosed])
+}
+
+model OpeningBalanceBatch {
+  id                String               @id @default(uuid()) @db.Uuid
+  organizationId    String               @db.Uuid
+  fiscalYearId      String               @db.Uuid
+  openingDate       DateTime             @db.Date
+  baseCurrency      String               @db.VarChar(3)
+  currencyPrecision Int
+  status            OpeningBalanceStatus @default(DRAFT)
+  revision          Int                  @default(1)
+  createdById       String               @db.Uuid
+  submittedById     String?              @db.Uuid
+  reviewedById      String?              @db.Uuid
+  approvedById      String?              @db.Uuid
+  submittedAt       DateTime?
+  reviewedAt        DateTime?
+  approvedAt        DateTime?
+  rejectionReason   String?
+  correctionOfId    String?              @db.Uuid
+  correctionReason  String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  organization      Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  fiscalYear        CompanyFiscalYear    @relation(fields: [fiscalYearId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  lines             OpeningBalanceLine[]
+  imports           OpeningImportStage[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, fiscalYearId, status])
+  @@index([organizationId, createdAt])
+}
+
+model OpeningBalanceLine {
+  id              String              @id @default(uuid()) @db.Uuid
+  organizationId  String              @db.Uuid
+  batchId         String              @db.Uuid
+  accountId       String              @db.Uuid
+  accountCode     String              @db.VarChar(24)
+  accountNameAr   String              @db.VarChar(180)
+  accountClass    ChartAccountClass
+  normalBalance   ChartNormalBalance
+  debit           Decimal             @default(0) @db.Decimal(20, 3)
+  credit          Decimal             @default(0) @db.Decimal(20, 3)
+  explanation     String?
+  sourceReference String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  batch           OpeningBalanceBatch @relation(fields: [batchId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  account         ChartAccount        @relation(fields: [accountId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([batchId, accountId])
+  @@index([organizationId, accountId])
+}
+
+model OpeningImportStage {
+  id             String              @id @default(uuid()) @db.Uuid
+  organizationId String              @db.Uuid
+  batchId        String              @db.Uuid
+  fileSha256     String              @db.VarChar(64)
+  originalName   String              @db.VarChar(180)
+  rows           Json
+  rowCount       Int
+  status         OpeningImportStatus @default(PREVIEW)
+  createdById    String              @db.Uuid
+  createdAt      DateTime            @default(now())
+  expiresAt      DateTime
+  appliedAt      DateTime?
+  batch          OpeningBalanceBatch @relation(fields: [batchId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([batchId, fileSha256])
+  @@index([organizationId, expiresAt])
+}
+
+model AutomationJob {
+  id               String              @id @default(uuid()) @db.Uuid
+  organizationId   String              @db.Uuid
+  requestedById    String              @db.Uuid
+  bankAccountId    String?             @db.Uuid
+  processingType   String              @default("BANK_STATEMENT")
+  sourceReference  String              @db.VarChar(160)
+  idempotencyKey   String              @db.VarChar(120)
+  provider         String              @db.VarChar(40)
+  status           AutomationJobStatus @default(CREATED)
+  attemptCount     Int                 @default(0)
+  revision         Int                 @default(1)
+  resultHash       String?             @db.VarChar(64)
+  failureCategory  String?             @db.VarChar(40)
+  failureMessage   String?             @db.VarChar(240)
+  createdAt        DateTime            @default(now())
+  startedAt        DateTime?
+  completedAt      DateTime?
+  updatedAt        DateTime            @updatedAt
+  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  bankAccount      CompanyBankAccount? @relation(fields: [bankAccountId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  requestedBy      User                @relation(fields: [requestedById], references: [id], onDelete: Restrict)
+  statement        BankStatement?
+  events           AutomationEvent[]
+  callbackNonces   AutomationCallbackNonce[]
+
+  @@unique([id, organizationId])
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, status, createdAt])
+}
+
+model AutomationEvent {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String        @db.Uuid
+  jobId          String        @db.Uuid
+  actorUserId    String?       @db.Uuid
+  action         String        @db.VarChar(80)
+  metadata       Json          @default("{}")
+  createdAt      DateTime      @default(now())
+  job            AutomationJob @relation(fields: [jobId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([organizationId, jobId, createdAt])
+}
+
+model AutomationCallbackNonce {
+  nonceHash      String        @id @db.VarChar(64)
+  organizationId String        @db.Uuid
+  jobId          String        @db.Uuid
+  expiresAt      DateTime
+  createdAt      DateTime      @default(now())
+  job            AutomationJob @relation(fields: [jobId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([expiresAt])
+}
+
+model BankStatement {
+  id             String                    @id @default(uuid()) @db.Uuid
+  organizationId String                    @db.Uuid
+  jobId          String                    @unique @db.Uuid
+  bankAccountId  String                    @db.Uuid
+  bankFromPdf    String                    @db.VarChar(160)
+  currency       String                    @db.VarChar(3)
+  periodStart    DateTime?                 @db.Date
+  periodEnd      DateTime?                 @db.Date
+  openingBalance Decimal                   @db.Decimal(20, 3)
+  totalCredits   Decimal                   @db.Decimal(20, 3)
+  totalDebits    Decimal                   @db.Decimal(20, 3)
+  closingBalance Decimal                   @db.Decimal(20, 3)
+  difference     Decimal                   @db.Decimal(20, 3)
+  mathStatus     BankMathStatus
+  reviewStatus   BankReviewStatus          @default(PENDING_REVIEW)
+  parserVersion  String?                   @db.VarChar(80)
+  issues         Json                      @default("[]")
+  revision       Int                       @default(1)
+  reviewedById   String?                   @db.Uuid
+  reviewedAt     DateTime?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  job            AutomationJob             @relation(fields: [jobId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  bankAccount    CompanyBankAccount        @relation(fields: [bankAccountId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  transactions   BankStatementTransaction[]
+  decisions      BankReviewDecision[]
+
+  @@unique([id, organizationId])
+  @@unique([jobId, organizationId])
+  @@index([organizationId, reviewStatus, createdAt])
+}
+
+model BankStatementTransaction {
+  id                  String           @id @default(uuid()) @db.Uuid
+  organizationId      String           @db.Uuid
+  statementId         String           @db.Uuid
+  sequence            Int
+  sourceTransactionId String           @db.VarChar(120)
+  transactionDate     DateTime         @db.Date
+  reference           String?          @db.VarChar(160)
+  sourcePage          Int?
+  originalDescription String           @db.VarChar(1000)
+  originalDebit       Decimal          @db.Decimal(20, 3)
+  originalCredit      Decimal          @db.Decimal(20, 3)
+  runningBalance      Decimal          @db.Decimal(20, 3)
+  mathStatus          BankMathStatus
+  reviewStatus        BankReviewStatus @default(PENDING_REVIEW)
+  correctedDescription String?         @db.VarChar(1000)
+  correctedDebit      Decimal?         @db.Decimal(20, 3)
+  correctedCredit     Decimal?         @db.Decimal(20, 3)
+  correctionReason    String?          @db.VarChar(500)
+  reviewedById        String?          @db.Uuid
+  reviewedAt          DateTime?
+  revision            Int              @default(1)
+  statement           BankStatement    @relation(fields: [statementId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  decisions           BankReviewDecision[]
+
+  @@unique([statementId, sequence])
+  @@unique([statementId, sourceTransactionId])
+  @@unique([id, statementId, organizationId])
+  @@index([organizationId, statementId, reviewStatus])
+}
+
+model BankReviewDecision {
+  id             String                    @id @default(uuid()) @db.Uuid
+  organizationId String                    @db.Uuid
+  statementId    String                    @db.Uuid
+  transactionId  String?                   @db.Uuid
+  actorUserId    String                    @db.Uuid
+  action         String                    @db.VarChar(40)
+  previous       Json                      @default("{}")
+  next           Json                      @default("{}")
+  reason         String?                   @db.VarChar(500)
+  createdAt      DateTime                  @default(now())
+  statement      BankStatement             @relation(fields: [statementId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  transaction    BankStatementTransaction? @relation(fields: [transactionId, statementId, organizationId], references: [id, statementId, organizationId], onDelete: Restrict)
+  actor          User                      @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, statementId, createdAt])
 }
 
 model FileAsset {

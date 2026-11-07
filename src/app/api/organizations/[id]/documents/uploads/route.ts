@@ -6,6 +6,7 @@ import { DocumentValidationError, validateDeclaredDocument } from "@/lib/documen
 import { createDocumentUploadTicket, UploadTicketError, verifyDocumentUploadTicket } from "@/lib/document-upload";
 import { organizationHasDocumentCapacity } from "@/lib/document-storage-policy";
 import { assertOrganizationObjectKey, cleanupAbandonedUploads, getStorageAdapter, StorageOperationError } from "@/lib/storage";
+import { privateStorageUploadMode } from "@/lib/config";
 
 const inputSchema = z.object({
   title: z.string().trim().min(2).max(200),
@@ -30,6 +31,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const user = await getSessionUser();
   const { id } = await params;
   if (!user || !(await authorizeOrganization(user.id, id, "documents:manage"))) return NextResponse.json({ error: "غير مصرح." }, { status: 403, headers: noStore });
+  if (privateStorageUploadMode() !== "enabled") return NextResponse.json({ error: "رفع المستندات غير مفعّل حاليًا." }, { status: 503, headers: noStore });
   if (!checkRateLimit(`document-upload:${user.id}:${clientIp(request)}`, 20, 15 * 60_000).allowed) return NextResponse.json({ error: "محاولات رفع كثيرة. حاول لاحقًا." }, { status: 429, headers: noStore });
   try {
     const parsed = inputSchema.parse(await request.json());

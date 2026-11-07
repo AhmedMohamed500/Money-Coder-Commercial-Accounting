@@ -77,7 +77,7 @@ export async function authorizeOrganization(userId: string, organizationId: stri
   for (const assignment of assignments) {
     if (assignment.membership.organizationId !== assignment.engagement.officeOrganizationId) continue;
     const allowed = intersectPermissions(assignment.permissions, assignment.engagement.permissions);
-    if (allowed.includes(permission)) return assignment.membership;
+    if (allowed.includes(permission) && mergePermissions(assignment.membership.role, assignment.membership.permissions).includes(permission)) return assignment.membership;
   }
   return null;
 }

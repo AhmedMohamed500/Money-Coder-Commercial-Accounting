@@ -7,6 +7,7 @@ import { DocumentValidationError, validateStoredDocument } from "@/lib/document-
 import { UploadTicketError, verifyDocumentUploadTicket } from "@/lib/document-upload";
 import { organizationHasDocumentCapacity } from "@/lib/document-storage-policy";
 import { assertOrganizationObjectKey, getStorageAdapter, StorageOperationError, type StorageObjectMetadata } from "@/lib/storage";
+import { privateStorageUploadMode } from "@/lib/config";
 
 const noStore = { "cache-control": "no-store" };
 const finalizeSchema = z.object({ token: z.string().min(1).max(4_096) });
@@ -23,6 +24,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const user = await getSessionUser();
   const { id } = await params;
   if (!user || !(await authorizeOrganization(user.id, id, "documents:manage"))) return NextResponse.json({ error: "غير مصرح." }, { status: 403, headers: noStore });
+  if (privateStorageUploadMode() === "disabled") return NextResponse.json({ error: "إنهاء رفع المستندات معطّل حاليًا." }, { status: 503, headers: noStore });
 
   let pendingKey: string | undefined;
   let finalKey: string | undefined;
