@@ -5,7 +5,9 @@
 **الفرع المحلي عند البداية:** `codex/landing-v12-people-hero`
 **فرع المراجعة المحلي:** `codex/phase2c-review-20261108`
 **آخر commit عند البداية:** `9d3259a`
-**GitHub / Vercel / Neon Production:** لم تُعدّل أو تُنشر ضمن هذه المهمة.
+**GitHub:** نُشر فرع مراجعة فقط؛ commit التنفيذ `5dad4cd2d7ffdc827f3d43644598f1e50f73dc34`.
+**Vercel:** نجح بناء Preview التلقائي المرتبط بفرع المراجعة؛ لم يُنشر Production.
+**Neon Production:** لم تُنفذ عليه migrations أو تعديلات بيانات.
 
 ## 1. الملخص التنفيذي
 
@@ -102,14 +104,18 @@ flowchart RL
 | `npm run lint` | **PASS**، صفر تحذيرات |
 | `npm test -- --reporter=dot` | **PASS:** 39 اختبارًا؛ **SKIPPED:** 53 اختبار DB مقصود تشغيلها في الأمر التالي |
 | `npm run test:db` | **PASS:** 53/53 عبر 6 ملفات، مع ترحيلات المشروع الأربعة على PostgreSQL مؤقت ومعزول |
-| `git diff --check` | **PASS**، مع تنبيه Git عن تحويل نهاية أسطر ملف n8n مستقبلًا |
+| `git diff --check` و`git diff --cached --check` | **PASS** بعد إزالة مسافات Markdown النهائية؛ تنبيهات Git عن تحويل LF/CRLF فقط |
 | إعادة فتح XLSX الناتج في اختبار التكامل | **PASS** بواسطة ExcelJS؛ لا يُعد اختبار فتح يدوي في Microsoft Excel |
 | اتصال MC-04 الحقيقي أو PDF حقيقي | **NOT RUN / BLOCKED** لغياب بوابات الفحص والربط الحي |
 | اختبار Production/Neon/Vercel | **NOT RUN** لأن النشر محجوب |
 | Production-style build معزول | **PASS:** `next build --webpack` على نسخة ملفات بلا `.env*`، بأسماء/قيم اختبار اصطناعية؛ 22 صفحة ثابتة وكل المسارات الديناميكية جُمعت |
 | Build على أصل المشروع أو مع إعدادات Production الحقيقية | **NOT RUN** لمنع تحميل أسرار أو اتصال خارجي |
+| GitHub review branch | **PASS:** commit `5dad4cd` منشور على `codex/phase2c-review-20261108`؛ فُحصت 100 مسار مرحّل لأنماط الأسرار عالية الثقة |
+| Vercel Preview build status | **PASS:** حالة Vercel المرتبطة بـ commit التنفيذ `success` على GitHub؛ اختبار تشغيل Preview نفسه **NOT RUN** |
 
 ملاحظة شفافية: محاولة مبكرة لـ Prisma validate من مسار `.cache` استخدمت آلية Prisma التي حمّلت ملف بيئة المشروع تلقائيًا. لم تُطبع قيمه، ولم يُجر اتصال بقاعدة خارجية أو migration، وأُوقفت هذه الطريقة. أُعيد التحقق لاحقًا بنسخة مؤقتة معزولة من المخطط وإعداد DATABASE_URL اصطناعي فقط.
+
+فشل تشغيل ESLint واحد مؤقتًا لأن نسخة البناء المنسوخة تحت `.cache` أضافت آلاف ملفات `.next` المولّدة إلى نطاق الفحص. أُزيلت النسخة المؤقتة، ثم نجح `npm run lint` من أصل المشروع بصفر تحذيرات. تعثر تشغيل Turbopack في المعاينة المعزولة بسبب رفض Windows إنشاء junction؛ أُعيد الفحص بـ Webpack ونجح. لا تُحسب هاتان المحاولتان كنجاح سابق أو كعيب في كود التطبيق.
 
 تغطي اختبارات التكامل: عزل شركتين، تفويض مكتب وسحبه، رفض غير المصرح، عينة Horizon الاصطناعية ذات 15 حركة (42,500 + 56,700 − 33,010 = 66,190)، الدقة والفروق الحسابية، رفض عقد غير صالح، توقيع callback والتكرار، مفتاح idempotency، إعادة المحاولة، السجل والتصحيح، عدم إنشاء قيد تلقائي، وتجاوز مفتاح الرفع عبر API. اختبارات Phase 2A/2B بقيت ناجحة.
 
@@ -121,7 +127,7 @@ flowchart RL
 
 ## 11. حكم الجاهزية والإصدار
 
-**IMPLEMENTED LOCALLY / RELEASE BLOCKED.** لا يوجد commit جديد لهذه المهمة، ولا push إلى GitHub، ولا نشر Vercel، ولا تعديل Neon Production. رابط الموقع القائم هو `https://money-coder-commercial-accounting.vercel.app/` لكنه لا يحتوي Phase 2C من هذه المهمة، ولم يُختبر على أنه نشر جديد.
+**IMPLEMENTED LOCALLY + GITHUB REVIEW BRANCH / PRODUCTION RELEASE BLOCKED.** نُشر [فرع المراجعة](https://github.com/AhmedMohamed500/Money-Coder-Commercial-Accounting/tree/codex/phase2c-review-20261108) مع [commit التنفيذ `5dad4cd`](https://github.com/AhmedMohamed500/Money-Coder-Commercial-Accounting/commit/5dad4cd2d7ffdc827f3d43644598f1e50f73dc34). أكد GitHub حالة Vercel `success` لبناء [Preview المرتبط بهذا commit](https://vercel.com/ahmed-mohameds-projects-c51bc2cc/money-coder-commercial-accounting/3BdLmNAmRztEtAZeg2JG4pVVyLQR)، لكن لم يُتحقق من رابط عام أو من عمل صفحات Preview على قاعدة بياناته. لم يحدث دمج في `main`، ولا نشر Production مباشر، ولا تعديل Neon Production. [رابط الموقع القائم](https://money-coder-commercial-accounting.vercel.app/) لا يُقدَّم بوصفه إصدار Phase 2C جديدًا.
 
 الموانع قبل أي إصدار:
 
@@ -130,6 +136,8 @@ flowchart RL
 3. إكمال Phase 1.7/1.8: AV، الحجر و`CLEAN`، حدود موزعة، إعدادات التخزين وCORS والتنظيف الدوري. يبقى الرفع `disabled` في Production.
 4. بناء dispatcher/queue durable وإثبات عقد callback مع MC-04، وإعداد اتصال n8n آمن متاح لخادم Vercel. `REMOTE` مغلق حاليًا.
 5. التحقق من إعدادات Vercel Preview وProduction الفعلية، وخطة نشر تدريجي، واختبار مصادق عليه بعد توفر المخطط في بيئة staging؛ النجاح المحلي لا يثبت توافق الخدمات الخارجية.
+
+الفرع المنشور مخصص للمراجعة فقط. نجاح Preview يعني نجاح بناء Vercel، لا جاهزية ميزة كشف البنك على قاعدة Preview أو Neon. تعطيل الرفع والأتمتة الحية يستمر افتراضيًا. الملفات غير المرتبطة في شجرة العمل المحلية بقيت خارج commit المراجعة.
 
 **التراجع المقترح عند إصدار مستقبلي:** إبقاء `AUTOMATION_MODE=DISABLED` و`PRIVATE_STORAGE_UPLOAD_MODE=disabled` افتراضيًا؛ نشر مخطط قاعدة البيانات بطريقة additive بعد النسخ الاحتياطي والتحقق؛ إصدار الكود؛ تجربة مؤسسة pilot؛ إيقاف الميزات بالمفاتيح عند فشل التحقق قبل أي تراجع كود. لا تُحذف الجداول أو سجلات المراجعة للتراجع. لا توجد في هذه المهمة حاجة لتنفيذ هذا التراجع لأن شيئًا لم يُنشر.
 
