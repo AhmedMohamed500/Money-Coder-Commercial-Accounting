@@ -10,13 +10,15 @@ vi.mock("next/headers", () => ({ cookies: async () => cookieState.store }));
 import { db } from "@/lib/db";
 import { sha256 } from "@/lib/security";
 import { createDocumentUploadTicket, verifyDocumentUploadTicket } from "@/lib/document-upload";
-import { configureTestStorageFailure, getStorageAdapter, resetTestStorage, testStorageHas } from "@/lib/storage";
+import { cleanupAbandonedUploads, configureTestStorageFailure, getStorageAdapter, resetTestStorage, testStorageHas } from "@/lib/storage";
 import { POST as beginUpload } from "@/app/api/organizations/[id]/documents/uploads/route";
 import { DELETE as cancelUpload } from "@/app/api/organizations/[id]/documents/uploads/route";
 import { PUT as receiveUpload } from "@/app/api/private-storage/uploads/route";
 import { POST as finalizeUpload } from "@/app/api/organizations/[id]/documents/route";
 import { DELETE as deleteDocument, GET as downloadDocument } from "@/app/api/documents/[documentId]/route";
 import { GET as health } from "@/app/api/health/route";
+import { scanPendingDocument, type DocumentScanner } from "@/lib/document-scanner";
+import { attachCleanDocumentToAutomationJob, checkDocumentRateLimit, cleanAutomationJobSource, cleanSourceDocument, documentHash, expireUploadIntents, retryStorageDeletions } from "@/lib/document-gateway";
 
 const enabled = process.env.RUN_DB_TESTS === "1";
 const marker = randomUUID();
@@ -50,7 +52,7 @@ function jsonRequest(url:string,method:string,body:unknown) {
 }
 
 async function initUpload(organizationId:string,name:string,mimeType:string,bytes:Buffer,kind="LEGAL_DOCUMENT") {
-  const response=await beginUpload(jsonRequest(`http://local.test/api/organizations/${organizationId}/documents/uploads`,"POST",{title:`Test ${name}`,kind,originalName:name,mimeType,sizeBytes:bytes.length}),{params:Promise.resolve({id:organizationId})});
+  const response=await beginUpload(jsonRequest(`http://local.test/api/organizations/${organizationId}/documents/uploads`,"POST",{title:`Test ${name}`,kind,originalName:name,mimeType,sizeBytes:bytes.length,sha256:documentHash(bytes)}),{params:Promise.resolve({id:organizationId})});
   const body=await response.json() as {token:string;upload:{url:string;method:"PUT";headers:Record<string,string>};error?:string};
   return {response,body};
 }
@@ -73,6 +75,12 @@ async function upload(organizationId:string,name:string,mimeType:string,bytes:Bu
   return {document,token:started.body.token,payload:verifyDocumentUploadTicket(started.body.token).payload};
 }
 
+const syntheticCleanScanner: DocumentScanner = { async scan(_bytes, sha256) { return { verdict:"CLEAN", sha256, engine:"synthetic-test-adapter", signatureVersion:"synthetic-fixture", signaturesUpdatedAt:new Date().toISOString(), engineReady:true }; } };
+async function scanCreated(documentId:string, scanner:DocumentScanner=syntheticCleanScanner) {
+  const document=await db.companyDocument.findUniqueOrThrow({where:{id:documentId}});
+  return scanPendingDocument(document.fileAssetId,scanner);
+}
+
 describe.skipIf(!enabled)("private document storage lifecycle", () => {
   beforeAll(async()=>{
     await db.$connect();resetTestStorage();
@@ -92,27 +100,27 @@ describe.skipIf(!enabled)("private document storage lifecycle", () => {
     ["authorized PNG","sample.png","image/png",png],
     ["authorized JPEG","sample.jpg","image/jpeg",jpeg],
     ["authorized XLSX","sample.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",xlsxArchive()],
-  ])("stores, lists, and securely downloads %s",async(_label,name,mime,bytes)=>{await loginAs(ownerA);const created=await upload(companyA,name,mime,bytes);const response=await downloadDocument(new Request(`http://local.test/api/documents/${created.document.id}`),{params:Promise.resolve({documentId:created.document.id})});expect(response.status).toBe(200);expect(Buffer.from(await response.arrayBuffer())).toEqual(bytes);expect(response.headers.get("cache-control")).toContain("no-store");expect(response.headers.get("x-content-type-options")).toBe("nosniff");});
+  ])("quarantines, scans, and securely downloads %s",async(_label,name,mime,bytes)=>{await loginAs(ownerA);const created=await upload(companyA,name,mime,bytes);const request=()=>downloadDocument(new Request(`http://local.test/api/documents/${created.document.id}`),{params:Promise.resolve({documentId:created.document.id})});expect((await request()).status).toBe(423);expect((await scanCreated(created.document.id)).status).toBe("clean");const response=await request();expect(response.status).toBe(200);expect(Buffer.from(await response.arrayBuffer())).toEqual(bytes);expect(response.headers.get("cache-control")).toContain("no-store");expect(response.headers.get("x-content-type-options")).toBe("nosniff");});
 
   it("rejects a missing session and cross-company upload",async()=>{let started=await initUpload(companyA,"sample.pdf","application/pdf",pdf);expect(started.response.status).toBe(403);await loginAs(ownerA);started=await initUpload(companyB,"sample.pdf","application/pdf",pdf);expect(started.response.status).toBe(403);});
 
   it("rejects suspended membership",async()=>{await loginAs(suspendedUser);expect((await initUpload(companyA,"sample.pdf","application/pdf",pdf)).response.status).toBe(403);});
 
-  it("blocks cross-company download and deletion",async()=>{await loginAs(ownerB);const created=await upload(companyB,"private.pdf","application/pdf",pdf);await loginAs(ownerA);expect((await downloadDocument(new Request(`http://local.test/api/documents/${created.document.id}`),{params:Promise.resolve({documentId:created.document.id})})).status).toBe(404);expect((await deleteDocument(new Request(`http://local.test/api/documents/${created.document.id}`,{method:"DELETE"}),{params:Promise.resolve({documentId:created.document.id})})).status).toBe(404);expect(testStorageHas(created.payload.finalKey)).toBe(true);});
+  it("blocks cross-company download and deletion",async()=>{await loginAs(ownerB);const created=await upload(companyB,"private.pdf","application/pdf",pdf);await loginAs(ownerA);expect((await downloadDocument(new Request(`http://local.test/api/documents/${created.document.id}`),{params:Promise.resolve({documentId:created.document.id})})).status).toBe(404);expect((await deleteDocument(new Request(`http://local.test/api/documents/${created.document.id}`,{method:"DELETE"}),{params:Promise.resolve({documentId:created.document.id})})).status).toBe(404);expect(testStorageHas(created.payload.pendingKey)).toBe(true);});
 
-  it("expires authorization and cleans the pending object",async()=>{await loginAs(ownerA);const created=createDocumentUploadTicket({organizationId:companyA,userId:ownerA,originalName:"expired.pdf",mimeType:"application/pdf",sizeBytes:pdf.length,kind:"LEGAL_DOCUMENT",title:"Expired",now:1,ttlSeconds:60});const metadata={organizationId:companyA,uploadedById:ownerA,uploadId:created.payload.jti,declaredMime:created.payload.mimeType,declaredSize:String(pdf.length)};await getStorageAdapter().putObject(created.payload.pendingKey,pdf,created.payload.mimeType,metadata);expect((await complete(companyA,created.token)).status).toBe(410);expect(testStorageHas(created.payload.pendingKey)).toBe(false);});
+  it("expires authorization and cleans the pending object",async()=>{await loginAs(ownerA);const created=createDocumentUploadTicket({organizationId:companyA,userId:ownerA,originalName:"expired.pdf",mimeType:"application/pdf",sizeBytes:pdf.length,sha256:documentHash(pdf),kind:"LEGAL_DOCUMENT",title:"Expired",now:1,ttlSeconds:60});await db.documentUploadIntent.create({data:{id:created.payload.jti,organizationId:companyA,userId:ownerA,pendingKey:created.payload.pendingKey,releaseKey:created.payload.finalKey,expiresAt:new Date(created.payload.expiresAt*1000)}});const metadata={organizationId:companyA,uploadedById:ownerA,uploadId:created.payload.jti,declaredMime:created.payload.mimeType,declaredSize:String(pdf.length)};await getStorageAdapter().putObject(created.payload.pendingKey,pdf,created.payload.mimeType,metadata);expect((await complete(companyA,created.token)).status).toBe(410);expect(testStorageHas(created.payload.pendingKey)).toBe(false);});
 
-  it("rejects replayed finalization",async()=>{await loginAs(ownerA);const created=await upload(companyA,"replay.pdf","application/pdf",pdf);expect((await complete(companyA,created.token)).status).toBe(409);expect(await db.fileAsset.count({where:{storageKey:created.payload.finalKey}})).toBe(1);});
+  it("rejects replayed finalization",async()=>{await loginAs(ownerA);const created=await upload(companyA,"replay.pdf","application/pdf",pdf);expect((await complete(companyA,created.token)).status).toBe(409);expect(await db.fileAsset.count({where:{storageKey:created.payload.pendingKey}})).toBe(1);});
 
   it("cleans a disguised upload after server validation",async()=>{await loginAs(ownerA);const fake=Buffer.from("MZ disguised executable %%EOF");const started=await initUpload(companyA,"fake.pdf","application/pdf",fake);expect(started.response.status).toBe(200);expect((await putUpload(started.body,fake)).status).toBe(204);const payload=verifyDocumentUploadTicket(started.body.token).payload;expect((await complete(companyA,started.body.token)).status).toBe(400);expect(testStorageHas(payload.pendingKey)).toBe(false);expect(testStorageHas(payload.finalKey)).toBe(false);});
 
   it("removes both objects when the database write fails after promotion",async()=>{await loginAs(ownerA);const started=await initUpload(companyA,"db-failure.pdf","application/pdf",pdf);expect((await putUpload(started.body,pdf)).status).toBe(204);const payload=verifyDocumentUploadTicket(started.body.token).payload;const spy=vi.spyOn(db,"$transaction").mockRejectedValueOnce(new Error("fictional db failure"));const response=await complete(companyA,started.body.token);spy.mockRestore();expect(response.status).toBe(500);expect(testStorageHas(payload.pendingKey)).toBe(false);expect(testStorageHas(payload.finalKey)).toBe(false);});
 
-  it("returns a safe failure for a missing stored object",async()=>{await loginAs(ownerA);const asset=await db.fileAsset.create({data:{organizationId:companyA,uploadedById:ownerA,kind:"OTHER",originalName:"missing.pdf",storageKey:`organizations/${companyA}/${randomUUID()}`,mimeType:"application/pdf",sizeBytes:pdf.length,sha256:"missing",storageProvider:"test-memory"}});const document=await db.companyDocument.create({data:{organizationId:companyA,fileAssetId:asset.id,category:"OTHER",title:"Missing"}});const response=await downloadDocument(new Request(`http://local.test/api/documents/${document.id}`),{params:Promise.resolve({documentId:document.id})});expect(response.status).toBe(503);expect(JSON.stringify(await response.json())).not.toContain(process.env.AUTH_SECRET);});
+  it("keeps legacy unscanned documents inaccessible",async()=>{await loginAs(ownerA);const asset=await db.fileAsset.create({data:{organizationId:companyA,uploadedById:ownerA,kind:"OTHER",originalName:"missing.pdf",storageKey:`organizations/${companyA}/${randomUUID()}`,mimeType:"application/pdf",sizeBytes:pdf.length,sha256:"missing",storageProvider:"test-memory"}});const document=await db.companyDocument.create({data:{organizationId:companyA,fileAssetId:asset.id,category:"OTHER",title:"Missing"}});const response=await downloadDocument(new Request(`http://local.test/api/documents/${document.id}`),{params:Promise.resolve({documentId:document.id})});expect(response.status).toBe(423);expect(JSON.stringify(await response.json())).not.toContain(process.env.AUTH_SECRET);});
 
   it("reports provider outage without leaking secrets",async()=>{await loginAs(ownerA);configureTestStorageFailure({unavailable:true});const started=await initUpload(companyA,"outage.pdf","application/pdf",pdf);expect(started.response.status).toBe(503);const body=JSON.stringify(started.body);expect(body).not.toContain(process.env.AUTH_SECRET);expect(body).not.toContain("AWS_");});
 
-  it("soft-deletes, physically deletes, and safely repeats deletion",async()=>{await loginAs(ownerA);const created=await upload(companyA,"delete.pdf","application/pdf",pdf);const request=()=>new Request(`http://local.test/api/documents/${created.document.id}`,{method:"DELETE"});expect((await deleteDocument(request(),{params:Promise.resolve({documentId:created.document.id})})).status).toBe(200);expect(testStorageHas(created.payload.finalKey)).toBe(false);expect((await deleteDocument(request(),{params:Promise.resolve({documentId:created.document.id})})).status).toBe(200);expect((await db.companyDocument.findUniqueOrThrow({where:{id:created.document.id}})).deletedAt).not.toBeNull();});
+  it("soft-deletes, physically deletes, and safely repeats deletion",async()=>{await loginAs(ownerA);const created=await upload(companyA,"delete.pdf","application/pdf",pdf);const request=()=>new Request(`http://local.test/api/documents/${created.document.id}`,{method:"DELETE"});expect((await deleteDocument(request(),{params:Promise.resolve({documentId:created.document.id})})).status).toBe(200);expect(testStorageHas(created.payload.pendingKey)).toBe(false);expect((await deleteDocument(request(),{params:Promise.resolve({documentId:created.document.id})})).status).toBe(200);expect((await db.companyDocument.findUniqueOrThrow({where:{id:created.document.id}})).deletedAt).not.toBeNull();});
 
   it("retains retry state when physical deletion fails",async()=>{await loginAs(ownerA);const created=await upload(companyA,"retry-delete.pdf","application/pdf",pdf);configureTestStorageFailure({failDelete:true});const response=await deleteDocument(new Request(`http://local.test/api/documents/${created.document.id}`,{method:"DELETE"}),{params:Promise.resolve({documentId:created.document.id})});expect(response.status).toBe(503);expect((await response.json()).physicalDeletionPending).toBe(true);expect((await db.companyDocument.findUniqueOrThrow({where:{id:created.document.id}})).deletedAt).not.toBeNull();configureTestStorageFailure({failDelete:false});expect((await deleteDocument(new Request(`http://local.test/api/documents/${created.document.id}`,{method:"DELETE"}),{params:Promise.resolve({documentId:created.document.id})})).status).toBe(200);});
 
@@ -123,9 +131,12 @@ describe.skipIf(!enabled)("private document storage lifecycle", () => {
   it("blocks API upload initiation and finalization in disabled mode even with working storage",async()=>{
     await loginAs(ownerA);
     const started=await initUpload(companyA,"before-switch.pdf","application/pdf",pdf);
+    const blockedPut=await initUpload(companyA,"blocked-put.pdf","application/pdf",pdf);
     expect(started.response.status).toBe(200);
+    expect(blockedPut.response.status).toBe(200);
     expect((await putUpload(started.body,pdf)).status).toBe(204);
     process.env.PRIVATE_STORAGE_UPLOAD_MODE="disabled";
+    expect((await putUpload(blockedPut.body,pdf)).status).toBe(503);
     expect((await initUpload(companyA,"blocked.pdf","application/pdf",pdf)).response.status).toBe(503);
     expect((await complete(companyA,started.body.token)).status).toBe(503);
     const status=await health(); const body=await status.json();
@@ -144,4 +155,32 @@ describe.skipIf(!enabled)("private document storage lifecycle", () => {
     const body=await (await health()).json();
     expect(body.documentUploads).toMatchObject({mode:"drain",acceptsNew:false,acceptsFinalization:true});
   });
+
+  it("allows exactly one of two concurrent finalizers",async()=>{await loginAs(ownerA);const started=await initUpload(companyA,"race.pdf","application/pdf",pdf);expect((await putUpload(started.body,pdf)).status).toBe(204);const responses=await Promise.all([complete(companyA,started.body.token),complete(companyA,started.body.token)]);expect(responses.map(response=>response.status).sort()).toEqual([201,409]);const payload=verifyDocumentUploadTicket(started.body.token).payload;expect(await db.fileAsset.count({where:{storageKey:payload.pendingKey}})).toBe(1);});
+
+  it("fails closed when the scanner is unavailable",async()=>{await loginAs(ownerA);const created=await upload(companyA,"offline.pdf","application/pdf",pdf);expect((await scanCreated(created.document.id,{scan:async()=>{throw new Error("offline");}})).status).toBe("scan-failed");expect((await downloadDocument(new Request(`http://local.test/api/documents/${created.document.id}`),{params:Promise.resolve({documentId:created.document.id})})).status).toBe(423);});
+
+  it("rejects a synthetic malicious fixture",async()=>{await loginAs(ownerA);const created=await upload(companyA,"synthetic-malicious.pdf","application/pdf",pdf);const scanner:DocumentScanner={scan:async(_bytes,sha256)=>({verdict:"INFECTED",sha256,engine:"synthetic-test-adapter",signatureVersion:"synthetic-fixture",signaturesUpdatedAt:new Date().toISOString(),engineReady:true})};expect((await scanCreated(created.document.id,scanner)).status).toBe("infected");expect((await downloadDocument(new Request(`http://local.test/api/documents/${created.document.id}`),{params:Promise.resolve({documentId:created.document.id})})).status).toBe(423);});
+
+  it("rejects a mismatched scanner hash",async()=>{await loginAs(ownerA);const created=await upload(companyA,"wrong-hash.pdf","application/pdf",pdf);const scanner:DocumentScanner={scan:async()=>({verdict:"CLEAN",sha256:"0".repeat(64),engine:"synthetic-test-adapter",signatureVersion:"synthetic-fixture",signaturesUpdatedAt:new Date().toISOString(),engineReady:true})};expect((await scanCreated(created.document.id,scanner)).status).toBe("scan-failed");const asset=await db.fileAsset.findUniqueOrThrow({where:{storageKey:created.payload.pendingKey}});expect(asset.scanStatus).toBe("SCAN_FAILED");});
+
+  it("rejects an uploaded object with a different checksum",async()=>{await loginAs(ownerA);const started=await initUpload(companyA,"checksum.pdf","application/pdf",pdf);expect((await putUpload(started.body,pdf)).status).toBe(204);const payload=verifyDocumentUploadTicket(started.body.token).payload;const adapter=getStorageAdapter();const metadata=(await adapter.readObject(payload.pendingKey)).metadata;const modified=Buffer.from(pdf);modified[20]=modified[20]===65?66:65;await adapter.deleteObject(payload.pendingKey);await adapter.putObject(payload.pendingKey,modified,"application/pdf",metadata);expect((await complete(companyA,started.body.token)).status).toBe(400);expect(await db.fileAsset.count({where:{storageKey:payload.pendingKey}})).toBe(0);});
+
+  it("detects a changed released object on download",async()=>{await loginAs(ownerA);const created=await upload(companyA,"mutated.pdf","application/pdf",pdf);expect((await scanCreated(created.document.id)).status).toBe("clean");const adapter=getStorageAdapter();const original=await adapter.readObject(created.payload.finalKey);await adapter.deleteObject(created.payload.finalKey);await adapter.putObject(created.payload.finalKey,Buffer.from("%PDF-1.7\nchanged\n%%EOF"),"application/pdf",original.metadata);expect((await downloadDocument(new Request(`http://local.test/api/documents/${created.document.id}`),{params:Promise.resolve({documentId:created.document.id})})).status).toBe(503);});
+
+  it("does not accept a stateless ticket without a persisted intent",async()=>{await loginAs(ownerA);const ticket=createDocumentUploadTicket({organizationId:companyA,userId:ownerA,originalName:"old.pdf",mimeType:"application/pdf",sizeBytes:pdf.length,sha256:documentHash(pdf),kind:"OTHER",title:"Old"});expect((await complete(companyA,ticket.token)).status).toBe(400);});
+
+  it("permits automation source binding only after a matching clean scan",async()=>{await loginAs(ownerA);const created=await upload(companyA,"bank.pdf","application/pdf",pdf);const doc=await db.companyDocument.findUniqueOrThrow({where:{id:created.document.id}});const job=await db.automationJob.create({data:{organizationId:companyA,requestedById:ownerA,sourceReference:"synthetic-source-gate",idempotencyKey:randomUUID(),provider:"MOCK",status:"CREATED"}});expect(await cleanSourceDocument(companyA,doc.fileAssetId)).toBeNull();expect(await attachCleanDocumentToAutomationJob(companyA,job.id,created.document.id)).toBe(false);expect((await scanCreated(created.document.id)).status).toBe("clean");expect(await cleanSourceDocument(companyB,doc.fileAssetId)).toBeNull();expect(await attachCleanDocumentToAutomationJob(companyA,job.id,created.document.id)).toBe(true);expect((await db.automationJob.findUniqueOrThrow({where:{id:job.id}})).sourceFileAssetId).toBe(doc.fileAssetId);expect((await cleanAutomationJobSource(companyA,job.id))?.id).toBe(doc.fileAssetId);await db.automationJob.delete({where:{id:job.id}});});
+
+  it("retries failed physical deletion durably",async()=>{await loginAs(ownerA);const created=await upload(companyA,"retry-worker.pdf","application/pdf",pdf);configureTestStorageFailure({failDelete:true});const response=await deleteDocument(new Request(`http://local.test/api/documents/${created.document.id}`,{method:"DELETE"}),{params:Promise.resolve({documentId:created.document.id})});expect(response.status).toBe(503);expect(await db.storageDeletionTask.count({where:{storageKey:created.payload.pendingKey}})).toBe(1);configureTestStorageFailure({failDelete:false});expect((await retryStorageDeletions()).deleted).toBeGreaterThanOrEqual(1);expect(await db.storageDeletionTask.count({where:{storageKey:created.payload.pendingKey}})).toBe(0);});
+
+  it("enforces shared PostgreSQL rate limit atomically",async()=>{const key=`synthetic-rate-${randomUUID()}`;const results=await Promise.all([1,2,3].map(()=>checkDocumentRateLimit(key,2,60_000)));expect(results.filter(Boolean)).toHaveLength(2);});
+
+  it("never cleans a quarantined file that still has an active asset",async()=>{await loginAs(ownerA);const created=await upload(companyA,"retained.pdf","application/pdf",pdf);expect(await cleanupAbandonedUploads(companyA,-1)).toBeGreaterThanOrEqual(0);expect(testStorageHas(created.payload.pendingKey)).toBe(true);});
+
+  it("does not apply a duplicate clean scan result",async()=>{await loginAs(ownerA);const created=await upload(companyA,"single-scan.pdf","application/pdf",pdf);expect((await scanCreated(created.document.id)).status).toBe("clean");expect((await scanCreated(created.document.id)).status).toBe("not-claimable");});
+
+  it("expires abandoned upload intents and deletes their pending objects",async()=>{await loginAs(ownerA);const started=await initUpload(companyA,"abandoned.pdf","application/pdf",pdf);expect((await putUpload(started.body,pdf)).status).toBe(204);const payload=verifyDocumentUploadTicket(started.body.token).payload;await db.documentUploadIntent.update({where:{id:payload.jti},data:{expiresAt:new Date(Date.now()-1000)}});expect(await expireUploadIntents()).toBeGreaterThanOrEqual(1);expect(testStorageHas(payload.pendingKey)).toBe(false);expect((await db.documentUploadIntent.findUniqueOrThrow({where:{id:payload.jti}})).status).toBe("EXPIRED");});
+
+  it("enforces company document count quota",async()=>{await loginAs(ownerA);process.env.ORGANIZATION_DOCUMENT_LIMIT="1";try{expect((await initUpload(companyA,"quota.pdf","application/pdf",pdf)).response.status).toBe(507);}finally{delete process.env.ORGANIZATION_DOCUMENT_LIMIT;}});
 });

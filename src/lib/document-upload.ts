@@ -18,6 +18,7 @@ const uploadTicketSchema = z.object({
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   ]),
   sizeBytes: z.number().int().positive(),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/),
   kind: z.enum(["LOGO", "LEGAL_DOCUMENT", "TAX_DOCUMENT", "OTHER"]),
   title: z.string().min(2).max(200),
   issuedAt: z.number().int().positive(),
@@ -53,6 +54,7 @@ export function createDocumentUploadTicket(input: {
   originalName: string;
   mimeType: AllowedDocumentMimeType;
   sizeBytes: number;
+  sha256: string;
   kind: FileKind;
   title: string;
   now?: number;
@@ -71,6 +73,7 @@ export function createDocumentUploadTicket(input: {
     originalName: input.originalName,
     mimeType: input.mimeType,
     sizeBytes: input.sizeBytes,
+    sha256: input.sha256,
     kind: input.kind,
     title: input.title,
     issuedAt,

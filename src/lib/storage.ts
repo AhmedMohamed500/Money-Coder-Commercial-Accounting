@@ -189,8 +189,15 @@ class NeonStorageAdapter implements PrivateStorageAdapter {
 
   async listPendingObjects(organizationId: string) {
     const prefix = `organizations/${organizationId}/pending/`;
-    const output = await this.run(signal => this.client.send(new ListObjectsV2Command({ Bucket: this.bucket, Prefix: prefix, MaxKeys: 100 }), { abortSignal: signal }));
-    return (output.Contents ?? []).flatMap(item => item.Key && item.LastModified ? [{ key: item.Key, lastModified: item.LastModified }] : []);
+    const objects: Array<{ key: string; lastModified: Date }> = [];
+    let cursor: string | undefined;
+    do {
+      const output = await this.run(signal => this.client.send(new ListObjectsV2Command({ Bucket: this.bucket, Prefix: prefix, MaxKeys: 100, ContinuationToken: cursor }), { abortSignal: signal }));
+      objects.push(...(output.Contents ?? []).flatMap(item => item.Key && item.LastModified ? [{ key: item.Key, lastModified: item.LastModified }] : []));
+      cursor = output.IsTruncated ? output.NextContinuationToken : undefined;
+      if (output.IsTruncated && !cursor) throw new StorageOperationError("unavailable", true);
+    } while (cursor);
+    return objects;
   }
 
   async createDownloadUrl(key: string, filename: string, contentType: string, expiresIn: number) {
@@ -325,6 +332,7 @@ export async function privateStorageAvailability() {
 }
 
 export async function cleanupAbandonedUploads(organizationId: string, olderThanMs = 60 * 60 * 1_000) {
+  const { db } = await import("@/lib/db");
   const adapter = getStorageAdapter();
   const threshold = Date.now() - olderThanMs;
   const objects = await adapter.listPendingObjects(organizationId);
@@ -332,8 +340,13 @@ export async function cleanupAbandonedUploads(organizationId: string, olderThanM
   for (const object of objects) {
     assertOrganizationObjectKey(object.key, organizationId);
     if (object.lastModified.getTime() >= threshold) continue;
-    await adapter.deleteObject(object.key);
-    deleted += 1;
+    const [asset, activeIntent] = await Promise.all([
+      db.fileAsset.findUnique({ where: { storageKey: object.key }, select: { id: true } }),
+      db.documentUploadIntent.findUnique({ where: { pendingKey: object.key }, select: { status: true, expiresAt: true, claimExpiresAt: true } }),
+    ]);
+    if (asset || (activeIntent && ((activeIntent.status === "PENDING_UPLOAD" && activeIntent.expiresAt.getTime() >= Date.now()) || (activeIntent.status === "FINALIZING" && activeIntent.claimExpiresAt && activeIntent.claimExpiresAt.getTime() >= Date.now())))) continue;
+    const { queueStorageDeletion } = await import("@/lib/document-gateway");
+    if (await queueStorageDeletion(organizationId, object.key, adapter.provider)) deleted += 1;
   }
   return deleted;
 }
