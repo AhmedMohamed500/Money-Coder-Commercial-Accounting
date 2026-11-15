@@ -178,7 +178,7 @@ The database suite covers balance rejection/posting, company isolation, authoriz
 - Review branch: `codex/phase2d-accounting-core`.
 - Implementation commit: `78e7010` (`feat(accounting): add phase 2d journal and ledger core`).
 - Base: `ba7c98d` on `codex/phase2c-review-20261108`.
-- GitHub push: pending at the time this report was written; verify the remote hash after push.
+- GitHub push: completed to `origin/codex/phase2d-accounting-core`; the remote branch hash was verified against the local branch after publication.
 - Vercel Preview: not created.
 - Production deployment/migration: not performed.
 
