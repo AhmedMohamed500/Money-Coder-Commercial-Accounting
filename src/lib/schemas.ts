@@ -98,6 +98,7 @@ export const membershipActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("CHANGE_ROLE"), role: z.enum(["OFFICE_MANAGER", "OFFICE_ACCOUNTANT", "COMPANY_MANAGER", "COMPANY_ACCOUNTANT", "REVIEWER", "VIEWER"]) }),
   z.object({ action: z.literal("SET_CHART_PERMISSIONS"), permissions: z.array(z.enum(["accounting:chart:view", "accounting:chart:create", "accounting:chart:edit", "accounting:chart:deactivate", "accounting:chart:delete", "accounting:chart:template:initialize", "accounting:chart:audit:view", "accounting:chart:approve"])).max(8) }),
   z.object({ action: z.literal("SET_OPENING_PERMISSIONS"), permissions: z.array(z.enum(["accounting:opening:view", "accounting:opening:create", "accounting:opening:edit", "accounting:opening:import", "accounting:opening:submit", "accounting:opening:review", "accounting:opening:approve", "accounting:opening:audit:view"])).max(8) }),
+  z.object({ action: z.literal("SET_JOURNAL_PERMISSIONS"), permissions: z.array(z.enum(["accounting:journal:view", "accounting:journal:create", "accounting:journal:edit", "accounting:journal:submit", "accounting:journal:approve", "accounting:journal:post", "accounting:journal:reverse", "accounting:journal:audit:view", "accounting:journal:opening:post", "accounting:ledger:view", "accounting:ledger:export", "accounting:trial-balance:view", "accounting:trial-balance:export", "accounting:periods:manage"])).max(14) }),
   z.object({ action: z.enum(["SUSPEND", "ACTIVATE", "REVOKE"]) }),
 ]);
 

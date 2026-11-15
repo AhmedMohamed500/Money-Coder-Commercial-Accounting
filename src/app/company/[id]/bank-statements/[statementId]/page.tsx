@@ -13,7 +13,7 @@ export default async function BankStatementPage({ params }: { params: Promise<{ 
     authorizeOrganization(user.id, id, "bank-statements:review"), authorizeOrganization(user.id, id, "bank-statements:correct"),
     authorizeOrganization(user.id, id, "bank-statements:export"), authorizeOrganization(user.id, id, "bank-statements:audit:view"),
   ]);
-  return <CompanyShell organizationId={id} companyName={context.company.tradeName || context.company.legalName} userName={user.displayName} delegated={context.delegated} canChart={context.canChart} canOpening={context.canOpening} canAudit={context.canAudit} canManageTeam={context.canManageTeam} canAutomation={context.canAutomation} canBankStatements={context.canBankStatements}>
+  return <CompanyShell organizationId={id} companyName={context.company.tradeName || context.company.legalName} userName={user.displayName} delegated={context.delegated} canChart={context.canChart} canOpening={context.canOpening} canAudit={context.canAudit} canManageTeam={context.canManageTeam} canAutomation={context.canAutomation} canBankStatements={context.canBankStatements} canJournal={context.canJournal} canLedger={context.canLedger} canTrialBalance={context.canTrialBalance}>
     <BankReviewCenter organizationId={id} statementId={statementId} canReview={Boolean(review)} canCorrect={Boolean(correct)} canExport={Boolean(exportAccess)} canAudit={Boolean(audit)} />
   </CompanyShell>;
 }

@@ -35,7 +35,7 @@ try {
       viewport: document.documentElement.clientWidth,
       scrollWidth: document.documentElement.scrollWidth,
       dir: document.documentElement.dir,
-      ctas: [...document.querySelectorAll("a.premium-button")].map(element => ({ text: element.textContent?.trim(), href: element.getAttribute("href") })),
+      ctas: [...document.querySelectorAll("a.mc9-button")].map(element => ({ text: element.textContent?.trim(), href: element.getAttribute("href") })),
     }));
     if (metrics.scrollWidth > metrics.viewport) throw new Error(`${viewport.name} has horizontal overflow: ${metrics.scrollWidth}px > ${metrics.viewport}px`);
     if (metrics.dir !== "rtl") throw new Error(`${viewport.name} is not rendered in RTL mode`);
@@ -47,23 +47,27 @@ try {
 
   const reviewPage = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   await reviewPage.goto("http://localhost:3000/", { waitUntil: "networkidle" });
-  for (const section of ["experience", "audiences", "future"]) {
+  for (const section of ["what-is-ready", "money-trail", "decision-lab"]) {
     await reviewPage.locator(`#${section}`).screenshot({ path: path.join(output, `review-${section}.png`) });
   }
-  await reviewPage.locator(".signature-cta").screenshot({ path: path.join(output, "review-final-cta.png") });
+  await reviewPage.locator(".mc9-final-signature").screenshot({ path: path.join(output, "review-final-cta.png") });
   await reviewPage.close();
 
   const interactionPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await interactionPage.goto("http://localhost:3000/", { waitUntil: "networkidle" });
-  await interactionPage.locator(".premium-mobile-menu summary").click();
-  if (!await interactionPage.locator('.premium-mobile-menu a[href="#experience"]').isVisible()) throw new Error("Mobile navigation did not open accessibly");
-  await interactionPage.locator('.premium-mobile-menu a[href="#experience"]').click();
-  await interactionPage.waitForFunction(() => window.location.hash === "#experience");
+  await interactionPage.locator(".mc9-mobile-menu summary").click();
+  if (!await interactionPage.locator('.mc9-mobile-menu a[href="#money-trail"]').isVisible()) throw new Error("Mobile navigation did not open accessibly");
+  await interactionPage.locator('.mc9-mobile-menu a[href="#money-trail"]').click();
+  await interactionPage.waitForFunction(() => window.location.hash === "#money-trail");
   const registerResponse = await interactionPage.goto("http://localhost:3000/auth/register", { waitUntil: "networkidle" });
   if (registerResponse?.status() !== 200) throw new Error(`Registration CTA route returned ${registerResponse?.status()}`);
   const loginResponse = await interactionPage.goto("http://localhost:3000/auth/login", { waitUntil: "networkidle" });
   if (loginResponse?.status() !== 200) throw new Error(`Login route returned ${loginResponse?.status()}`);
-  console.log("Mobile menu, section navigation, registration CTA, and login route confirmed.");
+  for (const route of ["journal-entries", "general-ledger", "trial-balance"]) {
+    await interactionPage.goto(`http://localhost:3000/company/00000000-0000-0000-0000-000000000000/accounting/${route}`, { waitUntil: "networkidle" });
+    if (!interactionPage.url().includes("/auth/login")) throw new Error(`Protected ${route} route did not redirect an unauthenticated browser to login`);
+  }
+  console.log("Mobile menu, section navigation, auth routes, and Phase 2D protected-route redirects confirmed.");
   await interactionPage.close();
 } finally {
   await browser.close();

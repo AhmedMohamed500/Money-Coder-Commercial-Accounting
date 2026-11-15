@@ -3,8 +3,8 @@ import { db } from "@/lib/db";
 import { authorizeOrganization, getSessionUser } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { z } from "zod";
-import { CHART_PERMISSIONS, OPENING_PERMISSIONS, type Permission } from "@/lib/permissions";
-const schema=z.object({action:z.enum(["ACCEPT","REJECT","REVOKE"]),permissions:z.array(z.enum(["organization:view","organization:edit","documents:view","documents:manage","audit:view",...CHART_PERMISSIONS,...OPENING_PERMISSIONS])).optional()});
+import { CHART_PERMISSIONS, OPENING_PERMISSIONS, JOURNAL_PERMISSIONS, FINANCIAL_REPORT_PERMISSIONS, type Permission } from "@/lib/permissions";
+const schema=z.object({action:z.enum(["ACCEPT","REJECT","REVOKE"]),permissions:z.array(z.enum(["organization:view","organization:edit","documents:view","documents:manage","audit:view",...CHART_PERMISSIONS,...OPENING_PERMISSIONS,...JOURNAL_PERMISSIONS,...FINANCIAL_REPORT_PERMISSIONS])).optional()});
 export async function PATCH(request:Request,{params}:{params:Promise<{id:string}>}) {
   const user=await getSessionUser(); const {id}=await params;
   const engagement=await db.officeCompanyEngagement.findUnique({where:{id}});

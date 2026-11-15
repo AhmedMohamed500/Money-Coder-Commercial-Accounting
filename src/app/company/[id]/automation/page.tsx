@@ -13,7 +13,7 @@ export default async function AutomationPage({ params }: { params: Promise<{ id:
     authorizeOrganization(user.id, id, "automation:jobs:create"), authorizeOrganization(user.id, id, "automation:jobs:retry"),
     db.companyBankAccount.findMany({ where: { organizationId: id, deletedAt: null, isActive: true }, select: { id: true, bankName: true, accountName: true }, orderBy: { bankName: "asc" } }),
   ]);
-  return <CompanyShell organizationId={id} companyName={context.company.tradeName || context.company.legalName} userName={user.displayName} delegated={context.delegated} canChart={context.canChart} canOpening={context.canOpening} canAudit={context.canAudit} canManageTeam={context.canManageTeam} canAutomation={context.canAutomation} canBankStatements={context.canBankStatements}>
+  return <CompanyShell organizationId={id} companyName={context.company.tradeName || context.company.legalName} userName={user.displayName} delegated={context.delegated} canChart={context.canChart} canOpening={context.canOpening} canAudit={context.canAudit} canManageTeam={context.canManageTeam} canAutomation={context.canAutomation} canBankStatements={context.canBankStatements} canJournal={context.canJournal} canLedger={context.canLedger} canTrialBalance={context.canTrialBalance}>
     <AutomationCenter organizationId={id} accounts={accounts} canCreate={Boolean(create)} canRetry={Boolean(retry)} />
   </CompanyShell>;
 }

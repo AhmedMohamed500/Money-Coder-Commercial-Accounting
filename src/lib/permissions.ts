@@ -40,19 +40,39 @@ export const AUTOMATION_PERMISSIONS = [
   "bank-statements:export", "bank-statements:audit:view",
 ] as const;
 
-export const PERMISSIONS = [...FOUNDATION_PERMISSIONS, ...CHART_PERMISSIONS, ...OPENING_PERMISSIONS, ...AUTOMATION_PERMISSIONS] as const;
+export const JOURNAL_PERMISSIONS = [
+  "accounting:journal:view",
+  "accounting:journal:create",
+  "accounting:journal:edit",
+  "accounting:journal:submit",
+  "accounting:journal:approve",
+  "accounting:journal:post",
+  "accounting:journal:reverse",
+  "accounting:journal:audit:view",
+  "accounting:journal:opening:post",
+] as const;
+
+export const FINANCIAL_REPORT_PERMISSIONS = [
+  "accounting:ledger:view",
+  "accounting:ledger:export",
+  "accounting:trial-balance:view",
+  "accounting:trial-balance:export",
+  "accounting:periods:manage",
+] as const;
+
+export const PERMISSIONS = [...FOUNDATION_PERMISSIONS, ...CHART_PERMISSIONS, ...OPENING_PERMISSIONS, ...AUTOMATION_PERMISSIONS, ...JOURNAL_PERMISSIONS, ...FINANCIAL_REPORT_PERMISSIONS] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
 
 const ROLE_PERMISSIONS: Record<MembershipRole, Permission[]> = {
   OFFICE_OWNER: [...PERMISSIONS],
-  OFFICE_MANAGER: [...FOUNDATION_PERMISSIONS, "accounting:chart:view", "accounting:chart:audit:view", "accounting:opening:view", "accounting:opening:review", "accounting:opening:approve", "accounting:opening:audit:view", "automation:jobs:view", "bank-statements:view", "bank-statements:review", "bank-statements:audit:view"],
-  OFFICE_ACCOUNTANT: ["organization:view", "organization:edit", "documents:view", "documents:manage", "engagements:view", "accounting:chart:view", "accounting:opening:view", "accounting:opening:create", "accounting:opening:edit", "accounting:opening:import", "accounting:opening:submit", "automation:jobs:view", "automation:jobs:create", "bank-statements:view", "bank-statements:correct", "bank-statements:export"],
+  OFFICE_MANAGER: [...FOUNDATION_PERMISSIONS, "accounting:chart:view", "accounting:chart:audit:view", "accounting:opening:view", "accounting:opening:review", "accounting:opening:approve", "accounting:opening:audit:view", "automation:jobs:view", "bank-statements:view", "bank-statements:review", "bank-statements:audit:view", "accounting:journal:view", "accounting:journal:approve", "accounting:journal:post", "accounting:journal:reverse", "accounting:journal:audit:view", "accounting:journal:opening:post", ...FINANCIAL_REPORT_PERMISSIONS],
+  OFFICE_ACCOUNTANT: ["organization:view", "organization:edit", "documents:view", "documents:manage", "engagements:view", "accounting:chart:view", "accounting:opening:view", "accounting:opening:create", "accounting:opening:edit", "accounting:opening:import", "accounting:opening:submit", "automation:jobs:view", "automation:jobs:create", "bank-statements:view", "bank-statements:correct", "bank-statements:export", "accounting:journal:view", "accounting:journal:create", "accounting:journal:edit", "accounting:journal:submit", "accounting:journal:audit:view", "accounting:ledger:view", "accounting:ledger:export", "accounting:trial-balance:view", "accounting:trial-balance:export"],
   COMPANY_OWNER: [...PERMISSIONS],
-  COMPANY_MANAGER: [...FOUNDATION_PERMISSIONS, "accounting:chart:view", "accounting:chart:audit:view", "accounting:opening:view", "accounting:opening:review", "accounting:opening:approve", "accounting:opening:audit:view", "automation:jobs:view", "bank-statements:view", "bank-statements:review", "bank-statements:audit:view"],
-  COMPANY_ACCOUNTANT: ["organization:view", "organization:edit", "documents:view", "documents:manage", "members:view", "engagements:view", "accounting:chart:view", "accounting:opening:view", "accounting:opening:create", "accounting:opening:edit", "accounting:opening:import", "accounting:opening:submit", "automation:jobs:view", "automation:jobs:create", "bank-statements:view", "bank-statements:correct", "bank-statements:export"],
-  REVIEWER: ["organization:view", "documents:view", "audit:view", "accounting:chart:view", "accounting:chart:audit:view", "accounting:opening:view", "accounting:opening:review", "accounting:opening:audit:view", "automation:jobs:view", "bank-statements:view", "bank-statements:review", "bank-statements:audit:view"],
-  VIEWER: ["organization:view", "documents:view", "accounting:chart:view", "accounting:opening:view", "automation:jobs:view", "bank-statements:view"],
+  COMPANY_MANAGER: [...FOUNDATION_PERMISSIONS, "accounting:chart:view", "accounting:chart:audit:view", "accounting:opening:view", "accounting:opening:review", "accounting:opening:approve", "accounting:opening:audit:view", "automation:jobs:view", "bank-statements:view", "bank-statements:review", "bank-statements:audit:view", "accounting:journal:view", "accounting:journal:approve", "accounting:journal:post", "accounting:journal:reverse", "accounting:journal:audit:view", "accounting:journal:opening:post", ...FINANCIAL_REPORT_PERMISSIONS],
+  COMPANY_ACCOUNTANT: ["organization:view", "organization:edit", "documents:view", "documents:manage", "members:view", "engagements:view", "accounting:chart:view", "accounting:opening:view", "accounting:opening:create", "accounting:opening:edit", "accounting:opening:import", "accounting:opening:submit", "automation:jobs:view", "automation:jobs:create", "bank-statements:view", "bank-statements:correct", "bank-statements:export", "accounting:journal:view", "accounting:journal:create", "accounting:journal:edit", "accounting:journal:submit", "accounting:journal:audit:view", "accounting:ledger:view", "accounting:ledger:export", "accounting:trial-balance:view", "accounting:trial-balance:export"],
+  REVIEWER: ["organization:view", "documents:view", "audit:view", "accounting:chart:view", "accounting:chart:audit:view", "accounting:opening:view", "accounting:opening:review", "accounting:opening:audit:view", "automation:jobs:view", "bank-statements:view", "bank-statements:review", "bank-statements:audit:view", "accounting:journal:view", "accounting:journal:approve", "accounting:journal:audit:view", "accounting:ledger:view", "accounting:trial-balance:view"],
+  VIEWER: ["organization:view", "documents:view", "accounting:chart:view", "accounting:opening:view", "automation:jobs:view", "bank-statements:view", "accounting:journal:view", "accounting:ledger:view", "accounting:trial-balance:view"],
 };
 
 const OWNER_ROLES = new Set<MembershipRole>(["OFFICE_OWNER", "COMPANY_OWNER"]);
@@ -67,6 +87,11 @@ export function roleHasPermission(role: MembershipRole, permission: Permission) 
 }
 
 export function roleMayHoldPermission(role: MembershipRole, permission: Permission) {
+  if (permission.startsWith("accounting:journal:") || permission.startsWith("accounting:ledger:") || permission.startsWith("accounting:trial-balance:") || permission === "accounting:periods:manage") {
+    if (role === "VIEWER") return ["accounting:journal:view", "accounting:ledger:view", "accounting:trial-balance:view"].includes(permission);
+    if (role === "REVIEWER") return ["accounting:journal:view", "accounting:journal:approve", "accounting:journal:audit:view", "accounting:ledger:view", "accounting:trial-balance:view"].includes(permission);
+    return true;
+  }
   if (permission.startsWith("automation:") || permission.startsWith("bank-statements:")) {
     if (role === "VIEWER") return permission === "automation:jobs:view" || permission === "bank-statements:view";
     if (role === "REVIEWER") return ["automation:jobs:view", "bank-statements:view", "bank-statements:review", "bank-statements:audit:view"].includes(permission);

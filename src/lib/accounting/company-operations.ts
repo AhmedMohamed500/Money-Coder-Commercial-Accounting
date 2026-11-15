@@ -9,7 +9,7 @@ export async function loadCompanyContext(userId: string, organizationId: string)
     select: { id: true, legalName: true, tradeName: true, onboardingStatus: true },
   });
   if (!company) return null;
-  const [chart, opening, audit, manageTeam, viewTeam, initialize, automation, bankStatements] = await Promise.all([
+  const [chart, opening, audit, manageTeam, viewTeam, initialize, automation, bankStatements, journal, ledger, trialBalance] = await Promise.all([
     authorizeOrganization(userId, organizationId, "accounting:chart:view"),
     authorizeOrganization(userId, organizationId, "accounting:opening:view"),
     authorizeOrganization(userId, organizationId, "accounting:chart:audit:view"),
@@ -18,6 +18,9 @@ export async function loadCompanyContext(userId: string, organizationId: string)
     authorizeOrganization(userId, organizationId, "accounting:chart:template:initialize"),
     authorizeOrganization(userId, organizationId, "automation:jobs:view"),
     authorizeOrganization(userId, organizationId, "bank-statements:view"),
+    authorizeOrganization(userId, organizationId, "accounting:journal:view"),
+    authorizeOrganization(userId, organizationId, "accounting:ledger:view"),
+    authorizeOrganization(userId, organizationId, "accounting:trial-balance:view"),
   ]);
   return {
     company,
@@ -30,6 +33,9 @@ export async function loadCompanyContext(userId: string, organizationId: string)
     canInitializeChart: Boolean(initialize && chart),
     canAutomation: Boolean(automation),
     canBankStatements: Boolean(bankStatements),
+    canJournal: Boolean(journal),
+    canLedger: Boolean(ledger),
+    canTrialBalance: Boolean(trialBalance),
   };
 }
 

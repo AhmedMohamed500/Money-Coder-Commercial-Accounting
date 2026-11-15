@@ -46,7 +46,7 @@ try {
   process.stdout.write("Applying migrations to isolated PostgreSQL...\n");
   run("node_modules/prisma/build/index.js", ["migrate", "deploy", "--schema", path.join(safePrisma, "schema.prisma")], {}, safeRoot);
   process.stdout.write("Running database integration tests...\n");
-  run("node_modules/vitest/vitest.mjs", ["run", "--no-file-parallelism", "tests/database.integration.test.ts", "tests/auth.integration.test.ts", "tests/storage.integration.test.ts", "tests/chart.integration.test.ts", "tests/opening.integration.test.ts", "tests/automation.integration.test.ts"], { RUN_DB_TESTS: "1", PRIVATE_STORAGE_PROVIDER: "test-memory", STORAGE_TEST_MODE: "1", AUTH_SECRET: "isolated-storage-test-secret-at-least-32-characters", AUTOMATION_MODE: "MOCK", AUTOMATION_CALLBACK_SECRET: "isolated-bank-callback-secret-at-least-32-characters" });
+  run("node_modules/vitest/vitest.mjs", ["run", "--no-file-parallelism", "tests/database.integration.test.ts", "tests/auth.integration.test.ts", "tests/storage.integration.test.ts", "tests/chart.integration.test.ts", "tests/opening.integration.test.ts", "tests/automation.integration.test.ts", "tests/journal.integration.test.ts"], { RUN_DB_TESTS: "1", PRIVATE_STORAGE_PROVIDER: "test-memory", STORAGE_TEST_MODE: "1", AUTH_SECRET: "isolated-storage-test-secret-at-least-32-characters", AUTOMATION_MODE: "MOCK", AUTOMATION_CALLBACK_SECRET: "isolated-bank-callback-secret-at-least-32-characters" });
 } finally {
   if (postgres) await postgres.stop({ force: true });
   const resolved = await realpath(safeRoot);

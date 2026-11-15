@@ -50,6 +50,24 @@ enum FileKind {
   OTHER
 }
 
+enum DocumentScanStatus {
+  LEGACY_UNSCANNED
+  PENDING_SCAN
+  SCANNING
+  CLEAN
+  INFECTED
+  SCAN_FAILED
+  EXPIRED
+}
+
+enum DocumentUploadStatus {
+  PENDING_UPLOAD
+  FINALIZING
+  PENDING_SCAN
+  FAILED
+  EXPIRED
+}
+
 enum InventoryMethod {
   PERIODIC
   PERPETUAL
@@ -147,6 +165,34 @@ enum BankMathStatus {
   MISMATCHED
 }
 
+enum AccountingPeriodStatus {
+  OPEN
+  CLOSED
+}
+
+enum JournalEntryStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  POSTED
+  REJECTED
+  REVERSED
+}
+
+enum JournalEntryType {
+  GENERAL
+  OPENING
+  REVERSAL
+  CORRECTION
+}
+
+enum JournalSourceType {
+  MANUAL
+  OPENING_BALANCE
+  BANK_STATEMENT
+  DOCUMENT
+}
+
 model User {
   id                   String                   @id @default(uuid()) @db.Uuid
   email                String                   @unique
@@ -228,6 +274,8 @@ model Organization {
   fiscalYears        CompanyFiscalYear[]
   documents          CompanyDocument[]
   files              FileAsset[]
+  uploadIntents      DocumentUploadIntent[]
+  deletionTasks      StorageDeletionTask[]
   officeEngagements  OfficeCompanyEngagement[] @relation("OfficeEngagements")
   companyEngagements OfficeCompanyEngagement[] @relation("CompanyEngagements")
   invitations        Invitation[]
@@ -238,6 +286,11 @@ model Organization {
   openingBatches     OpeningBalanceBatch[]
   automationJobs     AutomationJob[]
   bankStatements     BankStatement[]
+  accountingPeriods  AccountingPeriod[]
+  journalEntries     JournalEntry[]
+  journalLines       JournalLine[]
+  journalEvents      JournalEntryEvent[]
+  journalEvidence    JournalEvidenceLink[]
 
   @@index([type, deletedAt])
   @@index([createdById])
@@ -406,6 +459,7 @@ model ChartAccount {
   children        ChartAccount[]     @relation("ChartTree")
   changes         ChartChangeRequest[]
   openingLines    OpeningBalanceLine[]
+  journalLines    JournalLine[]
 
   @@unique([id, organizationId])
   @@unique([organizationId, code])
@@ -445,6 +499,8 @@ model CompanyFiscalYear {
   updatedAt      DateTime     @updatedAt
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   openingBatches OpeningBalanceBatch[]
+  periods        AccountingPeriod[]
+  journalEntries JournalEntry[]
 
   @@unique([id, organizationId])
   @@unique([organizationId, startsAt, endsAt])
@@ -476,6 +532,7 @@ model OpeningBalanceBatch {
   fiscalYear        CompanyFiscalYear    @relation(fields: [fiscalYearId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
   lines             OpeningBalanceLine[]
   imports           OpeningImportStage[]
+  postedJournalEntry JournalEntry?
 
   @@unique([id, organizationId])
   @@index([organizationId, fiscalYearId, status])
@@ -528,6 +585,9 @@ model AutomationJob {
   organizationId   String              @db.Uuid
   requestedById    String              @db.Uuid
   bankAccountId    String?             @db.Uuid
+  sourceFileAssetId String?             @db.Uuid
+  sourceDocumentId String?              @db.Uuid
+  sourceSha256     String?              @db.VarChar(64)
   processingType   String              @default("BANK_STATEMENT")
   sourceReference  String              @db.VarChar(160)
   idempotencyKey   String              @db.VarChar(120)
@@ -544,6 +604,8 @@ model AutomationJob {
   updatedAt        DateTime            @updatedAt
   organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   bankAccount      CompanyBankAccount? @relation(fields: [bankAccountId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  sourceFileAsset  FileAsset?           @relation(fields: [sourceFileAssetId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  sourceDocument   CompanyDocument?     @relation(fields: [sourceDocumentId, organizationId], references: [id, organizationId], onDelete: Restrict)
   requestedBy      User                @relation(fields: [requestedById], references: [id], onDelete: Restrict)
   statement        BankStatement?
   events           AutomationEvent[]
@@ -636,6 +698,7 @@ model BankStatementTransaction {
   revision            Int              @default(1)
   statement           BankStatement    @relation(fields: [statementId, organizationId], references: [id, organizationId], onDelete: Restrict)
   decisions           BankReviewDecision[]
+  journalEvidence     JournalEvidenceLink[]
 
   @@unique([statementId, sequence])
   @@unique([statementId, sourceTransactionId])
@@ -661,6 +724,152 @@ model BankReviewDecision {
   @@index([organizationId, statementId, createdAt])
 }
 
+model AccountingPeriod {
+  id             String                 @id @default(uuid()) @db.Uuid
+  organizationId String                 @db.Uuid
+  fiscalYearId   String                 @db.Uuid
+  sequence       Int
+  name           String                 @db.VarChar(80)
+  startsAt       DateTime               @db.Date
+  endsAt         DateTime               @db.Date
+  status         AccountingPeriodStatus @default(OPEN)
+  closedById     String?                @db.Uuid
+  closedAt       DateTime?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  fiscalYear     CompanyFiscalYear      @relation(fields: [fiscalYearId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  journalEntries JournalEntry[]
+
+  @@unique([id, organizationId, fiscalYearId])
+  @@unique([organizationId, fiscalYearId, sequence])
+  @@unique([organizationId, startsAt, endsAt])
+  @@index([organizationId, status, startsAt])
+}
+
+model JournalEntry {
+  id                       String             @id @default(uuid()) @db.Uuid
+  organizationId           String             @db.Uuid
+  fiscalYearId             String             @db.Uuid
+  periodId                 String             @db.Uuid
+  entryNumber              Int?
+  reference                String             @db.VarChar(80)
+  description              String             @db.VarChar(500)
+  transactionDate          DateTime           @db.Date
+  postingDate              DateTime           @db.Date
+  currency                 String             @db.VarChar(3)
+  currencyPrecision        Int
+  entryType                JournalEntryType   @default(GENERAL)
+  sourceType               JournalSourceType  @default(MANUAL)
+  sourceReference          String?            @db.VarChar(160)
+  sourceRevision           String?            @db.VarChar(80)
+  evidenceTimestamp        DateTime?
+  idempotencyKey           String             @db.VarChar(120)
+  status                   JournalEntryStatus @default(DRAFT)
+  revision                 Int                @default(1)
+  totalDebit               Decimal            @default(0) @db.Decimal(20, 3)
+  totalCredit              Decimal            @default(0) @db.Decimal(20, 3)
+  createdById              String             @db.Uuid
+  submittedById            String?            @db.Uuid
+  approvedById             String?            @db.Uuid
+  postedById               String?            @db.Uuid
+  rejectedById             String?            @db.Uuid
+  submittedAt              DateTime?
+  approvedAt               DateTime?
+  postedAt                 DateTime?
+  rejectedAt               DateTime?
+  rejectionReason          String?            @db.VarChar(500)
+  openingBalanceBatchId    String?            @db.Uuid
+  reversalOfId             String?            @db.Uuid
+  correctionOfId           String?            @db.Uuid
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+  organization             Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  fiscalYear               CompanyFiscalYear   @relation(fields: [fiscalYearId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  period                   AccountingPeriod    @relation(fields: [periodId, organizationId, fiscalYearId], references: [id, organizationId, fiscalYearId], onDelete: Restrict, onUpdate: Restrict)
+  openingBalanceBatch      OpeningBalanceBatch? @relation(fields: [openingBalanceBatchId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  reversalOf               JournalEntry?       @relation("JournalReversal", fields: [reversalOfId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  reversal                 JournalEntry?       @relation("JournalReversal")
+  correctionOf             JournalEntry?       @relation("JournalCorrection", fields: [correctionOfId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  correction               JournalEntry?       @relation("JournalCorrection")
+  lines                    JournalLine[]
+  events                   JournalEntryEvent[]
+  evidenceLinks            JournalEvidenceLink[]
+
+  @@unique([id, organizationId])
+  @@unique([organizationId, reference])
+  @@unique([organizationId, idempotencyKey])
+  @@unique([organizationId, entryNumber])
+  @@unique([openingBalanceBatchId, organizationId])
+  @@unique([reversalOfId, organizationId])
+  @@unique([correctionOfId, organizationId])
+  @@index([organizationId, fiscalYearId, postingDate])
+  @@index([organizationId, status, createdAt])
+}
+
+model JournalLine {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @db.Uuid
+  entryId        String         @db.Uuid
+  accountId      String         @db.Uuid
+  lineNumber     Int
+  description    String?        @db.VarChar(500)
+  debit          Decimal        @default(0) @db.Decimal(20, 3)
+  credit         Decimal        @default(0) @db.Decimal(20, 3)
+  sourceReference String?       @db.VarChar(160)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  entry          JournalEntry   @relation(fields: [entryId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  account        ChartAccount   @relation(fields: [accountId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  evidenceLinks  JournalEvidenceLink[]
+
+  @@unique([id, entryId, organizationId])
+  @@unique([entryId, lineNumber])
+  @@index([organizationId, accountId, entryId])
+}
+
+model JournalEntryEvent {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  entryId        String       @db.Uuid
+  actorUserId    String       @db.Uuid
+  action         String       @db.VarChar(60)
+  fromStatus     JournalEntryStatus?
+  toStatus       JournalEntryStatus?
+  reason         String?      @db.VarChar(500)
+  metadata       Json         @default("{}")
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  entry          JournalEntry @relation(fields: [entryId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([organizationId, entryId, createdAt])
+}
+
+model JournalEvidenceLink {
+  id                String                    @id @default(uuid()) @db.Uuid
+  organizationId    String                    @db.Uuid
+  entryId           String                    @db.Uuid
+  lineId            String?                   @db.Uuid
+  documentId        String?                   @db.Uuid
+  statementId       String?                   @db.Uuid
+  bankTransactionId String?                   @db.Uuid
+  auditEventId      String?                   @db.Uuid
+  sourceType        String                    @db.VarChar(40)
+  sourceId          String                    @db.VarChar(160)
+  sourceRevision    String?                   @db.VarChar(80)
+  evidenceAt        DateTime                  @default(now())
+  metadata          Json                      @default("{}")
+  organization      Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  entry             JournalEntry              @relation(fields: [entryId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  line              JournalLine?              @relation(fields: [lineId, entryId, organizationId], references: [id, entryId, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  document          CompanyDocument?          @relation(fields: [documentId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  bankTransaction   BankStatementTransaction? @relation(fields: [bankTransactionId, statementId, organizationId], references: [id, statementId, organizationId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([organizationId, entryId, evidenceAt])
+  @@index([organizationId, sourceType, sourceId])
+}
+
 model FileAsset {
   id             String            @id @default(uuid()) @db.Uuid
   organizationId String            @db.Uuid
@@ -672,13 +881,67 @@ model FileAsset {
   sizeBytes      Int
   sha256         String
   storageProvider String
+  scanStatus     DocumentScanStatus @default(LEGACY_UNSCANNED)
+  releaseKey     String?            @unique
+  scannedSha256  String?            @db.VarChar(64)
+  scannerEngine  String?            @db.VarChar(100)
+  signatureVersion String?          @db.VarChar(100)
+  scannedAt      DateTime?
+  scanValidUntil DateTime?
+  scanLeaseToken String?            @db.Uuid
+  scanLeaseUntil DateTime?
+  scanAttempts   Int                @default(0)
   createdAt      DateTime          @default(now())
   deletedAt      DateTime?
   organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   companyDocument CompanyDocument?
   logoFor         OrganizationProfile? @relation("OrganizationLogo")
+  automationJobs  AutomationJob[]
+  uploadIntent    DocumentUploadIntent?
 
+  @@unique([id, organizationId])
   @@index([organizationId, deletedAt])
+  @@index([scanStatus, scanLeaseUntil])
+}
+
+model DocumentUploadIntent {
+  id             String               @id @db.Uuid
+  organizationId String               @db.Uuid
+  userId         String               @db.Uuid
+  pendingKey     String               @unique
+  releaseKey     String               @unique
+  status         DocumentUploadStatus @default(PENDING_UPLOAD)
+  expiresAt      DateTime
+  claimToken     String?              @db.Uuid
+  claimExpiresAt DateTime?
+  fileAssetId    String?              @unique @db.Uuid
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fileAsset      FileAsset?           @relation(fields: [fileAssetId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status, expiresAt])
+}
+
+model StorageDeletionTask {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  storageKey     String       @unique
+  storageProvider String
+  attempts       Int          @default(0)
+  nextAttemptAt  DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([nextAttemptAt])
+}
+
+model DocumentRateLimitBucket {
+  keyHash String   @id @db.VarChar(64)
+  count   Int      @default(0)
+  resetAt DateTime
+
+  @@index([resetAt])
 }
 
 model CompanyDocument {
@@ -693,7 +956,10 @@ model CompanyDocument {
   deletedAt      DateTime?
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   fileAsset      FileAsset    @relation(fields: [fileAssetId], references: [id], onDelete: Cascade)
+  automationJobs AutomationJob[]
+  journalEvidence JournalEvidenceLink[]
 
+  @@unique([id, organizationId])
   @@index([organizationId, category, deletedAt])
 }
 

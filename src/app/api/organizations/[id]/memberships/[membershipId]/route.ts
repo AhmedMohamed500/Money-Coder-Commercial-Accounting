@@ -22,15 +22,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const nextRole = parsed.data.action === "CHANGE_ROLE" ? parsed.data.role : undefined;
   if (!canManageMembership(actor.role, target.role, nextRole)) return NextResponse.json({ error: "لا يمكن تعديل مالك الكيان أو عضو بصلاحية مساوية." }, { status: 403 });
   if (nextRole && !roleMatchesOrganization(nextRole, actor.organization.type)) return NextResponse.json({ error: "الدور لا يناسب نوع الكيان." }, { status: 400 });
-  if (parsed.data.action === "SET_CHART_PERMISSIONS" || parsed.data.action === "SET_OPENING_PERMISSIONS") {
+  if (parsed.data.action === "SET_CHART_PERMISSIONS" || parsed.data.action === "SET_OPENING_PERMISSIONS" || parsed.data.action === "SET_JOURNAL_PERMISSIONS") {
     if (parsed.data.permissions.some(permission => !roleMayHoldPermission(target.role, permission))) return NextResponse.json({ error: "الدور المستهدف لا يسمح بهذه الصلاحية المحاسبية." }, { status: 400 });
     for (const permission of parsed.data.permissions) if (!await authorizeOrganization(user.id, id, permission)) return NextResponse.json({ error: "لا يمكنك منح صلاحية محاسبية لا تملكها." }, { status: 403 });
   }
 
   const updated = await db.$transaction(async (tx) => {
-    const permissionPrefix = parsed.data.action === "SET_CHART_PERMISSIONS" ? "accounting:chart:" : "accounting:opening:";
-    const data = parsed.data.action === "SET_CHART_PERMISSIONS" || parsed.data.action === "SET_OPENING_PERMISSIONS"
-      ? { permissions: [...validPermissions(target.permissions).filter(permission => !permission.startsWith(permissionPrefix)), ...parsed.data.permissions] }
+    const permissionPrefixes = parsed.data.action === "SET_CHART_PERMISSIONS" ? ["accounting:chart:"] : parsed.data.action === "SET_OPENING_PERMISSIONS" ? ["accounting:opening:"] : ["accounting:journal:", "accounting:ledger:", "accounting:trial-balance:", "accounting:periods:"];
+    const data = parsed.data.action === "SET_CHART_PERMISSIONS" || parsed.data.action === "SET_OPENING_PERMISSIONS" || parsed.data.action === "SET_JOURNAL_PERMISSIONS"
+      ? { permissions: [...validPermissions(target.permissions).filter(permission => !permissionPrefixes.some(prefix => permission.startsWith(prefix))), ...parsed.data.permissions] }
       : parsed.data.action === "CHANGE_ROLE"
       ? { role: parsed.data.role }
       : parsed.data.action === "ACTIVATE"
@@ -42,7 +42,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (parsed.data.action === "SUSPEND" || parsed.data.action === "REVOKE") {
       await tx.engagementStaff.deleteMany({ where: { membershipId: target.id } });
     }
-    await tx.auditEvent.create({ data: { organizationId: id, actorUserId: user.id, action: `MEMBERSHIP_${parsed.data.action}`, entityType: "OrganizationMembership", entityId: target.id, metadata: parsed.data.action === "SET_CHART_PERMISSIONS" || parsed.data.action === "SET_OPENING_PERMISSIONS" ? { previous: validPermissions(target.permissions).filter(permission => permission.startsWith(permissionPrefix)), next: parsed.data.permissions } : nextRole ? { nextRole } : {} } });
+    await tx.auditEvent.create({ data: { organizationId: id, actorUserId: user.id, action: `MEMBERSHIP_${parsed.data.action}`, entityType: "OrganizationMembership", entityId: target.id, metadata: parsed.data.action === "SET_CHART_PERMISSIONS" || parsed.data.action === "SET_OPENING_PERMISSIONS" || parsed.data.action === "SET_JOURNAL_PERMISSIONS" ? { previous: validPermissions(target.permissions).filter(permission => permissionPrefixes.some(prefix => permission.startsWith(prefix))), next: parsed.data.permissions } : nextRole ? { nextRole } : {} } });
     return membership;
   });
   return NextResponse.json(updated);

@@ -52,7 +52,12 @@ export async function openingOverview(organizationId: string) {
 export async function openingBatchDetail(organizationId: string, batchId: string) {
   const batch = await db.openingBalanceBatch.findFirst({
     where: { id: batchId, organizationId },
-    include: { fiscalYear: { select: { id: true, name: true, startsAt: true, endsAt: true, isClosed: true } }, lines: { orderBy: { accountCode: "asc" } }, imports: { orderBy: { createdAt: "desc" }, select: { id: true, originalName: true, fileSha256: true, rowCount: true, rows: true, status: true, expiresAt: true, createdAt: true } } },
+    include: {
+      fiscalYear: { select: { id: true, name: true, startsAt: true, endsAt: true, isClosed: true } },
+      lines: { orderBy: { accountCode: "asc" } },
+      imports: { orderBy: { createdAt: "desc" }, select: { id: true, originalName: true, fileSha256: true, rowCount: true, rows: true, status: true, expiresAt: true, createdAt: true } },
+      postedJournalEntry: { select: { id: true, reference: true, status: true, postedAt: true } },
+    },
   });
   if (!batch) throw new OpeningError("دفعة الأرصدة غير موجودة.", 404);
   const accounts = await db.chartAccount.findMany({ where: { organizationId, deletedAt: null, isPostable: true }, orderBy: { code: "asc" }, select: { id: true, code: true, nameAr: true, accountClass: true, reportGroup: true, normalBalance: true, isContra: true, isActive: true, inventoryMethod: true } });
