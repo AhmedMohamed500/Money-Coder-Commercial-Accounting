@@ -107,6 +107,7 @@ describe.skipIf(!enabled)("Phase 2D journal, ledger and trial balance on disposa
   it("rejects unbalanced submission and treats duplicate creation idempotently", async () => {
     as("journal-accountant");
     expect((await createEntry(request(`/api/organizations/${companyA}/journal-entries`, "POST", { ...draft("USD-1", `usd:${marker}`), currency: "USD" }), organizationContext(companyA))).status).toBe(409);
+    expect((await createEntry(request(`/api/organizations/${companyA}/journal-entries`, "POST", { ...draft("OUTSIDE-FY", `outside-fy:${marker}`), transactionDate: "2027-11-01", postingDate: "2027-11-01" }), organizationContext(companyA))).status).toBe(409);
     const unbalanced = draft("UNBALANCED-1", `unbalanced:${marker}`);
     unbalanced.lines[1].credit = "90.25";
     const created = await createEntry(request(`/api/organizations/${companyA}/journal-entries`, "POST", unbalanced), organizationContext(companyA));
