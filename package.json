@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:db": "node scripts/test-database.mjs",
+    "test:browser:accounting": "node scripts/test-accounting-browser.mjs",
     "test:watch": "vitest",
     "test:visual": "node scripts/visual-smoke.mjs",
     "db:generate": "prisma generate",
