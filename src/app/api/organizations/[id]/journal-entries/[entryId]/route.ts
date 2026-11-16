@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { journalDraftSchema } from "../route";
+import { journalDraftSchema } from "@/lib/accounting/journal-schema";
 import { actOnJournalEntry, journalEntryDetail, replaceJournalDraft } from "@/lib/accounting/journal-service";
 import { journalActor, journalBadOrigin, journalDenied, journalFailure, journalJson, journalNoStore, journalSameOrigin } from "@/lib/accounting/journal-api";
 

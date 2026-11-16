@@ -55,7 +55,7 @@ describe("upload content validation", () => {
 });
 
 describe("short-lived upload authorization", () => {
-  const input = { organizationId:"11111111-1111-4111-8111-111111111111",userId:"22222222-2222-4222-8222-222222222222",originalName:"invoice.pdf",mimeType:"application/pdf" as const,sizeBytes:25,kind:"LEGAL_DOCUMENT" as const,title:"Invoice" };
+  const input = { organizationId:"11111111-1111-4111-8111-111111111111",userId:"22222222-2222-4222-8222-222222222222",originalName:"invoice.pdf",mimeType:"application/pdf" as const,sizeBytes:25,sha256:"a".repeat(64),kind:"LEGAL_DOCUMENT" as const,title:"Invoice" };
   it("round-trips an intact scoped ticket", () => {
     const created = createDocumentUploadTicket({ ...input, now:100, ttlSeconds:60 });
     expect(verifyDocumentUploadTicket(created.token,{now:120}).payload.organizationId).toBe(input.organizationId);

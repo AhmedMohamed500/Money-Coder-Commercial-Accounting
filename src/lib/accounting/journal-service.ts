@@ -1,5 +1,6 @@
 import { Prisma, type JournalEntryStatus } from "@prisma/client";
 import { db } from "@/lib/db";
+import { documentIsClean } from "@/lib/document-gateway";
 import { currencyPrecision, formatMinor, parseMoney, validateSides } from "./opening-money";
 
 type Tx = Prisma.TransactionClient;
@@ -79,6 +80,11 @@ async function accountingContext(tx: Tx, organizationId: string, fiscalYearId: s
   return { fiscalYear, period };
 }
 
+async function assertBaseCurrency(tx: Tx, organizationId: string, currency: string) {
+  const settings = await tx.companyAccountingSettings.findUnique({ where: { organizationId }, select: { baseCurrency: true } });
+  if (!settings?.baseCurrency || settings.baseCurrency !== currency) throw new JournalError("لا يمكن ترحيل عملة تختلف عن العملة الأساسية قبل اعتماد سياسة تحويل عملات.", 409);
+}
+
 async function normalizeLines(tx: Tx, organizationId: string, precision: number, lines: JournalLineInput[]) {
   if (lines.length < 2 || lines.length > 200) throw new JournalError("يجب أن يحتوي القيد على سطرين على الأقل وبحد أقصى 200 سطر.");
   const ids = Array.from(new Set(lines.map(line => line.accountId)));
@@ -105,15 +111,18 @@ async function event(tx: Tx, input: { organizationId: string; entryId: string; a
 
 async function attachEvidence(tx: Tx, organizationId: string, entryId: string, input: JournalDraftInput) {
   if (input.documentId) {
-    const document = await tx.companyDocument.findFirst({ where: { id: input.documentId, organizationId, deletedAt: null }, select: { id: true } });
+    const document = await tx.companyDocument.findFirst({ where: { id: input.documentId, organizationId, deletedAt: null }, select: { id: true, fileAsset: { select: { scanStatus: true, sha256: true, scannedSha256: true, releaseKey: true, scanValidUntil: true, deletedAt: true } } } });
     if (!document) throw new JournalError("المستند الداعم غير موجود لهذه الشركة.", 404);
-    await tx.journalEvidenceLink.create({ data: { organizationId, entryId, documentId: document.id, sourceType: "DOCUMENT", sourceId: document.id, sourceRevision: input.sourceRevision, evidenceAt: input.evidenceTimestamp ? new Date(input.evidenceTimestamp) : new Date() } });
+    if (!documentIsClean(document.fileAsset)) throw new JournalError("لا يمكن ربط مستند لم يجتز فحص الأمان أو انتهت صلاحية فحصه.", 409);
+    const exists = await tx.journalEvidenceLink.findFirst({ where: { organizationId, entryId, documentId: document.id }, select: { id: true } });
+    if (!exists) await tx.journalEvidenceLink.create({ data: { organizationId, entryId, documentId: document.id, sourceType: "DOCUMENT", sourceId: document.id, sourceRevision: input.sourceRevision, evidenceAt: input.evidenceTimestamp ? new Date(input.evidenceTimestamp) : new Date() } });
   }
   if (input.bankTransactionId || input.statementId) {
     if (!input.bankTransactionId || !input.statementId) throw new JournalError("مرجع حركة البنك غير مكتمل.");
     const bank = await tx.bankStatementTransaction.findFirst({ where: { id: input.bankTransactionId, statementId: input.statementId, organizationId }, select: { id: true, statementId: true, revision: true } });
     if (!bank) throw new JournalError("حركة البنك غير موجودة لهذه الشركة.", 404);
-    await tx.journalEvidenceLink.create({ data: { organizationId, entryId, statementId: bank.statementId, bankTransactionId: bank.id, sourceType: "BANK_TRANSACTION", sourceId: bank.id, sourceRevision: String(bank.revision), evidenceAt: input.evidenceTimestamp ? new Date(input.evidenceTimestamp) : new Date() } });
+    const exists = await tx.journalEvidenceLink.findFirst({ where: { organizationId, entryId, bankTransactionId: bank.id, statementId: bank.statementId }, select: { id: true } });
+    if (!exists) await tx.journalEvidenceLink.create({ data: { organizationId, entryId, statementId: bank.statementId, bankTransactionId: bank.id, sourceType: "BANK_TRANSACTION", sourceId: bank.id, sourceRevision: String(bank.revision), evidenceAt: input.evidenceTimestamp ? new Date(input.evidenceTimestamp) : new Date() } });
   }
 }
 
@@ -124,6 +133,7 @@ export async function createJournalDraft(organizationId: string, actor: JournalA
     if (prior) return { entry: prior, duplicate: true };
     const postingDate = dateOnly(input.postingDate); const transactionDate = dateOnly(input.transactionDate);
     const currency = input.currency.trim().toUpperCase(); const precision = currencyPrecision(currency);
+    await assertBaseCurrency(tx, organizationId, currency);
     const { period } = await accountingContext(tx, organizationId, input.fiscalYearId, postingDate);
     const values = await normalizeLines(tx, organizationId, precision, input.lines);
     let entry;
@@ -149,10 +159,12 @@ export async function replaceJournalDraft(organizationId: string, entryId: strin
     if (before.status !== "DRAFT" && before.status !== "REJECTED") throw new JournalError("لا يمكن تعديل القيد بعد تقديمه.", 409);
     const postingDate = dateOnly(input.postingDate); const transactionDate = dateOnly(input.transactionDate);
     const currency = input.currency.trim().toUpperCase(); const precision = currencyPrecision(currency);
+    await assertBaseCurrency(tx, organizationId, currency);
     const { period } = await accountingContext(tx, organizationId, input.fiscalYearId, postingDate);
     const values = await normalizeLines(tx, organizationId, precision, input.lines);
     await tx.journalLine.deleteMany({ where: { entryId, organizationId } });
     await tx.journalLine.createMany({ data: values.normalized.map(line => ({ ...line, entryId })) });
+    await attachEvidence(tx, organizationId, entryId, { ...input, idempotencyKey: before.idempotencyKey });
     const updated = await tx.journalEntry.update({ where: { id: entryId }, data: { fiscalYearId: input.fiscalYearId, periodId: period.id, reference: input.reference.trim().slice(0, 80), description: input.description.trim().slice(0, 500), transactionDate, postingDate, currency, currencyPrecision: precision, sourceType: input.sourceType ?? before.sourceType, sourceReference: input.sourceReference?.trim().slice(0, 160) || null, sourceRevision: input.sourceRevision?.trim().slice(0, 80) || null, evidenceTimestamp: input.evidenceTimestamp ? new Date(input.evidenceTimestamp) : null, totalDebit: values.debit, totalCredit: values.credit, status: "DRAFT", rejectionReason: null, rejectedAt: null, rejectedById: null, revision: { increment: 1 } } });
     await event(tx, { organizationId, entryId, actor, action: "JOURNAL_DRAFT_UPDATED", fromStatus: before.status, toStatus: "DRAFT", metadata: { balanced: values.balanced, revision: updated.revision }, request });
     return updated;
@@ -182,6 +194,8 @@ export async function journalEntryDetail(organizationId: string, entryId: string
 
 async function assertBalancedEntry(tx: Tx, organizationId: string, entry: { id: string; fiscalYearId: string; postingDate: Date; currencyPrecision: number }) {
   await accountingContext(tx, organizationId, entry.fiscalYearId, entry.postingDate);
+  const documents = await tx.journalEvidenceLink.findMany({ where: { organizationId, entryId: entry.id, documentId: { not: null } }, select: { document: { select: { deletedAt: true, fileAsset: { select: { scanStatus: true, sha256: true, scannedSha256: true, releaseKey: true, scanValidUntil: true, deletedAt: true } } } } } });
+  if (documents.some(link => !link.document || link.document.deletedAt || !documentIsClean(link.document.fileAsset))) throw new JournalError("أحد مستندات الإثبات غير متاح أو لم يعد يحمل فحص أمان صالحًا.", 409);
   const lines = await tx.journalLine.findMany({ where: { entryId: entry.id, organizationId }, orderBy: { lineNumber: "asc" } });
   const values = await normalizeLines(tx, organizationId, entry.currencyPrecision, lines.map(line => ({ accountId: line.accountId, debit: line.debit.toString(), credit: line.credit.toString(), description: line.description ?? undefined, sourceReference: line.sourceReference ?? undefined })));
   if (!values.balanced) throw new JournalError("القيد غير متوازن؛ يجب أن يتساوى إجمالي المدين والدائن.", 409);
@@ -309,16 +323,49 @@ export async function postApprovedOpeningBalance(organizationId: string, batchId
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30_000 });
 }
 
-export async function closeAccountingPeriod(organizationId: string, periodId: string, actor: JournalActor, request?: Request) {
+async function periodCounts(tx: Tx | typeof db, organizationId: string, periodId: string) {
+  const groups = await tx.journalEntry.groupBy({ by: ["status"], where: { organizationId, periodId }, _count: { _all: true } });
+  const counts = Object.fromEntries(groups.map(group => [group.status, group._count._all])) as Partial<Record<JournalEntryStatus, number>>;
+  return {
+    draft: counts.DRAFT ?? 0,
+    submitted: counts.SUBMITTED ?? 0,
+    approved: counts.APPROVED ?? 0,
+    rejected: counts.REJECTED ?? 0,
+    posted: counts.POSTED ?? 0,
+    reversed: counts.REVERSED ?? 0,
+  };
+}
+
+export async function accountingPeriodsOverview(organizationId: string, fiscalYearId?: string) {
+  return db.$transaction(async tx => {
+    await lockCompany(tx, organizationId);
+    const fiscalYears = await tx.companyFiscalYear.findMany({ where: { organizationId }, orderBy: { startsAt: "desc" }, select: { id: true, name: true, startsAt: true, endsAt: true, isClosed: true } });
+    const selected = fiscalYears.find(year => year.id === fiscalYearId) ?? fiscalYears[0];
+    if (!selected) return { fiscalYears, selectedFiscalYearId: null, periods: [] };
+    if (fiscalYearId && selected.id !== fiscalYearId) throw new JournalError("السنة المالية غير موجودة.", 404);
+    const periods = await ensureFiscalPeriods(tx, organizationId, selected);
+    const actors = await tx.user.findMany({ where: { id: { in: periods.flatMap(period => period.closedById ? [period.closedById] : []) } }, select: { id: true, displayName: true } });
+    const actorNames = new Map(actors.map(actor => [actor.id, actor.displayName]));
+    const rows = await Promise.all(periods.map(async period => ({
+      ...period,
+      closedByName: period.closedById ? actorNames.get(period.closedById) ?? "مستخدم سابق" : null,
+      counts: await periodCounts(tx, organizationId, period.id),
+    })));
+    return { fiscalYears, selectedFiscalYearId: selected.id, periods: rows };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
+export async function closeAccountingPeriod(organizationId: string, periodId: string, actor: JournalActor, confirmation: string, request?: Request) {
   return db.$transaction(async tx => {
     await lockCompany(tx, organizationId);
     const period = await tx.accountingPeriod.findFirst({ where: { id: periodId, organizationId } });
     if (!period) throw new JournalError("الفترة غير موجودة.", 404);
     if (period.status === "CLOSED") return period;
-    const pending = await tx.journalEntry.count({ where: { periodId, organizationId, status: { in: ["SUBMITTED", "APPROVED"] } } });
-    if (pending) throw new JournalError("لا يمكن إغلاق فترة تحتوي قيودًا بانتظار الاعتماد أو الترحيل.", 409);
+    if (confirmation !== period.name) throw new JournalError("اكتب اسم الفترة كما يظهر لتأكيد الإغلاق.", 400);
+    const counts = await periodCounts(tx, organizationId, periodId);
+    if (counts.submitted || counts.approved) throw new JournalError("لا يمكن إغلاق فترة تحتوي قيودًا بانتظار الاعتماد أو الترحيل.", 409);
     const updated = await tx.accountingPeriod.update({ where: { id: periodId }, data: { status: "CLOSED", closedById: actor.id, closedAt: new Date() } });
-    await tx.auditEvent.create({ data: { organizationId, actorUserId: actor.id, action: "ACCOUNTING_PERIOD_CLOSED", entityType: "AccountingPeriod", entityId: periodId, metadata: { name: period.name, startsAt: dateKey(period.startsAt), endsAt: dateKey(period.endsAt) }, ipAddress: request?.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null, userAgent: request?.headers.get("user-agent") ?? null } });
+    await tx.auditEvent.create({ data: { organizationId, actorUserId: actor.id, action: "ACCOUNTING_PERIOD_CLOSED", entityType: "AccountingPeriod", entityId: periodId, metadata: { name: period.name, startsAt: dateKey(period.startsAt), endsAt: dateKey(period.endsAt), counts, warning: "Period closure prevents posting; it is not a representation of IFRS completeness." }, ipAddress: request?.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null, userAgent: request?.headers.get("user-agent") ?? null } });
     return updated;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }

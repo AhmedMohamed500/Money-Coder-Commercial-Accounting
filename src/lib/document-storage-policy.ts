@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import type { Prisma, PrismaClient } from "@prisma/client";
 
 function boundedInteger(value: string | undefined, fallback: number, minimum: number, maximum: number) {
   const parsed = Number(value ?? fallback);
@@ -13,10 +14,10 @@ export function organizationDocumentLimit() {
   return boundedInteger(process.env.ORGANIZATION_DOCUMENT_LIMIT, 100, 1, 10_000);
 }
 
-export async function organizationHasDocumentCapacity(organizationId: string, incomingBytes: number) {
+export async function organizationHasDocumentCapacity(organizationId: string, incomingBytes: number, client: Prisma.TransactionClient | PrismaClient = db) {
   const [count, aggregate] = await Promise.all([
-    db.fileAsset.count({ where: { organizationId, deletedAt: null } }),
-    db.fileAsset.aggregate({ where: { organizationId, deletedAt: null }, _sum: { sizeBytes: true } }),
+    client.fileAsset.count({ where: { organizationId, deletedAt: null } }),
+    client.fileAsset.aggregate({ where: { organizationId, deletedAt: null }, _sum: { sizeBytes: true } }),
   ]);
   return count < organizationDocumentLimit() && (aggregate._sum.sizeBytes ?? 0) + incomingBytes <= organizationStorageQuotaBytes();
 }

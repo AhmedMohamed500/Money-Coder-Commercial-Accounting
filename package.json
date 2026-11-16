@@ -5,18 +5,22 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "build:sanitized": "node scripts/safe-build.mjs",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:db": "node scripts/test-database.mjs",
+    "test:browser:accounting": "node scripts/test-accounting-browser.mjs",
     "test:watch": "vitest",
     "test:visual": "node scripts/visual-smoke.mjs",
     "db:generate": "prisma generate",
+    "db:generate:safe": "node scripts/safe-generate-prisma.mjs",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:verify": "node scripts/verify-neon-database.mjs",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "documents:worker": "tsx scripts/scan-documents.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1156.0",
