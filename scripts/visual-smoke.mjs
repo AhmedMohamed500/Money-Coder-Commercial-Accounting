@@ -56,11 +56,18 @@ try {
       dir: document.documentElement.dir,
       ctas: [...document.querySelectorAll("a.mcf-button")].map(element => ({ text: element.textContent?.trim(), href: element.getAttribute("href") })),
       readinessLabels: [...document.querySelectorAll(".mcf-feature-rail small, .mcf-workflow-grid small")].map(element => element.textContent?.trim()),
+      approvedBlocks: {
+        socialProof: Boolean(document.querySelector(".mcf-social-proof")),
+        testimonial: Boolean(document.querySelector(".mcf-testimonial")),
+        restaurants: [...document.querySelectorAll(".mcf-industry-grid strong")].some(element => element.textContent?.includes("المطاعم والكافيهات")),
+        supportFooter: [...document.querySelectorAll(".mcf-footer nav > strong")].some(element => element.textContent?.trim() === "الدعم"),
+      },
     }));
     if (metrics.scrollWidth > metrics.viewport) throw new Error(`${viewport.name} has horizontal overflow: ${metrics.scrollWidth}px > ${metrics.viewport}px`);
     if (metrics.dir !== "rtl") throw new Error(`${viewport.name} is not rendered in RTL mode`);
     if (metrics.ctas.some(cta => !cta.text || !cta.href)) throw new Error(`${viewport.name} has a blank or unlinked CTA`);
     if (!metrics.readinessLabels.includes("متاح الآن") || !metrics.readinessLabels.includes("ضمن Financial Twin")) throw new Error(`${viewport.name} does not distinguish live and planned functionality`);
+    if (Object.values(metrics.approvedBlocks).some(value => !value)) throw new Error(`${viewport.name} is missing an approved design block`);
     if (browserErrors.length) throw new Error(`${viewport.name} browser errors: ${browserErrors.join(" | ")}`);
     console.log(`${viewport.name}: ${metrics.viewport}px, no horizontal overflow, RTL confirmed.`);
     await page.close();
@@ -73,6 +80,7 @@ try {
     await reviewPage.locator(`#${section}`).screenshot({ path: path.join(output, `review-${section}.png`) });
   }
   await reviewPage.locator(".mcf-final").screenshot({ path: path.join(output, "review-final-cta.png") });
+  await reviewPage.locator(".mcf-benefits").screenshot({ path: path.join(output, "review-benefits-and-proof.png") });
   await reviewPage.close();
 
   const interactionPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
