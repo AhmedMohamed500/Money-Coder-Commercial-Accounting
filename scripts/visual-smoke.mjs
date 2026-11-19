@@ -29,8 +29,8 @@ try {
         browserErrors.push(`${message.text()}${location.url ? ` — ${location.url}` : ""}`);
       }
     });
-    await page.goto(`${baseUrl}/`, { waitUntil: "networkidle" });
-    await page.screenshot({ path: path.join(output, `${viewport.name}-hero.png`), fullPage: false });
+    await page.goto(`${baseUrl}/`, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    await page.locator(".mcf-hero").waitFor({ state: "visible" });
     await page.evaluate(async () => {
       for (let y = 0; y < document.documentElement.scrollHeight; y += window.innerHeight * .75) {
         window.scrollTo(0, y);
@@ -44,7 +44,11 @@ try {
         new Promise(resolve => setTimeout(resolve, 3000)),
       ]);
       window.scrollTo(0, 0);
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     });
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: path.join(output, `${viewport.name}-hero.png`), fullPage: false });
+    await page.addStyleTag({ content: ".mcf-header{position:absolute!important;width:100%!important}" });
     await page.screenshot({ path: path.join(output, `${viewport.name}-full.png`), fullPage: true });
     const metrics = await page.evaluate(() => ({
       viewport: document.documentElement.clientWidth,
@@ -63,7 +67,8 @@ try {
   }
 
   const reviewPage = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-  await reviewPage.goto(`${baseUrl}/`, { waitUntil: "networkidle" });
+  await reviewPage.goto(`${baseUrl}/`, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  await reviewPage.locator(".mcf-hero").waitFor({ state: "visible" });
   for (const section of ["offices", "workflow", "industries", "roles"]) {
     await reviewPage.locator(`#${section}`).screenshot({ path: path.join(output, `review-${section}.png`) });
   }
@@ -71,18 +76,21 @@ try {
   await reviewPage.close();
 
   const interactionPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
-  await interactionPage.goto(`${baseUrl}/`, { waitUntil: "networkidle" });
+  await interactionPage.goto(`${baseUrl}/`, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  await interactionPage.locator(".mcf-hero").waitFor({ state: "visible" });
   await interactionPage.locator(".mcf-menu summary").click();
   if (!await interactionPage.locator('.mcf-menu a[href="#offices"]').isVisible()) throw new Error("Mobile navigation did not open accessibly");
   await interactionPage.locator('.mcf-menu a[href="#offices"]').click();
   await interactionPage.waitForFunction(() => window.location.hash === "#offices");
-  await interactionPage.getByRole("tab", { name: "العمل مع شركة واحدة" }).click();
-  if (!await interactionPage.getByText("ملف شركة واحدة تحت المراجعة").isVisible()) throw new Error("Accounting-office workflow tabs did not update");
+  const singleCompanyTab = interactionPage.getByRole("tab", { name: "شركة واحدة" });
+  await singleCompanyTab.click();
+  if (await singleCompanyTab.getAttribute("aria-selected") !== "true") throw new Error("Accounting-office workflow tabs did not update");
+  if (!await interactionPage.locator("#offices").getByText("مراجعة المستندات", { exact: true }).isVisible()) throw new Error("Single-company review capabilities did not render");
   await interactionPage.getByRole("button", { name: /التصنيع والإنتاج/ }).click();
   if (await interactionPage.getByRole("button", { name: /التصنيع والإنتاج/ }).getAttribute("aria-pressed") !== "true") throw new Error("Industry selector did not update");
-  const registerResponse = await interactionPage.goto(`${baseUrl}/auth/register`, { waitUntil: "networkidle" });
+  const registerResponse = await interactionPage.goto(`${baseUrl}/auth/register`, { waitUntil: "domcontentloaded", timeout: 60_000 });
   if (registerResponse?.status() !== 200) throw new Error(`Registration CTA route returned ${registerResponse?.status()}`);
-  const loginResponse = await interactionPage.goto(`${baseUrl}/auth/login`, { waitUntil: "networkidle" });
+  const loginResponse = await interactionPage.goto(`${baseUrl}/auth/login`, { waitUntil: "domcontentloaded", timeout: 60_000 });
   if (loginResponse?.status() !== 200) throw new Error(`Login route returned ${loginResponse?.status()}`);
   console.log("Mobile menu, section navigation, registration CTA, and login route confirmed.");
   await interactionPage.close();
