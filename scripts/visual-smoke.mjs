@@ -7,7 +7,8 @@ const candidates = [process.env.EDGE_PATH, "C:\\Program Files (x86)\\Microsoft\\
 const executablePath = candidates.find(existsSync);
 if (!executablePath) throw new Error("Microsoft Edge not found. Set EDGE_PATH to a Chromium executable.");
 
-const output = path.join(process.cwd(), "test-artifacts");
+const baseUrl = process.env.VISUAL_BASE_URL ?? "http://localhost:3000";
+const output = path.join(process.cwd(), "artifacts", "final-landing-visual-qa");
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ executablePath, headless: true });
 
@@ -28,40 +29,60 @@ try {
         browserErrors.push(`${message.text()}${location.url ? ` — ${location.url}` : ""}`);
       }
     });
-    await page.goto("http://localhost:3000/", { waitUntil: "networkidle" });
+    await page.goto(`${baseUrl}/`, { waitUntil: "networkidle" });
     await page.screenshot({ path: path.join(output, `${viewport.name}-hero.png`), fullPage: false });
+    await page.evaluate(async () => {
+      for (let y = 0; y < document.documentElement.scrollHeight; y += window.innerHeight * .75) {
+        window.scrollTo(0, y);
+        await new Promise(resolve => setTimeout(resolve, 60));
+      }
+      await Promise.race([
+        Promise.all([...document.images].map(image => image.complete ? Promise.resolve() : new Promise(resolve => {
+          image.addEventListener("load", resolve, { once: true });
+          image.addEventListener("error", resolve, { once: true });
+        }))),
+        new Promise(resolve => setTimeout(resolve, 3000)),
+      ]);
+      window.scrollTo(0, 0);
+    });
     await page.screenshot({ path: path.join(output, `${viewport.name}-full.png`), fullPage: true });
     const metrics = await page.evaluate(() => ({
       viewport: document.documentElement.clientWidth,
       scrollWidth: document.documentElement.scrollWidth,
       dir: document.documentElement.dir,
-      ctas: [...document.querySelectorAll("a.premium-button")].map(element => ({ text: element.textContent?.trim(), href: element.getAttribute("href") })),
+      ctas: [...document.querySelectorAll("a.mcf-button")].map(element => ({ text: element.textContent?.trim(), href: element.getAttribute("href") })),
+      readinessLabels: [...document.querySelectorAll(".mcf-feature-rail small, .mcf-workflow-grid small")].map(element => element.textContent?.trim()),
     }));
     if (metrics.scrollWidth > metrics.viewport) throw new Error(`${viewport.name} has horizontal overflow: ${metrics.scrollWidth}px > ${metrics.viewport}px`);
     if (metrics.dir !== "rtl") throw new Error(`${viewport.name} is not rendered in RTL mode`);
     if (metrics.ctas.some(cta => !cta.text || !cta.href)) throw new Error(`${viewport.name} has a blank or unlinked CTA`);
+    if (!metrics.readinessLabels.includes("متاح الآن") || !metrics.readinessLabels.includes("ضمن Financial Twin")) throw new Error(`${viewport.name} does not distinguish live and planned functionality`);
     if (browserErrors.length) throw new Error(`${viewport.name} browser errors: ${browserErrors.join(" | ")}`);
     console.log(`${viewport.name}: ${metrics.viewport}px, no horizontal overflow, RTL confirmed.`);
     await page.close();
   }
 
   const reviewPage = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-  await reviewPage.goto("http://localhost:3000/", { waitUntil: "networkidle" });
-  for (const section of ["experience", "audiences", "future"]) {
+  await reviewPage.goto(`${baseUrl}/`, { waitUntil: "networkidle" });
+  for (const section of ["offices", "workflow", "industries", "roles"]) {
     await reviewPage.locator(`#${section}`).screenshot({ path: path.join(output, `review-${section}.png`) });
   }
-  await reviewPage.locator(".signature-cta").screenshot({ path: path.join(output, "review-final-cta.png") });
+  await reviewPage.locator(".mcf-final").screenshot({ path: path.join(output, "review-final-cta.png") });
   await reviewPage.close();
 
   const interactionPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
-  await interactionPage.goto("http://localhost:3000/", { waitUntil: "networkidle" });
-  await interactionPage.locator(".premium-mobile-menu summary").click();
-  if (!await interactionPage.locator('.premium-mobile-menu a[href="#experience"]').isVisible()) throw new Error("Mobile navigation did not open accessibly");
-  await interactionPage.locator('.premium-mobile-menu a[href="#experience"]').click();
-  await interactionPage.waitForFunction(() => window.location.hash === "#experience");
-  const registerResponse = await interactionPage.goto("http://localhost:3000/auth/register", { waitUntil: "networkidle" });
+  await interactionPage.goto(`${baseUrl}/`, { waitUntil: "networkidle" });
+  await interactionPage.locator(".mcf-menu summary").click();
+  if (!await interactionPage.locator('.mcf-menu a[href="#offices"]').isVisible()) throw new Error("Mobile navigation did not open accessibly");
+  await interactionPage.locator('.mcf-menu a[href="#offices"]').click();
+  await interactionPage.waitForFunction(() => window.location.hash === "#offices");
+  await interactionPage.getByRole("tab", { name: "العمل مع شركة واحدة" }).click();
+  if (!await interactionPage.getByText("ملف شركة واحدة تحت المراجعة").isVisible()) throw new Error("Accounting-office workflow tabs did not update");
+  await interactionPage.getByRole("button", { name: /التصنيع والإنتاج/ }).click();
+  if (await interactionPage.getByRole("button", { name: /التصنيع والإنتاج/ }).getAttribute("aria-pressed") !== "true") throw new Error("Industry selector did not update");
+  const registerResponse = await interactionPage.goto(`${baseUrl}/auth/register`, { waitUntil: "networkidle" });
   if (registerResponse?.status() !== 200) throw new Error(`Registration CTA route returned ${registerResponse?.status()}`);
-  const loginResponse = await interactionPage.goto("http://localhost:3000/auth/login", { waitUntil: "networkidle" });
+  const loginResponse = await interactionPage.goto(`${baseUrl}/auth/login`, { waitUntil: "networkidle" });
   if (loginResponse?.status() !== 200) throw new Error(`Login route returned ${loginResponse?.status()}`);
   console.log("Mobile menu, section navigation, registration CTA, and login route confirmed.");
   await interactionPage.close();
