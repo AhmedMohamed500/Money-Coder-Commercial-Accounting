@@ -20,4 +20,4 @@ export function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico|robots.txt).*)"] };
+export const config = { matcher: ["/((?!_next/|favicon.ico|robots.txt).*)"] };
