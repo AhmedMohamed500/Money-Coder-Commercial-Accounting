@@ -8,6 +8,7 @@ import { databaseFailureResponse } from "@/lib/api-errors";
 import type { Prisma } from "@prisma/client";
 
 class IncompleteOnboardingError extends Error {}
+class ChartPolicyChangeError extends Error {}
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try { return await getOrganization(params); }
@@ -55,7 +56,12 @@ async function updateOrganization(request: Request, params: Promise<{ id: string
         });
         if (replacements.length) await tx.companyContact.createMany({ data: replacements });
       }
-      if (accounting) await tx.companyAccountingSettings.upsert({ where: { organizationId: id }, create: { organizationId: id, ...accounting }, update: accounting });
+      if (accounting) {
+        const installed = await tx.chartInstallation.findUnique({ where: { organizationId: id } });
+        const priorSettings = installed ? await tx.companyAccountingSettings.findUnique({ where: { organizationId: id } }) : null;
+        if (installed && priorSettings && accounting.inventoryMethod !== priorSettings.inventoryMethod) throw new ChartPolicyChangeError("تغيير سياسة الجرد بعد إنشاء الدليل يحتاج مراجعة وترحيلًا محاسبيًا مستقلًا.");
+        await tx.companyAccountingSettings.upsert({ where: { organizationId: id }, create: { organizationId: id, ...accounting }, update: accounting });
+      }
       if (fiscalYear) {
         if (fiscalYear.id) {
           const result = await tx.companyFiscalYear.updateMany({ where: { id: fiscalYear.id, organizationId: id, isClosed: false }, data: { name: fiscalYear.name, startsAt: fiscalYear.startsAt, endsAt: fiscalYear.endsAt } });
@@ -72,6 +78,7 @@ async function updateOrganization(request: Request, params: Promise<{ id: string
     });
   } catch (cause) {
     if (cause instanceof IncompleteOnboardingError) return NextResponse.json({ error: cause.message }, { status: 400 });
+    if (cause instanceof ChartPolicyChangeError) return NextResponse.json({ error: cause.message }, { status: 409 });
     if (cause instanceof Error && cause.message.startsWith("السنة المالية")) return NextResponse.json({ error: cause.message }, { status: 400 });
     throw cause;
   }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authorizeOrganization, getSessionUser } from "@/lib/auth";
+import { privateStorageUploadPolicy } from "@/lib/config";
 import { verifyDocumentUploadTicket } from "@/lib/document-upload";
 import { assertOrganizationObjectKey, getStorageAdapter } from "@/lib/storage";
 
@@ -13,6 +14,7 @@ export async function PUT(request: Request) {
     const user = await getSessionUser();
     const { payload } = verifyDocumentUploadTicket(token);
     if (!user || user.id !== payload.userId || !(await authorizeOrganization(user.id, payload.organizationId, "documents:manage"))) return NextResponse.json({ error: "غير مصرح." }, { status: 403, headers: noStore });
+    if (!privateStorageUploadPolicy().acceptsFinalization) return NextResponse.json({ error: "استقبال الملفات متوقف مؤقتًا." }, { status: 503, headers: noStore });
     assertOrganizationObjectKey(payload.pendingKey, payload.organizationId);
     if (request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== payload.mimeType) return NextResponse.json({ error: "نوع المحتوى لا يطابق التصريح." }, { status: 400, headers: noStore });
     const contentLength = request.headers.get("content-length");

@@ -96,6 +96,7 @@ export const organizationUpdateSchema = z.object({
 
 export const membershipActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("CHANGE_ROLE"), role: z.enum(["OFFICE_MANAGER", "OFFICE_ACCOUNTANT", "COMPANY_MANAGER", "COMPANY_ACCOUNTANT", "REVIEWER", "VIEWER"]) }),
+  z.object({ action: z.literal("SET_CHART_PERMISSIONS"), permissions: z.array(z.enum(["accounting:chart:view", "accounting:chart:create", "accounting:chart:edit", "accounting:chart:deactivate", "accounting:chart:delete", "accounting:chart:template:initialize", "accounting:chart:audit:view", "accounting:chart:approve"])).max(8) }),
   z.object({ action: z.enum(["SUSPEND", "ACTIVATE", "REVOKE"]) }),
 ]);
 

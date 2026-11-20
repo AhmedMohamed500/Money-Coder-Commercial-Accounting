@@ -28,15 +28,15 @@
 
 اسم المشروع: `money-coder-commercial-accounting`، Framework: Next.js، Build: `npm run build`.
 
-المتغيرات المطلوبة لتشغيل الوظائف الكاملة: `DATABASE_URL`, `AUTH_SECRET`, `APP_URL`, `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`. يتطلب Neon Storage أيضًا `PRIVATE_STORAGE_PROVIDER=neon`, `PRIVATE_STORAGE_BUCKET`, `PRIVATE_STORAGE_ACCESS=private`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL_S3`, `AWS_REGION`. كلها server-side، ومفتاحا AWS أسرار. متغيرا n8n اختياريان.
+المتغيرات المطلوبة لتشغيل الوظائف الكاملة: `DATABASE_URL`, `AUTH_SECRET`, `APP_URL`, `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`. يتطلب Neon Storage أيضًا `PRIVATE_STORAGE_PROVIDER=neon`, `PRIVATE_STORAGE_BUCKET`, `PRIVATE_STORAGE_ACCESS=private`, `PRIVATE_STORAGE_UPLOAD_MODE`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL_S3`, `AWS_REGION`. كلها server-side، ومفتاحا AWS أسرار. ابدأ دائمًا بـ`PRIVATE_STORAGE_UPLOAD_MODE=disabled` في Production؛ غياب المتغير أو أي قيمة غير معروفة يعطّل الرفع تلقائيًا. متغيرا n8n اختياريان.
 
 ملف `.vercelignore` يمنع رفع ملفات `.env` المحلية ضمن artifact؛ أضف القيم من إعدادات Project Environment Variables فقط.
 
-`/api/health` قد يعيد HTTP 503 رغم نجاح قاعدة البيانات والبريد لأن private storage غير مهيأ؛ اقرأ حالات الخدمات المنفصلة ولا تعتبر 503 وحده فشلًا في PostgreSQL.
+`/api/health` يفصل `privateStorage` (الاتصال) عن `documentUploads` (الوضع والسماح ببدء/إنهاء الرفع). نجاح اتصال التخزين لا يغيّر وضع الرفع. قد يعيد endpoint قيمة HTTP 503 رغم نجاح قاعدة البيانات والبريد لأن private storage غير مهيأ؛ اقرأ حالات الخدمات المنفصلة ولا تعتبر 503 وحده فشلًا في PostgreSQL.
 
 ## المستندات
 
-Neon S3-compatible private adapter منفذ: رفع مباشر بتصريح قصير، تحقق server-side، تنزيل موقع 60 ثانية، عزل tenant، حذف قابل لإعادة المحاولة، وhealth connectivity/ACL check. لا توجد credentials فعلية في المستودع، لذلك الإنتاج يرفض التفعيل تلقائيًا. اتبع `INFRASTRUCTURE_SETUP.md` لإنشاء bucket خاص وبيئتي Development/Production. Malware scanning والنسخ الاحتياطي/retention التشغيلي ما زالا مطلوبين قبل المستندات الحقيقية عالية الحساسية.
+Neon S3-compatible private adapter منفذ: رفع مباشر بسياسة POST قصيرة تفرض MIME والmetadata والحجم الدقيق، تحقق server-side، تنزيل موقع 60 ثانية، عزل tenant، حذف قابل لإعادة المحاولة، وhealth connectivity check. لا توجد credentials فعلية في المستودع، لذلك الإنتاج يرفض التفعيل تلقائيًا. اتبع `INFRASTRUCTURE_SETUP.md` لإنشاء bucket خاص وبيئتي Development/Production. Malware scanning والتحقق التشغيلي من خصوصية bucket والنسخ الاحتياطي/retention ما زالت مطلوبة قبل المستندات الحقيقية عالية الحساسية.
 
 ## Smoke Test
 

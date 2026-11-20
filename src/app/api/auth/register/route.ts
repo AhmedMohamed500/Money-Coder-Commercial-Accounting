@@ -14,8 +14,8 @@ export async function POST(request: Request) {
 }
 
 async function registerRequest(request: Request) {
-  if (!checkRateLimit(`register:${clientIp(request)}`, 5, 15 * 60_000).allowed) return NextResponse.json({ error: "محاولات كثيرة. حاول لاحقًا." }, { status: 429 });
   if (!databaseConfigured()) return NextResponse.json({ error: "إنشاء الحسابات معطل حتى تهيئة قاعدة البيانات." }, { status: 503 });
+  if (!(await checkRateLimit(`register:${clientIp(request)}`, 5, 15 * 60_000)).allowed) return NextResponse.json({ error: "محاولات كثيرة. حاول لاحقًا." }, { status: 429 });
   if (process.env.NODE_ENV === "production" && !emailConfigured()) return NextResponse.json({ error: "إنشاء الحسابات معطل مؤقتًا حتى تهيئة خدمة تأكيد البريد." }, { status: 503 });
   const parsed = registerSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صالحة" }, { status: 400 });

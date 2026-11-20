@@ -1,0 +1,31 @@
+.company-shell .btn-primary {
+  background: #064b50;
+  color: #fff;
+}
+
+.company-shell .btn-primary:hover {
+  background: #0a6970;
+  box-shadow: 0 10px 24px rgba(6, 75, 80, .18);
+}
+
+.company-shell a[href$="/accounting/chart-of-accounts"][class*="bg-[#064B50]"] {
+  color: #fff;
+}
+
+.company-shell .btn-secondary {
+  border-color: #ccdce3;
+  color: #102b4c;
+}
+
+.company-shell .surface {
+  border-color: #dce6ec;
+}
+
+.company-shell .input:focus {
+  border-color: #087d86;
+  box-shadow: 0 0 0 3px rgba(8, 125, 134, .13);
+}
+
+.company-shell :focus-visible {
+  outline-color: #087d86;
+}

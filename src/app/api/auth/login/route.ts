@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 
 async function loginRequest(request: Request) {
   if (!databaseConfigured()) return NextResponse.json({ error: "خدمة تسجيل الدخول غير مهيأة على هذه البيئة." }, { status: 503 });
-  if (!checkRateLimit(`login:${clientIp(request)}`, 10, 15 * 60_000).allowed) return NextResponse.json({ error: "محاولات كثيرة. حاول لاحقًا." }, { status: 429 });
+  if (!(await checkRateLimit(`login:${clientIp(request)}`, 10, 15 * 60_000)).allowed) return NextResponse.json({ error: "محاولات كثيرة. حاول لاحقًا." }, { status: 429 });
   const parsed = loginSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "بيانات الدخول غير صالحة." }, { status: 400 });
   const user = await db.user.findUnique({ where: { email: parsed.data.email } });

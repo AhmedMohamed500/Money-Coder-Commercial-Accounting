@@ -53,7 +53,7 @@ npm run test:visual
 
 - `DATABASE_URL`, `AUTH_SECRET`, `APP_URL`
 - `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`
-- `PRIVATE_STORAGE_PROVIDER`, `PRIVATE_STORAGE_PATH`, `MAX_UPLOAD_BYTES`
+- `PRIVATE_STORAGE_PROVIDER`, `PRIVATE_STORAGE_PATH`, `PRIVATE_STORAGE_UPLOAD_MODE`, `MAX_UPLOAD_BYTES`
 - متغيرا n8n موثقان للمستقبل وغير مفعلين في Phase 1.5.
 
 اتصال PostgreSQL البعيد في الإنتاج يجب أن يطلب TLS، مثل `sslmode=require`. استخدم runtime pooled URL إن وفره المزود، ونفذ migrations عبر اتصال إداري مباشر ومن بيئة موثوقة؛ التفاصيل في `INFRASTRUCTURE_SETUP.md`.
@@ -67,5 +67,6 @@ npm run test:visual
 - `/api/health` يعيد `degraded` وHTTP 503 عندما تكون خدمة حرجة مفقودة أو غير صالحة.
 - التسجيل والاستعادة والدعوات لا تدعي النجاح عندما تكون البنية المطلوبة غير مهيأة.
 - التخزين المحلي لا يعمل في Production ولا توضع المستندات داخل `/public`.
+- رفع المستندات في Production يفشل مغلقًا: غياب `PRIVATE_STORAGE_UPLOAD_MODE` أو وجود قيمة غير معروفة يعامل كـ`disabled` حتى مع credentials صحيحة.
 
 راجع `PHASE_1_DATA_INTEGRITY_FIX.md` لإصلاح سلامة بيانات onboarding، و`NEON_DATABASE_ACTIVATION.md` لتقرير قاعدة البيانات، و`PROJECT_STATUS.md` للحالة الدقيقة.

@@ -20,6 +20,7 @@ import { DELETE as deleteDocument, GET as downloadDocument } from "@/app/api/doc
 const enabled = process.env.RUN_DB_TESTS === "1";
 const marker = randomUUID();
 const ids: { users:string[];organizations:string[] } = { users:[],organizations:[] };
+const originalUploadMode = process.env.PRIVATE_STORAGE_UPLOAD_MODE;
 let ownerA = "";
 let ownerB = "";
 let suspendedUser = "";
@@ -83,8 +84,8 @@ describe.skipIf(!enabled)("private document storage lifecycle", () => {
     const orgB=await db.organization.create({data:{type:"COMMERCIAL_COMPANY",legalName:"Storage Company B",createdById:b.id,memberships:{create:{userId:b.id,role:"COMPANY_OWNER"}}}});
     companyA=orgA.id;companyB=orgB.id;ids.organizations.push(orgA.id,orgB.id);
   });
-  beforeEach(()=>{configureTestStorageFailure({unavailable:false,failDelete:false,failPromote:false});cookieState.jar.clear();});
-  afterAll(async()=>{cookieState.jar.clear();resetTestStorage();await db.organization.deleteMany({where:{id:{in:ids.organizations}}});await db.user.deleteMany({where:{id:{in:ids.users}}});await db.$disconnect();});
+  beforeEach(()=>{process.env.PRIVATE_STORAGE_UPLOAD_MODE="enabled";configureTestStorageFailure({unavailable:false,failDelete:false,failPromote:false,allowPromoteOverwrite:false,synchronizePromotions:false});cookieState.jar.clear();});
+  afterAll(async()=>{if(originalUploadMode===undefined)delete process.env.PRIVATE_STORAGE_UPLOAD_MODE;else process.env.PRIVATE_STORAGE_UPLOAD_MODE=originalUploadMode;cookieState.jar.clear();resetTestStorage();await db.organization.deleteMany({where:{id:{in:ids.organizations}}});await db.user.deleteMany({where:{id:{in:ids.users}}});await db.$disconnect();});
 
   it.each([
     ["authorized PDF","sample.pdf","application/pdf",pdf],
@@ -97,11 +98,17 @@ describe.skipIf(!enabled)("private document storage lifecycle", () => {
 
   it("rejects suspended membership",async()=>{await loginAs(suspendedUser);expect((await initUpload(companyA,"sample.pdf","application/pdf",pdf)).response.status).toBe(403);});
 
+  it("drains an existing authorization while refusing new uploads",async()=>{await loginAs(ownerA);const started=await initUpload(companyA,"drain-existing.pdf","application/pdf",pdf);expect(started.response.status).toBe(200);process.env.PRIVATE_STORAGE_UPLOAD_MODE="drain";expect((await initUpload(companyA,"drain-new.pdf","application/pdf",pdf)).response.status).toBe(503);expect((await putUpload(started.body,pdf)).status).toBe(204);const finalized=await complete(companyA,started.body.token);expect(finalized.status).toBe(201);expect(await db.fileAsset.count({where:{storageKey:verifyDocumentUploadTicket(started.body.token).payload.finalKey}})).toBe(1);});
+
+  it("blocks finalization in disabled mode but still allows safe cancellation",async()=>{await loginAs(ownerA);const started=await initUpload(companyA,"disabled-existing.pdf","application/pdf",pdf);expect(started.response.status).toBe(200);expect((await putUpload(started.body,pdf)).status).toBe(204);const payload=verifyDocumentUploadTicket(started.body.token).payload;process.env.PRIVATE_STORAGE_UPLOAD_MODE="disabled";expect((await initUpload(companyA,"disabled-new.pdf","application/pdf",pdf)).response.status).toBe(503);expect((await complete(companyA,started.body.token)).status).toBe(503);expect(testStorageHas(payload.pendingKey)).toBe(true);expect((await cancelUpload(jsonRequest(`http://local.test/api/organizations/${companyA}/documents/uploads`,"DELETE",{token:started.body.token}),{params:Promise.resolve({id:companyA})})).status).toBe(200);expect(testStorageHas(payload.pendingKey)).toBe(false);});
+
   it("blocks cross-company download and deletion",async()=>{await loginAs(ownerB);const created=await upload(companyB,"private.pdf","application/pdf",pdf);await loginAs(ownerA);expect((await downloadDocument(new Request(`http://local.test/api/documents/${created.document.id}`),{params:Promise.resolve({documentId:created.document.id})})).status).toBe(404);expect((await deleteDocument(new Request(`http://local.test/api/documents/${created.document.id}`,{method:"DELETE"}),{params:Promise.resolve({documentId:created.document.id})})).status).toBe(404);expect(testStorageHas(created.payload.finalKey)).toBe(true);});
 
   it("expires authorization and cleans the pending object",async()=>{await loginAs(ownerA);const created=createDocumentUploadTicket({organizationId:companyA,userId:ownerA,originalName:"expired.pdf",mimeType:"application/pdf",sizeBytes:pdf.length,kind:"LEGAL_DOCUMENT",title:"Expired",now:1,ttlSeconds:60});const metadata={organizationId:companyA,uploadedById:ownerA,uploadId:created.payload.jti,declaredMime:created.payload.mimeType,declaredSize:String(pdf.length)};await getStorageAdapter().putObject(created.payload.pendingKey,pdf,created.payload.mimeType,metadata);expect((await complete(companyA,created.token)).status).toBe(410);expect(testStorageHas(created.payload.pendingKey)).toBe(false);});
 
   it("rejects replayed finalization",async()=>{await loginAs(ownerA);const created=await upload(companyA,"replay.pdf","application/pdf",pdf);expect((await complete(companyA,created.token)).status).toBe(409);expect(await db.fileAsset.count({where:{storageKey:created.payload.finalKey}})).toBe(1);});
+
+  it("preserves the winning object during concurrent finalization",async()=>{await loginAs(ownerA);const started=await initUpload(companyA,"concurrent.pdf","application/pdf",pdf);expect(started.response.status).toBe(200);expect((await putUpload(started.body,pdf)).status).toBe(204);const payload=verifyDocumentUploadTicket(started.body.token).payload;configureTestStorageFailure({allowPromoteOverwrite:true,synchronizePromotions:true});const responses=await Promise.all([complete(companyA,started.body.token),complete(companyA,started.body.token)]);expect(responses.map(response=>response.status).sort()).toEqual([201,409]);expect(await db.fileAsset.count({where:{storageKey:payload.finalKey}})).toBe(1);expect(await db.companyDocument.count({where:{fileAsset:{storageKey:payload.finalKey}}})).toBe(1);expect(testStorageHas(payload.finalKey)).toBe(true);expect(testStorageHas(payload.pendingKey)).toBe(false);});
 
   it("cleans a disguised upload after server validation",async()=>{await loginAs(ownerA);const fake=Buffer.from("MZ disguised executable %%EOF");const started=await initUpload(companyA,"fake.pdf","application/pdf",fake);expect(started.response.status).toBe(200);expect((await putUpload(started.body,fake)).status).toBe(204);const payload=verifyDocumentUploadTicket(started.body.token).payload;expect((await complete(companyA,started.body.token)).status).toBe(400);expect(testStorageHas(payload.pendingKey)).toBe(false);expect(testStorageHas(payload.finalKey)).toBe(false);});
 

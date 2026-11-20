@@ -1,6 +1,6 @@
 import type { MembershipRole, OrganizationType } from "@prisma/client";
 
-export const PERMISSIONS = [
+const FOUNDATION_PERMISSIONS = [
   "organization:view",
   "organization:edit",
   "documents:view",
@@ -12,17 +12,30 @@ export const PERMISSIONS = [
   "audit:view",
 ] as const;
 
+export const CHART_PERMISSIONS = [
+  "accounting:chart:view",
+  "accounting:chart:create",
+  "accounting:chart:edit",
+  "accounting:chart:deactivate",
+  "accounting:chart:delete",
+  "accounting:chart:template:initialize",
+  "accounting:chart:audit:view",
+  "accounting:chart:approve",
+] as const;
+
+export const PERMISSIONS = [...FOUNDATION_PERMISSIONS, ...CHART_PERMISSIONS] as const;
+
 export type Permission = (typeof PERMISSIONS)[number];
 
 const ROLE_PERMISSIONS: Record<MembershipRole, Permission[]> = {
   OFFICE_OWNER: [...PERMISSIONS],
-  OFFICE_MANAGER: [...PERMISSIONS],
-  OFFICE_ACCOUNTANT: ["organization:view", "organization:edit", "documents:view", "documents:manage", "engagements:view"],
+  OFFICE_MANAGER: [...FOUNDATION_PERMISSIONS, "accounting:chart:view", "accounting:chart:audit:view"],
+  OFFICE_ACCOUNTANT: ["organization:view", "organization:edit", "documents:view", "documents:manage", "engagements:view", "accounting:chart:view"],
   COMPANY_OWNER: [...PERMISSIONS],
-  COMPANY_MANAGER: [...PERMISSIONS],
-  COMPANY_ACCOUNTANT: ["organization:view", "organization:edit", "documents:view", "documents:manage", "members:view", "engagements:view"],
-  REVIEWER: ["organization:view", "documents:view", "audit:view"],
-  VIEWER: ["organization:view", "documents:view"],
+  COMPANY_MANAGER: [...FOUNDATION_PERMISSIONS, "accounting:chart:view", "accounting:chart:audit:view"],
+  COMPANY_ACCOUNTANT: ["organization:view", "organization:edit", "documents:view", "documents:manage", "members:view", "engagements:view", "accounting:chart:view"],
+  REVIEWER: ["organization:view", "documents:view", "audit:view", "accounting:chart:view", "accounting:chart:audit:view"],
+  VIEWER: ["organization:view", "documents:view", "accounting:chart:view"],
 };
 
 const OWNER_ROLES = new Set<MembershipRole>(["OFFICE_OWNER", "COMPANY_OWNER"]);
@@ -36,9 +49,16 @@ export function roleHasPermission(role: MembershipRole, permission: Permission) 
   return ROLE_PERMISSIONS[role].includes(permission);
 }
 
+export function roleMayHoldPermission(role: MembershipRole, permission: Permission) {
+  if (!permission.startsWith("accounting:chart:")) return true;
+  if (role === "VIEWER") return permission === "accounting:chart:view";
+  if (role === "REVIEWER") return permission === "accounting:chart:view" || permission === "accounting:chart:audit:view";
+  return true;
+}
+
 export function mergePermissions(role: MembershipRole, overrides: unknown): Permission[] {
   const validOverrides = Array.isArray(overrides)
-    ? overrides.filter((value): value is Permission => PERMISSIONS.includes(value as Permission))
+    ? overrides.filter((value): value is Permission => PERMISSIONS.includes(value as Permission) && roleMayHoldPermission(role, value as Permission))
     : [];
   return Array.from(new Set([...ROLE_PERMISSIONS[role], ...validOverrides]));
 }

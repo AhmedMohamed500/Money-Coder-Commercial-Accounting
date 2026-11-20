@@ -2,16 +2,32 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 import { authorizeOrganization } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { sha256 } from "@/lib/security";
 
 const marker = randomUUID();
 const ids: { users: string[]; organizations: string[] } = { users: [], organizations: [] };
+const rateLimitHashes: string[] = [];
 
 describe.skipIf(process.env.RUN_DB_TESTS !== "1")("PostgreSQL tenant isolation and delegation", () => {
   beforeAll(async () => { await db.$connect(); });
   afterAll(async () => {
+    for (const keyHash of rateLimitHashes) await db.$executeRaw`DELETE FROM "RateLimitBucket" WHERE "keyHash" = ${keyHash}`;
     await db.organization.deleteMany({ where: { id: { in: ids.organizations } } });
     await db.user.deleteMany({ where: { id: { in: ids.users } } });
     await db.$disconnect();
+  });
+
+  it("enforces a shared atomic rate limit and resets expired windows", async () => {
+    const key = `integration-rate-limit:${marker}`;
+    const keyHash = sha256(key);
+    rateLimitHashes.push(keyHash);
+    const attempts = await Promise.all(Array.from({ length: 12 }, () => checkRateLimit(key, 10, 60_000)));
+    expect(attempts.filter(attempt => attempt.allowed)).toHaveLength(10);
+    expect(attempts.filter(attempt => !attempt.allowed)).toHaveLength(2);
+
+    await db.$executeRaw`UPDATE "RateLimitBucket" SET "resetAt" = ${new Date(0)} WHERE "keyHash" = ${keyHash}`;
+    expect(await checkRateLimit(key, 10, 60_000)).toMatchObject({ allowed: true, remaining: 9 });
   });
 
   it("persists company data and denies a user from another company", async () => {

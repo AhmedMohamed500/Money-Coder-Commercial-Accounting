@@ -9,7 +9,7 @@ import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 export async function POST(request: Request) {
   if (!databaseConfigured()) return NextResponse.json({ error: "خدمة التأكيد غير مهيأة." }, { status: 503 });
   if (process.env.NODE_ENV === "production" && !emailConfigured()) return NextResponse.json({ error: "خدمة التأكيد معطلة حتى تهيئة البريد الإنتاجي." }, { status: 503 });
-  if (!checkRateLimit(`resend:${clientIp(request)}`, 5, 15 * 60_000).allowed) return NextResponse.json({ error: "محاولات كثيرة. حاول لاحقًا." }, { status: 429 });
+  if (!(await checkRateLimit(`resend:${clientIp(request)}`, 5, 15 * 60_000)).allowed) return NextResponse.json({ error: "محاولات كثيرة. حاول لاحقًا." }, { status: 429 });
   const parsed = emailSchema.safeParse((await request.json().catch(() => null))?.email);
   if (!parsed.success) return NextResponse.json({ error: "بريد غير صالح." }, { status: 400 });
 

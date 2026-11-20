@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getSessionUser } from "@/lib/auth";
+import { authorizeOrganization, getSessionUser } from "@/lib/auth";
 import { membershipActionSchema } from "@/lib/schemas";
-import { canManageMembership, mergePermissions, roleMatchesOrganization } from "@/lib/permissions";
+import { canManageMembership, mergePermissions, roleMatchesOrganization, roleMayHoldPermission, validPermissions } from "@/lib/permissions";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string; membershipId: string }> }) {
   const user = await getSessionUser();
@@ -22,9 +22,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const nextRole = parsed.data.action === "CHANGE_ROLE" ? parsed.data.role : undefined;
   if (!canManageMembership(actor.role, target.role, nextRole)) return NextResponse.json({ error: "لا يمكن تعديل مالك الكيان أو عضو بصلاحية مساوية." }, { status: 403 });
   if (nextRole && !roleMatchesOrganization(nextRole, actor.organization.type)) return NextResponse.json({ error: "الدور لا يناسب نوع الكيان." }, { status: 400 });
+  if (parsed.data.action === "SET_CHART_PERMISSIONS") {
+    if (parsed.data.permissions.some(permission => !roleMayHoldPermission(target.role, permission))) return NextResponse.json({ error: "الدور المستهدف لا يسمح بهذه الصلاحية المحاسبية." }, { status: 400 });
+    for (const permission of parsed.data.permissions) if (!await authorizeOrganization(user.id, id, permission)) return NextResponse.json({ error: "لا يمكنك منح صلاحية محاسبية لا تملكها." }, { status: 403 });
+  }
 
   const updated = await db.$transaction(async (tx) => {
-    const data = parsed.data.action === "CHANGE_ROLE"
+    const data = parsed.data.action === "SET_CHART_PERMISSIONS"
+      ? { permissions: [...validPermissions(target.permissions).filter(permission => !permission.startsWith("accounting:chart:")), ...parsed.data.permissions] }
+      : parsed.data.action === "CHANGE_ROLE"
       ? { role: parsed.data.role }
       : parsed.data.action === "ACTIVATE"
         ? { status: "ACTIVE" as const }
@@ -35,7 +41,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (parsed.data.action === "SUSPEND" || parsed.data.action === "REVOKE") {
       await tx.engagementStaff.deleteMany({ where: { membershipId: target.id } });
     }
-    await tx.auditEvent.create({ data: { organizationId: id, actorUserId: user.id, action: `MEMBERSHIP_${parsed.data.action}`, entityType: "OrganizationMembership", entityId: target.id, metadata: nextRole ? { nextRole } : {} } });
+    await tx.auditEvent.create({ data: { organizationId: id, actorUserId: user.id, action: `MEMBERSHIP_${parsed.data.action}`, entityType: "OrganizationMembership", entityId: target.id, metadata: parsed.data.action === "SET_CHART_PERMISSIONS" ? { previous: validPermissions(target.permissions).filter(permission => permission.startsWith("accounting:chart:")), next: parsed.data.permissions } : nextRole ? { nextRole } : {} } });
     return membership;
   });
   return NextResponse.json(updated);
