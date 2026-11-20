@@ -55,12 +55,18 @@ try {
       scrollWidth: document.documentElement.scrollWidth,
       dir: document.documentElement.dir,
       ctas: [...document.querySelectorAll("a.mcf-button")].map(element => ({ text: element.textContent?.trim(), href: element.getAttribute("href") })),
-      readinessLabels: [...document.querySelectorAll(".mcf-feature-rail small, .mcf-workflow-grid small")].map(element => element.textContent?.trim()),
+      readinessLabels: [...document.querySelectorAll(".mcf-feature-rail small, .mce-step-copy em")].map(element => element.textContent?.trim()),
       approvedBlocks: {
+        financialTwin: Boolean(document.querySelector("#financial-twin .mce-dashboard-frame")),
+        documentJourney: Boolean(document.querySelector("#workflow .mce-journey-panel")),
+        mobileReporting: Boolean(document.querySelector("#mobile-reporting .mce-phone")),
+        security: Boolean(document.querySelector("#security .mce-security-grid")),
+        startPaths: Boolean(document.querySelector("#plans .mce-plan-grid")),
+        faq: Boolean(document.querySelector("#faq .mce-faq-list")),
         socialProof: Boolean(document.querySelector(".mcf-social-proof")),
         testimonial: Boolean(document.querySelector(".mcf-testimonial")),
         restaurants: [...document.querySelectorAll(".mcf-industry-grid strong")].some(element => element.textContent?.includes("المطاعم والكافيهات")),
-        supportFooter: [...document.querySelectorAll(".mcf-footer nav > strong")].some(element => element.textContent?.trim() === "الدعم"),
+        truthfulFooter: [...document.querySelectorAll(".mcf-footer-social small")].some(element => element.textContent?.includes("لا توجد حسابات")),
       },
     }));
     if (metrics.scrollWidth > metrics.viewport) throw new Error(`${viewport.name} has horizontal overflow: ${metrics.scrollWidth}px > ${metrics.viewport}px`);
@@ -76,7 +82,7 @@ try {
   const reviewPage = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   await reviewPage.goto(`${baseUrl}/`, { waitUntil: "domcontentloaded", timeout: 60_000 });
   await reviewPage.locator(".mcf-hero").waitFor({ state: "visible" });
-  for (const section of ["offices", "workflow", "industries", "roles"]) {
+  for (const section of ["financial-twin", "offices", "workflow", "mobile-reporting", "industries", "roles", "security", "plans", "faq"]) {
     await reviewPage.locator(`#${section}`).screenshot({ path: path.join(output, `review-${section}.png`) });
   }
   await reviewPage.locator(".mcf-final").screenshot({ path: path.join(output, "review-final-cta.png") });
@@ -94,13 +100,22 @@ try {
   await singleCompanyTab.click();
   if (await singleCompanyTab.getAttribute("aria-selected") !== "true") throw new Error("Accounting-office workflow tabs did not update");
   if (!await interactionPage.locator("#offices").getByText("مراجعة المستندات", { exact: true }).isVisible()) throw new Error("Single-company review capabilities did not render");
+  const revenueTab = interactionPage.getByRole("tab", { name: "الإيرادات", exact: true });
+  await revenueTab.click();
+  if (await revenueTab.getAttribute("aria-selected") !== "true") throw new Error("Financial Twin dashboard tabs did not update");
+  const extractionStep = interactionPage.getByRole("button", { name: /استخراج البيانات/ });
+  await extractionStep.click();
+  if (await extractionStep.getAttribute("aria-pressed") !== "true") throw new Error("Document journey did not update");
+  const flowTab = interactionPage.getByRole("tab", { name: "الإيراد والمصروف", exact: true });
+  await flowTab.click();
+  if (await flowTab.getAttribute("aria-selected") !== "true") throw new Error("Mobile reporting preview tabs did not update");
   await interactionPage.getByRole("button", { name: /التصنيع والإنتاج/ }).click();
   if (await interactionPage.getByRole("button", { name: /التصنيع والإنتاج/ }).getAttribute("aria-pressed") !== "true") throw new Error("Industry selector did not update");
   const registerResponse = await interactionPage.goto(`${baseUrl}/auth/register`, { waitUntil: "domcontentloaded", timeout: 60_000 });
   if (registerResponse?.status() !== 200) throw new Error(`Registration CTA route returned ${registerResponse?.status()}`);
   const loginResponse = await interactionPage.goto(`${baseUrl}/auth/login`, { waitUntil: "domcontentloaded", timeout: 60_000 });
   if (loginResponse?.status() !== 200) throw new Error(`Login route returned ${loginResponse?.status()}`);
-  console.log("Mobile menu, section navigation, registration CTA, and login route confirmed.");
+  console.log("Interactive dashboard, office modes, document journey, mobile preview, navigation, and account routes confirmed.");
   await interactionPage.close();
 } finally {
   await browser.close();
