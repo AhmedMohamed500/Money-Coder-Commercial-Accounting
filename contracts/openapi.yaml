@@ -1,0 +1,516 @@
+openapi: 3.1.0
+info:
+  title: Money Coder Backend Contract
+  version: 1.0.0-draft
+  description: >-
+    Backend-neutral contract for the future real application. The current /demo
+    route does not call these endpoints. Money is represented by decimal strings.
+servers:
+  - url: https://api.example.invalid/api/v1
+    description: Placeholder only; no live backend is implied.
+security:
+  - sessionCookie: []
+tags:
+  - { name: Identity }
+  - { name: Organizations }
+  - { name: Offices }
+  - { name: Documents }
+  - { name: Reviews }
+  - { name: Accounting }
+  - { name: Reporting }
+  - { name: BankImports }
+  - { name: BillingFuture }
+paths:
+  /sessions:
+    post:
+      tags: [Identity]
+      security: []
+      summary: Create a real authenticated session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SessionCommand' }
+      responses:
+        '201': { description: Session created, content: { application/json: { schema: { $ref: '#/components/schemas/Session' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /sessions/current:
+    delete:
+      tags: [Identity]
+      summary: Revoke the current session
+      responses:
+        '204': { description: Session revoked }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /users/me:
+    get:
+      tags: [Identity]
+      summary: Get the authenticated user and tenant memberships
+      responses:
+        '200': { description: Current user, content: { application/json: { schema: { $ref: '#/components/schemas/UserContext' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /organizations:
+    get:
+      tags: [Organizations]
+      summary: List organizations visible to the authenticated user
+      parameters: [ { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' } ]
+      responses:
+        '200': { description: Organization page, content: { application/json: { schema: { $ref: '#/components/schemas/OrganizationPage' } } } }
+    post:
+      tags: [Organizations]
+      summary: Create an organization and owner membership
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OrganizationInput' } } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Organization' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /organizations/{organizationId}:
+    parameters: [ { $ref: '#/components/parameters/OrganizationId' } ]
+    get:
+      tags: [Organizations]
+      summary: Get an organization-safe DTO
+      description: Requires organization:view. Member, audit and storage-provider fields are not included.
+      responses:
+        '200': { description: Organization, content: { application/json: { schema: { $ref: '#/components/schemas/Organization' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Organizations]
+      summary: Update organization profile
+      parameters: [ { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OrganizationInput' } } } }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/Organization' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /organizations/{organizationId}/memberships:
+    parameters: [ { $ref: '#/components/parameters/OrganizationId' } ]
+    get:
+      tags: [Organizations]
+      summary: List memberships
+      description: Requires members:view and tenant scope.
+      parameters: [ { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' } ]
+      responses:
+        '200': { description: Membership page, content: { application/json: { schema: { $ref: '#/components/schemas/GenericPage' } } } }
+    post:
+      tags: [Organizations]
+      summary: Invite a member
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [email, role], properties: { email: { type: string, format: email }, role: { type: string } } } } } }
+      responses:
+        '202': { description: Invitation accepted for delivery }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /memberships/{membershipId}:
+    patch:
+      tags: [Organizations]
+      summary: Change membership role or status
+      parameters: [ { $ref: '#/components/parameters/MembershipId' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [action], properties: { action: { enum: [CHANGE_ROLE, SUSPEND, ACTIVATE, REVOKE] }, role: { type: string } } } } } }
+      responses:
+        '200': { description: Membership updated }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /offices/{officeId}/portfolio:
+    get:
+      tags: [Offices]
+      summary: List client organizations available through active engagements
+      parameters: [ { $ref: '#/components/parameters/OfficeId' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' } ]
+      responses:
+        '200': { description: Isolated client summaries, content: { application/json: { schema: { $ref: '#/components/schemas/OrganizationPage' } } } }
+  /offices/{officeId}/engagements:
+    get:
+      tags: [Offices]
+      summary: List office engagements
+      parameters: [ { $ref: '#/components/parameters/OfficeId' }, { $ref: '#/components/parameters/Cursor' } ]
+      responses:
+        '200': { description: Engagement page, content: { application/json: { schema: { $ref: '#/components/schemas/GenericPage' } } } }
+    post:
+      tags: [Offices]
+      summary: Request an office-to-company engagement
+      parameters: [ { $ref: '#/components/parameters/OfficeId' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [companyOrganizationId], properties: { companyOrganizationId: { $ref: '#/components/schemas/Id' } } } } } }
+      responses:
+        '201': { description: Pending engagement created }
+  /engagements/{engagementId}:
+    patch:
+      tags: [Offices]
+      summary: Accept, reject or revoke an engagement
+      parameters: [ { $ref: '#/components/parameters/EngagementId' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [action], properties: { action: { enum: [ACCEPT, REJECT, REVOKE] }, permissions: { type: array, items: { type: string } } } } } } }
+      responses:
+        '200': { description: Engagement updated }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /organizations/{organizationId}/documents:
+    parameters: [ { $ref: '#/components/parameters/OrganizationId' } ]
+    get:
+      tags: [Documents]
+      summary: List tenant-scoped documents
+      parameters: [ { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }, { name: status, in: query, schema: { type: string } }, { name: category, in: query, schema: { type: string } } ]
+      responses:
+        '200': { description: Document page, content: { application/json: { schema: { $ref: '#/components/schemas/DocumentPage' } } } }
+    post:
+      tags: [Documents]
+      summary: Create document metadata before an immutable version upload
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DocumentInput' } } } }
+      responses:
+        '201': { description: Document created, content: { application/json: { schema: { $ref: '#/components/schemas/Document' } } } }
+  /documents/{documentId}:
+    get:
+      tags: [Documents]
+      summary: Get a tenant-authorized document
+      parameters: [ { $ref: '#/components/parameters/DocumentId' } ]
+      responses:
+        '200': { description: Document, content: { application/json: { schema: { $ref: '#/components/schemas/Document' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /documents/{documentId}/versions:
+    parameters: [ { $ref: '#/components/parameters/DocumentId' } ]
+    get:
+      tags: [Documents]
+      summary: List immutable document versions
+      responses:
+        '200': { description: Version page, content: { application/json: { schema: { $ref: '#/components/schemas/GenericPage' } } } }
+    post:
+      tags: [Documents]
+      summary: Finalize a quarantined immutable version
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [uploadToken, sha256, note], properties: { uploadToken: { type: string }, sha256: { type: string, pattern: '^[a-f0-9]{64}$' }, note: { type: string, maxLength: 500 } } } } } }
+      responses:
+        '201': { description: Version quarantined for scanning }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /organizations/{organizationId}/reviews:
+    parameters: [ { $ref: '#/components/parameters/OrganizationId' } ]
+    get:
+      tags: [Reviews]
+      summary: List review cases
+      parameters: [ { $ref: '#/components/parameters/Cursor' }, { name: status, in: query, schema: { type: string } } ]
+      responses:
+        '200': { description: Review page, content: { application/json: { schema: { $ref: '#/components/schemas/GenericPage' } } } }
+    post:
+      tags: [Reviews]
+      summary: Create a review case for a safe document version
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [documentId, documentVersionId], properties: { documentId: { $ref: '#/components/schemas/Id' }, documentVersionId: { $ref: '#/components/schemas/Id' } } } } } }
+      responses:
+        '201': { description: Review case created, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewCase' } } } }
+  /reviews/{reviewId}:
+    get:
+      tags: [Reviews]
+      summary: Get a review case with timeline
+      parameters: [ { $ref: '#/components/parameters/ReviewId' } ]
+      responses:
+        '200': { description: Review, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewCase' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /reviews/{reviewId}/assignments:
+    post:
+      tags: [Reviews]
+      summary: Assign an authorized reviewer
+      parameters: [ { $ref: '#/components/parameters/ReviewId' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [membershipId, expectedRevision], properties: { membershipId: { $ref: '#/components/schemas/Id' }, expectedRevision: { type: integer } } } } } }
+      responses:
+        '201': { description: Assignment created }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /reviews/{reviewId}/comments:
+    post:
+      tags: [Reviews]
+      summary: Add a review comment
+      parameters: [ { $ref: '#/components/parameters/ReviewId' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [body], properties: { body: { type: string, minLength: 1, maxLength: 2000 } } } } } }
+      responses:
+        '201': { description: Comment created }
+  /reviews/{reviewId}/transitions:
+    post:
+      tags: [Reviews]
+      summary: Execute an audited review state transition
+      parameters: [ { $ref: '#/components/parameters/ReviewId' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewTransition' } } } }
+      responses:
+        '200': { description: Transition complete, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewCase' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /organizations/{organizationId}/accounts:
+    parameters: [ { $ref: '#/components/parameters/OrganizationId' } ]
+    get:
+      tags: [Accounting]
+      summary: List chart of accounts
+      parameters: [ { $ref: '#/components/parameters/Cursor' }, { name: type, in: query, schema: { type: string } } ]
+      responses:
+        '200': { description: Account page, content: { application/json: { schema: { $ref: '#/components/schemas/GenericPage' } } } }
+    post:
+      tags: [Accounting]
+      summary: Add an account
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/Account' } } } }
+      responses:
+        '201': { description: Account created }
+  /organizations/{organizationId}/opening-balances:
+    put:
+      tags: [Accounting]
+      summary: Replace draft opening balances
+      parameters: [ { $ref: '#/components/parameters/OrganizationId' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/JournalInput' } } } }
+      responses:
+        '200': { description: Balanced opening entry saved }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /organizations/{organizationId}/journal-entries:
+    parameters: [ { $ref: '#/components/parameters/OrganizationId' } ]
+    get:
+      tags: [Accounting]
+      summary: List journal entries
+      parameters: [ { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }, { name: status, in: query, schema: { type: string } }, { name: from, in: query, schema: { type: string, format: date } }, { name: to, in: query, schema: { type: string, format: date } } ]
+      responses:
+        '200': { description: Journal page, content: { application/json: { schema: { $ref: '#/components/schemas/GenericPage' } } } }
+    post:
+      tags: [Accounting]
+      summary: Create a balanced draft journal
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/JournalInput' } } } }
+      responses:
+        '201': { description: Draft created, content: { application/json: { schema: { $ref: '#/components/schemas/JournalEntry' } } } }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /journal-entries/{journalId}:
+    parameters: [ { $ref: '#/components/parameters/JournalId' } ]
+    get:
+      tags: [Accounting]
+      summary: Get journal entry
+      responses:
+        '200': { description: Journal, content: { application/json: { schema: { $ref: '#/components/schemas/JournalEntry' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Accounting]
+      summary: Update a DRAFT journal
+      parameters: [ { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/JournalInput' } } } }
+      responses:
+        '200': { description: Draft updated, content: { application/json: { schema: { $ref: '#/components/schemas/JournalEntry' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /journal-entries/{journalId}/{action}:
+    post:
+      tags: [Accounting]
+      summary: Submit, approve, post or reverse a journal
+      description: Posting rechecks balance, permissions, period lock, approval policy and revision atomically.
+      parameters:
+        - { $ref: '#/components/parameters/JournalId' }
+        - name: action
+          in: path
+          required: true
+          schema: { enum: [submit, approve, post, reverse] }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [expectedRevision], properties: { expectedRevision: { type: integer }, reason: { type: string } } } } } }
+      responses:
+        '200': { description: Journal state updated, content: { application/json: { schema: { $ref: '#/components/schemas/JournalEntry' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /organizations/{organizationId}/general-ledger:
+    get:
+      tags: [Reporting]
+      summary: Query posted general-ledger lines
+      parameters: [ { $ref: '#/components/parameters/OrganizationId' }, { $ref: '#/components/parameters/Cursor' }, { name: accountId, in: query, schema: { type: string } }, { name: from, in: query, schema: { type: string, format: date } }, { name: to, in: query, schema: { type: string, format: date } } ]
+      responses:
+        '200': { description: Ledger page, content: { application/json: { schema: { $ref: '#/components/schemas/GenericPage' } } } }
+  /organizations/{organizationId}/trial-balance:
+    get:
+      tags: [Reporting]
+      summary: Get trial balance from posted entries
+      parameters: [ { $ref: '#/components/parameters/OrganizationId' }, { name: asOf, in: query, required: true, schema: { type: string, format: date } } ]
+      responses:
+        '200': { description: Balanced debit/credit rows, content: { application/json: { schema: { $ref: '#/components/schemas/Report' } } } }
+  /organizations/{organizationId}/financial-reports/{reportType}:
+    get:
+      tags: [Reporting]
+      summary: Get an authorized financial report
+      parameters:
+        - { $ref: '#/components/parameters/OrganizationId' }
+        - name: reportType
+          in: path
+          required: true
+          schema: { enum: [income-statement, financial-position] }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date } }
+      responses:
+        '200': { description: Financial report, content: { application/json: { schema: { $ref: '#/components/schemas/Report' } } } }
+  /organizations/{organizationId}/bank-statement-imports:
+    parameters: [ { $ref: '#/components/parameters/OrganizationId' } ]
+    get:
+      tags: [BankImports]
+      summary: List imports
+      parameters: [ { $ref: '#/components/parameters/Cursor' } ]
+      responses:
+        '200': { description: Import page, content: { application/json: { schema: { $ref: '#/components/schemas/GenericPage' } } } }
+    post:
+      tags: [BankImports]
+      summary: Create a quarantined bank-statement import
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [documentVersionId, bankProfileId], properties: { documentVersionId: { $ref: '#/components/schemas/Id' }, bankProfileId: { $ref: '#/components/schemas/Id' } } } } } }
+      responses:
+        '202': { description: Import queued; extraction provider is not exposed }
+  /bank-statement-imports/{importId}/rows:
+    get:
+      tags: [BankImports]
+      summary: List extracted rows after safe processing
+      parameters: [ { $ref: '#/components/parameters/ImportId' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' } ]
+      responses:
+        '200': { description: Row page, content: { application/json: { schema: { $ref: '#/components/schemas/GenericPage' } } } }
+  /bank-statement-imports/{importId}/rows/{rowId}/mapping:
+    patch:
+      tags: [BankImports]
+      summary: Map an extracted row to an account
+      parameters: [ { $ref: '#/components/parameters/ImportId' }, { name: rowId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [accountId], properties: { accountId: { $ref: '#/components/schemas/Id' }, note: { type: string } } } } } }
+      responses:
+        '200': { description: Mapping saved }
+  /bank-statement-imports/{importId}/journal-suggestion:
+    post:
+      tags: [BankImports]
+      summary: Create a DRAFT journal suggestion; never auto-post
+      parameters: [ { $ref: '#/components/parameters/ImportId' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [rowIds], properties: { rowIds: { type: array, items: { $ref: '#/components/schemas/Id' } } } } } } }
+      responses:
+        '201': { description: Draft journal created, content: { application/json: { schema: { $ref: '#/components/schemas/JournalEntry' } } } }
+  /plans:
+    get:
+      tags: [BillingFuture]
+      security: []
+      summary: List published plans (future)
+      responses:
+        '200': { description: Plan page, content: { application/json: { schema: { $ref: '#/components/schemas/GenericPage' } } } }
+  /organizations/{organizationId}/subscriptions:
+    get:
+      tags: [BillingFuture]
+      summary: Get subscription status (future)
+      parameters: [ { $ref: '#/components/parameters/OrganizationId' } ]
+      responses:
+        '200': { description: Subscription DTO without payment credentials }
+    post:
+      tags: [BillingFuture]
+      summary: Start a provider-hosted subscription flow (future)
+      parameters: [ { $ref: '#/components/parameters/OrganizationId' }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [planId, returnUrl], properties: { planId: { $ref: '#/components/schemas/Id' }, returnUrl: { type: string, format: uri } } } } } }
+      responses:
+        '501': { description: Not enabled until billing approval }
+  /organizations/{organizationId}/usage:
+    get:
+      tags: [BillingFuture]
+      summary: Get metered usage (future)
+      parameters: [ { $ref: '#/components/parameters/OrganizationId' }, { name: period, in: query, schema: { type: string } } ]
+      responses:
+        '200': { description: Usage summary }
+  /organizations/{organizationId}/invoices:
+    get:
+      tags: [BillingFuture]
+      summary: List billing invoices (future)
+      parameters: [ { $ref: '#/components/parameters/OrganizationId' }, { $ref: '#/components/parameters/Cursor' } ]
+      responses:
+        '200': { description: Invoice page, content: { application/json: { schema: { $ref: '#/components/schemas/GenericPage' } } } }
+components:
+  securitySchemes:
+    sessionCookie: { type: apiKey, in: cookie, name: mc_session }
+  parameters:
+    Cursor: { name: cursor, in: query, schema: { type: string }, description: Opaque pagination cursor }
+    Limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+    IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 16, maxLength: 128 } }
+    IfMatch: { name: If-Match, in: header, required: true, schema: { type: string }, description: Aggregate revision/ETag }
+    OrganizationId: { name: organizationId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+    OfficeId: { name: officeId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+    MembershipId: { name: membershipId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+    EngagementId: { name: engagementId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+    DocumentId: { name: documentId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+    ReviewId: { name: reviewId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+    JournalId: { name: journalId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+    ImportId: { name: importId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+  responses:
+    Unauthorized: { description: Authentication required, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+    NotFound: { description: Missing or outside caller tenant scope, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+    Conflict: { description: Idempotency, state or revision conflict, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+    ValidationError: { description: Business validation failed, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+    RateLimited: { description: Distributed rate limit exceeded, headers: { Retry-After: { schema: { type: integer } } }, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+  schemas:
+    Id: { type: string, minLength: 1, maxLength: 128, example: org_demo_nile }
+    Decimal: { type: string, pattern: '^-?[0-9]+(\.[0-9]{1,4})?$', example: '1250.00' }
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, requestId]
+          properties:
+            code: { type: string, example: REVISION_CONFLICT }
+            message: { type: string }
+            requestId: { type: string }
+            details: { type: object, additionalProperties: true }
+    PageInfo:
+      type: object
+      required: [cursor, nextCursor, limit]
+      properties: { cursor: { type: [string, 'null'] }, nextCursor: { type: [string, 'null'] }, limit: { type: integer }, total: { type: integer } }
+    GenericPage:
+      type: object
+      required: [data, page]
+      properties: { data: { type: array, items: { type: object, additionalProperties: true } }, page: { $ref: '#/components/schemas/PageInfo' } }
+    SessionCommand:
+      type: object
+      required: [email, password]
+      properties: { email: { type: string, format: email }, password: { type: string, format: password, writeOnly: true } }
+    Session:
+      type: object
+      required: [user, expiresAt]
+      properties: { user: { $ref: '#/components/schemas/UserContext' }, expiresAt: { type: string, format: date-time } }
+    UserContext:
+      type: object
+      required: [id, displayName, memberships]
+      properties: { id: { $ref: '#/components/schemas/Id' }, displayName: { type: string }, memberships: { type: array, items: { type: object, required: [organizationId, role, permissions], properties: { organizationId: { $ref: '#/components/schemas/Id' }, role: { type: string }, permissions: { type: array, items: { type: string } } } } } }
+    OrganizationInput:
+      type: object
+      required: [legalName, tradeName, type, baseCurrency]
+      properties: { legalName: { type: string }, tradeName: { type: string }, type: { enum: [COMPANY, ACCOUNTING_OFFICE] }, industry: { type: string }, baseCurrency: { type: string, pattern: '^[A-Z]{3}$' }, fiscalYearStart: { type: string, format: date }, fiscalYearEnd: { type: string, format: date } }
+    Organization:
+      allOf:
+        - { $ref: '#/components/schemas/OrganizationInput' }
+        - type: object
+          required: [id, revision, createdAt, updatedAt]
+          properties: { id: { $ref: '#/components/schemas/Id' }, revision: { type: integer }, createdAt: { type: string, format: date-time }, updatedAt: { type: string, format: date-time } }
+    OrganizationPage:
+      type: object
+      required: [data, page]
+      properties: { data: { type: array, items: { $ref: '#/components/schemas/Organization' } }, page: { $ref: '#/components/schemas/PageInfo' } }
+    DocumentInput:
+      type: object
+      required: [title, category]
+      properties: { title: { type: string, minLength: 1, maxLength: 240 }, category: { type: string }, description: { type: string, maxLength: 2000 } }
+    Document:
+      allOf:
+        - { $ref: '#/components/schemas/DocumentInput' }
+        - type: object
+          required: [id, organizationId, status, currentVersion, revision, createdAt, updatedAt]
+          properties: { id: { $ref: '#/components/schemas/Id' }, organizationId: { $ref: '#/components/schemas/Id' }, status: { enum: [UPLOADING, QUARANTINED, READY_FOR_REVIEW, IN_REVIEW, CORRECTION_REQUESTED, RESUBMITTED, APPROVED, REJECTED, CANCELLED] }, currentVersion: { type: integer, minimum: 0 }, revision: { type: integer }, createdAt: { type: string, format: date-time }, updatedAt: { type: string, format: date-time } }
+    DocumentPage:
+      type: object
+      required: [data, page]
+      properties: { data: { type: array, items: { $ref: '#/components/schemas/Document' } }, page: { $ref: '#/components/schemas/PageInfo' } }
+    ReviewTransition:
+      type: object
+      required: [toStatus, reason, expectedRevision]
+      properties: { toStatus: { enum: [IN_REVIEW, CORRECTION_REQUESTED, RESUBMITTED, APPROVED, REJECTED, CANCELLED] }, reason: { type: string, minLength: 1, maxLength: 2000 }, expectedRevision: { type: integer, minimum: 1 } }
+    ReviewCase:
+      type: object
+      required: [id, organizationId, documentId, documentVersionId, status, revision, timeline]
+      properties: { id: { $ref: '#/components/schemas/Id' }, organizationId: { $ref: '#/components/schemas/Id' }, documentId: { $ref: '#/components/schemas/Id' }, documentVersionId: { $ref: '#/components/schemas/Id' }, status: { type: string }, assignedMembershipId: { type: [string, 'null'] }, revision: { type: integer }, timeline: { type: array, items: { type: object, required: [id, fromStatus, toStatus, actorId, at], properties: { id: { $ref: '#/components/schemas/Id' }, fromStatus: { type: [string, 'null'] }, toStatus: { type: string }, actorId: { $ref: '#/components/schemas/Id' }, reason: { type: string }, at: { type: string, format: date-time } } } } }
+    Account:
+      type: object
+      required: [code, name, type, currency]
+      properties: { id: { $ref: '#/components/schemas/Id' }, code: { type: string }, name: { type: string }, type: { enum: [ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE] }, currency: { type: string, pattern: '^[A-Z]{3}$' }, parentId: { type: [string, 'null'] } }
+    JournalLine:
+      type: object
+      required: [accountId, debit, credit, currency]
+      properties: { accountId: { $ref: '#/components/schemas/Id' }, description: { type: string }, debit: { $ref: '#/components/schemas/Decimal' }, credit: { $ref: '#/components/schemas/Decimal' }, currency: { type: string, pattern: '^[A-Z]{3}$' } }
+    JournalInput:
+      type: object
+      required: [reference, entryDate, memo, lines]
+      properties: { reference: { type: string }, entryDate: { type: string, format: date }, memo: { type: string }, lines: { type: array, minItems: 2, items: { $ref: '#/components/schemas/JournalLine' } } }
+    JournalEntry:
+      allOf:
+        - { $ref: '#/components/schemas/JournalInput' }
+        - type: object
+          required: [id, organizationId, status, revision, createdAt]
+          properties: { id: { $ref: '#/components/schemas/Id' }, organizationId: { $ref: '#/components/schemas/Id' }, status: { enum: [DRAFT, PENDING_APPROVAL, APPROVED, POSTED, REVERSED] }, revision: { type: integer }, createdAt: { type: string, format: date-time }, postedAt: { type: [string, 'null'], format: date-time } }
+    Report:
+      type: object
+      required: [organizationId, currency, from, to, rows, generatedAt]
+      properties: { organizationId: { $ref: '#/components/schemas/Id' }, currency: { type: string }, from: { type: [string, 'null'], format: date }, to: { type: string, format: date }, rows: { type: array, items: { type: object, required: [code, label, amount], properties: { code: { type: string }, label: { type: string }, amount: { $ref: '#/components/schemas/Decimal' } } }, generatedAt: { type: string, format: date-time } }
