@@ -5,12 +5,20 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeft, BarChart3, BookOpenCheck, BriefcaseBusiness, Building2, Check,
-  CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, Cloud, Database, Factory,
-  FileSpreadsheet, Gauge, HardHat, Menu, MonitorSmartphone, Network,
-  NotebookTabs, Play, Quote, ReceiptText, ScanSearch, ShieldCheck, Sparkles,
-  Store, Upload, UsersRound, UtensilsCrossed, X, Zap,
+  CheckCircle2, ChevronLeft, ChevronRight, Cloud, Factory, Gauge, HardHat, Menu,
+  MonitorSmartphone, Network,
+  NotebookTabs, Quote, ReceiptText, ScanSearch, ShieldCheck, Sparkles,
+  Store, UsersRound, UtensilsCrossed, X, Zap,
 } from "lucide-react";
 import "./final-landing.css";
+import {
+  DocumentJourney,
+  FinancialTwinShowcase,
+  MobileReportingShowcase,
+  ProductFaq,
+  SecurityApprovals,
+  StartPaths,
+} from "./enterprise-showcases";
 
 type OfficeMode = "single" | "multi";
 type IndustryId = "contracting" | "trade" | "manufacturing" | "hospitality" | "services";
@@ -22,15 +30,6 @@ const features = [
   { icon: NotebookTabs, title: "القيود والترحيل", note: "ضمن Financial Twin" },
   { icon: BookOpenCheck, title: "دفتر الأستاذ", note: "ضمن Financial Twin" },
   { icon: BarChart3, title: "التقارير والقوائم", note: "ضمن Financial Twin" },
-] as const;
-
-const workflow = [
-  { icon: Upload, number: "01", title: "رفع الملفات", copy: "PDF أو Excel", status: "متاح الآن" },
-  { icon: FileSpreadsheet, number: "02", title: "تنظيم البيانات", copy: "استخراج ومطابقة", status: "ضمن Financial Twin" },
-  { icon: Database, number: "03", title: "إدخال منضبط", copy: "داخل الشركة المعنية", status: "ضمن Financial Twin" },
-  { icon: ScanSearch, number: "04", title: "مراجعة الأدلة", copy: "تحقق واستثناءات", status: "ضمن Financial Twin" },
-  { icon: ClipboardCheck, number: "05", title: "اعتماد وترحيل", copy: "بصلاحيات واضحة", status: "ضمن Financial Twin" },
-  { icon: BarChart3, number: "06", title: "ميزان وتقارير", copy: "بعد اكتمال الدورة", status: "ضمن Financial Twin" },
 ] as const;
 
 const industries: Array<{ id: IndustryId; label: string; icon: typeof HardHat; image: string; copy: string }> = [
@@ -64,12 +63,12 @@ function Brand() {
 
 function Header({ signedIn }: { signedIn: boolean }) {
   const startHref = signedIn ? "/dashboard" : "/auth/register";
-  return <header className="mcf-header"><div className="mcf-shell mcf-header-inner"><Brand /><span className="mcf-brand-tag">منصة محاسبية متكاملة<br />لإدارة أعمال شركتك</span><nav className="mcf-nav" aria-label="التنقل الرئيسي"><a className="is-active" href="#top">الرئيسية</a><a href="#product">المنتج</a><a href="#offices">الحلول</a><a href="#industries">القطاعات</a><a href="#final-cta">الأسعار</a><a href="#workflow">الموارد</a></nav><div className="mcf-header-actions"><a className="mcf-button mcf-button-ghost" href="#workflow"><Play size={15} fill="currentColor" /> تجربة توضيحية</a><Link className="mcf-button mcf-button-gold" href={startHref}>{signedIn ? "افتح لوحتك" : "ابدأ مجانًا"}</Link></div><details className="mcf-menu"><summary aria-label="فتح القائمة"><Menu size={23} /><X className="mcf-menu-close" size={23} /></summary><nav aria-label="قائمة الموبايل"><a href="#product">المنتج</a><a href="#offices">الحلول</a><a href="#industries">القطاعات</a><a href="#roles">الأدوار</a><a href="#workflow">الموارد</a><Link href={signedIn ? "/dashboard" : "/auth/login"}>{signedIn ? "لوحة التحكم" : "تسجيل الدخول"}</Link><Link className="mcf-menu-cta" href={startHref}>{signedIn ? "افتح لوحتك" : "ابدأ مجانًا"}</Link></nav></details></div></header>;
+  return <header className="mcf-header"><div className="mcf-shell mcf-header-inner"><Brand /><span className="mcf-brand-tag">منصة محاسبية متكاملة<br />لإدارة أعمال شركتك</span><nav className="mcf-nav" aria-label="التنقل الرئيسي"><a className="is-active" href="#top">الرئيسية</a><a href="#financial-twin">Financial Twin</a><a href="#offices">مكاتب المحاسبة</a><a href="#workflow">رحلة المستند</a><a href="#security">الأمان</a><a href="#plans">ابدأ الآن</a></nav><div className="mcf-header-actions"><a className="mcf-button mcf-button-ghost" href="#financial-twin"><Gauge size={15} /> استكشف المنتج</a><Link className="mcf-button mcf-button-gold" href={startHref}>{signedIn ? "افتح لوحتك" : "ابدأ مجانًا"}</Link></div><details className="mcf-menu"><summary aria-label="فتح القائمة"><Menu size={23} /><X className="mcf-menu-close" size={23} /></summary><nav aria-label="قائمة الموبايل"><a href="#financial-twin">Financial Twin</a><a href="#offices">مكاتب المحاسبة</a><a href="#workflow">رحلة المستند</a><a href="#mobile-reporting">تقارير الهاتف</a><a href="#security">الأمان</a><a href="#faq">الأسئلة الشائعة</a><Link href={signedIn ? "/dashboard" : "/auth/login"}>{signedIn ? "لوحة التحكم" : "تسجيل الدخول"}</Link><Link className="mcf-menu-cta" href={startHref}>{signedIn ? "افتح لوحتك" : "ابدأ مجانًا"}</Link></nav></details></div></header>;
 }
 
 function Hero({ signedIn }: { signedIn: boolean }) {
   const startHref = signedIn ? "/dashboard" : "/auth/register";
-  return <section id="top" className="mcf-hero" aria-labelledby="mcf-title"><div className="mcf-shell mcf-hero-grid"><div className="mcf-hero-copy"><span className="mcf-eyebrow"><i /> FINANCIAL TWIN PLATFORM <i /></span><h1 id="mcf-title">من القيد اليومي إلى<br /><em>القوائم المالية المتكاملة</em></h1><p>منصة محاسبية متكاملة للشركات ومكاتب المحاسبة، توفر دورة مالية كاملة، دقيقة، موثوقة، ومسار اعتماد واضح.</p><div className="mcf-hero-actions"><Link className="mcf-button mcf-button-gold mcf-button-lg" href={startHref}>{signedIn ? "افتح مساحة شركتك" : "ابدأ شركتك الآن"}<ArrowLeft size={18} /></Link><a className="mcf-button mcf-button-ghost mcf-button-lg" href="#workflow"><Play size={16} fill="currentColor" /> شاهد كيف يعمل</a></div><div className="mcf-hero-trust" aria-label="مزايا المنصة الحالية"><span><ShieldCheck /> آمن وموثوق</span><span><MonitorSmartphone /> متعدد الأجهزة</span><span><Cloud /> قابل للتوسع</span><span><Zap /> سهل الاستخدام</span></div></div><div className="mcf-hero-visual"><Image src="/landing/financial-twin-hero-devices-v1.png" alt="مجموعة أجهزة واقعية تعرض لوحة Money Coder المالية" width={1774} height={887} priority sizes="(max-width: 820px) 100vw, 58vw" /><small><CheckCircle2 /> بيانات العرض افتراضية وليست بيانات عملاء</small></div></div><div id="product" className="mcf-shell mcf-feature-rail">{features.map(({ icon: Icon, title, note }) => <article key={title}><Icon /><strong>{title}</strong><small>{note}</small></article>)}</div></section>;
+  return <section id="top" className="mcf-hero" aria-labelledby="mcf-title"><div className="mcf-shell mcf-hero-grid"><div className="mcf-hero-copy"><span className="mcf-eyebrow"><i /> FINANCIAL TWIN PLATFORM <i /></span><h1 id="mcf-title">من المستند اليومي إلى<br /><em>صورة مالية قابلة للفهم</em></h1><p>مساحات عمل آمنة للشركات ومكاتب المحاسبة اليوم، ورؤية Financial Twin تربط الأدلة والمراجعة والقرار في تجربة واحدة مستقبلًا.</p><div className="mcf-hero-actions"><Link className="mcf-button mcf-button-gold mcf-button-lg" href={startHref}>{signedIn ? "افتح مساحة شركتك" : "ابدأ شركتك الآن"}<ArrowLeft size={18} /></Link><a className="mcf-button mcf-button-ghost mcf-button-lg" href="#financial-twin"><Gauge size={16} /> استكشف التجربة التفاعلية</a></div><div className="mcf-hero-trust" aria-label="مزايا المنصة الحالية"><span><ShieldCheck /> صلاحيات واضحة</span><span><MonitorSmartphone /> متعدد الأجهزة</span><span><Cloud /> مساحات قابلة للتوسع</span><span><Zap /> تجربة عربية سهلة</span></div></div><div className="mcf-hero-visual"><Image src="/landing/financial-twin-hero-devices-v1.png" alt="مجموعة أجهزة واقعية تعرض لوحة Money Coder المالية" width={1774} height={887} priority sizes="(max-width: 820px) 100vw, 58vw" /><small><CheckCircle2 /> بيانات العرض افتراضية وليست بيانات عملاء</small></div></div><div id="product" className="mcf-shell mcf-feature-rail">{features.map(({ icon: Icon, title, note }) => <article key={title}><Icon /><strong>{title}</strong><small>{note}</small></article>)}</div></section>;
 }
 
 function Offices() {
@@ -78,11 +77,35 @@ function Offices() {
   const singleItems = [["مراجعة المستندات", "متاح الآن", true], ["مراجعة القيود", "ضمن Financial Twin", false], ["اعتماد المعاملات", "ضمن Financial Twin", false], ["ميزان المراجعة", "ضمن Financial Twin", false], ["القوائم المالية", "ضمن Financial Twin", false]] as const;
   const multiItems = [["بوابة آمنة للعملاء", "متاح الآن", true], ["صلاحيات فريق العمل", "متاح الآن", true], ["تقارير مجمعة ومفصلة", "ضمن Financial Twin", false], ["مراجعة واعتماد القيود", "ضمن Financial Twin", false], ["إدارة متعددة للشركات", "متاح الآن", true]] as const;
   const items = mode === "single" ? singleItems : multiItems;
-  return <section id="offices" className="mcf-office-section" aria-labelledby="mcf-office-title"><div className="mcf-shell mcf-office-card"><div className="mcf-office-media"><Image src="/landing/accounting-office-team-v1.png" alt="محاسبان يراجعان التقارير على حاسوب في مكتب احترافي، مشهد توضيحي" fill sizes="(max-width: 820px) 100vw, 42vw" /><span>مشهد توضيحي</span><div className="mcf-company-panel" aria-label="معاينة إدارة شركات العملاء"><header><span><UsersRound size={16} /> مكتب المحاسبة</span><small>بيانات افتراضية</small></header>{companies.map(([name, status, tone]) => <div key={name}><span><b>{name}</b><small>{status}</small></span><i className={tone}><Check size={11} /></i></div>)}</div></div><div className="mcf-office-copy"><span className="mcf-section-kicker">حل خاص لمكاتب المحاسبة</span><h2 id="mcf-office-title">إدارة ومراجعة عدة شركات في مكان واحد</h2><p>منصة احترافية لمكاتب المحاسبة لإدارة ملفات عملائها ومراجعتها بكفاءة عالية، مع صلاحيات متقدمة وتقارير موحدة لكل شركة.</p><div className="mcf-office-tabs" role="tablist" aria-label="طريقة عمل مكتب المحاسبة"><button type="button" role="tab" aria-selected={mode === "single"} onClick={() => setMode("single")}>شركة واحدة</button><button type="button" role="tab" aria-selected={mode === "multi"} onClick={() => setMode("multi")}>عدة شركات</button></div><div className="mcf-office-capabilities" role="tabpanel">{items.map(([title, status, ready]) => <article className={ready ? "is-ready" : ""} key={title}><span>{ready ? <CheckCircle2 /> : <Gauge />}</span><strong>{title}</strong><small>{status}</small></article>)}</div></div></div></section>;
-}
-
-function Workflow() {
-  return <section id="workflow" className="mcf-section mcf-workflow" aria-labelledby="mcf-workflow-title"><div className="mcf-shell"><div className="mcf-section-heading"><h2 id="mcf-workflow-title">رحلة العمل داخل Money Coder</h2><p>مسار متكامل يحول مستنداتك إلى قيود وتقارير بخطوات مترابطة.</p></div><div className="mcf-workflow-grid">{workflow.map(({ icon: Icon, number, title, copy, status }, index) => <article key={title} className={status === "متاح الآن" ? "is-ready" : ""}><span className="mcf-step-number">{number}</span><Icon /><strong>{title}</strong><p>{copy}</p><small>{status}</small>{index < workflow.length - 1 && <ChevronLeft className="mcf-step-arrow" aria-hidden="true" />}</article>)}</div></div></section>;
+  const summary = mode === "single"
+    ? [["المستندات المتاحة", "18"], ["أعضاء الفريق", "4"], ["حالة الملف", "نشط"]]
+    : [["شركات العرض", "4"], ["تعيينات الموظفين", "9"], ["تفويضات نشطة", "3"]];
+  return (
+    <section id="offices" className="mcf-office-section" aria-labelledby="mcf-office-title">
+      <div className="mcf-shell mcf-office-card">
+        <div className="mcf-office-media">
+          <Image src="/landing/accounting-office-team-v1.png" alt="محاسبان يراجعان التقارير على حاسوب في مكتب احترافي، مشهد توضيحي" fill sizes="(max-width: 820px) 100vw, 44vw" />
+          <span>مشهد توضيحي</span>
+          <div className="mcf-company-panel" aria-label="معاينة إدارة شركات العملاء">
+            <header><span><UsersRound size={16} /> مركز إدارة العملاء</span><small>بيانات افتراضية</small></header>
+            {companies.map(([name, status, tone]) => <div key={name}><span><b>{name}</b><small>{status}</small></span><i className={tone}><Check size={11} /></i></div>)}
+          </div>
+          <div className="mcf-office-device" aria-hidden="true"><div /><span /><i /></div>
+        </div>
+        <div className="mcf-office-copy">
+          <span className="mcf-section-kicker">ACCOUNTING OFFICE COMMAND CENTER</span>
+          <h2 id="mcf-office-title">مركز قيادة لمكتبك وشركات عملائك</h2>
+          <p>التفويضات، الموظفون والمستندات معزولة حسب الشركة ومتاحة وفق صلاحية المستخدم. القيود والتقارير المالية القادمة مميزة بوضوح.</p>
+          <div className="mcf-office-tabs" role="tablist" aria-label="طريقة عمل مكتب المحاسبة"><button type="button" role="tab" aria-selected={mode === "single"} onClick={() => setMode("single")}>شركة واحدة</button><button type="button" role="tab" aria-selected={mode === "multi"} onClick={() => setMode("multi")}>عدة شركات</button></div>
+          <div className="mcf-office-context" aria-live="polite">
+            <header><span><strong>{mode === "single" ? "ملف شركة واحدة" : "محفظة شركات العملاء"}</strong><small>{mode === "single" ? "مستندات وفريق وحالة مراجعة" : "تبديل، تعيينات، صلاحيات وعزل بيانات"}</small></span><em>بيانات عرض</em></header>
+            <div>{summary.map(([label, value]) => <article key={label}><span>{label}</span><strong>{value}</strong></article>)}</div>
+          </div>
+          <div className="mcf-office-capabilities" role="tabpanel">{items.map(([title, status, ready]) => <article className={ready ? "is-ready" : ""} key={title}><span>{ready ? <CheckCircle2 /> : <Gauge />}</span><strong>{title}</strong><small>{status}</small></article>)}</div>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function Industries() {
@@ -108,9 +131,9 @@ function FinalCta({ signedIn }: { signedIn: boolean }) {
 }
 
 function Footer({ signedIn }: { signedIn: boolean }) {
-  return <footer className="mcf-footer"><div className="mcf-shell mcf-footer-grid"><div className="mcf-footer-brand"><Brand /><p>منصة محاسبية متكاملة لإدارة أعمال الشركات ومكاتب المحاسبة.</p></div><nav aria-label="روابط الشركة"><strong>الشركة</strong><a href="#product">عن Money Coder</a><a href="#offices">الحلول</a><a href="#industries">القطاعات</a></nav><nav aria-label="روابط الموارد"><strong>الموارد</strong><a href="#workflow">مقالات محاسبية</a><a href="#roles">دراسات وحالات</a><Link href={signedIn ? "/dashboard" : "/auth/login"}>{signedIn ? "لوحة التحكم" : "تسجيل الدخول"}</Link></nav><nav aria-label="روابط الدعم"><strong>الدعم</strong><a href="#workflow">مركز المساعدة</a><a href="#offices">التواصل معنا</a><a href="#final-cta">طرح مشكلة</a></nav><div className="mcf-footer-social"><strong>تابعنا</strong><div><a href="https://www.youtube.com/" aria-label="YouTube"><span aria-hidden="true">▶</span></a><a href="https://www.linkedin.com/" aria-label="LinkedIn"><span aria-hidden="true">in</span></a><a href="https://www.facebook.com/" aria-label="Facebook"><span aria-hidden="true">f</span></a><a href="https://www.instagram.com/" aria-label="Instagram"><span aria-hidden="true">◎</span></a></div><small>روابط قنوات التواصل الرسمية عند تفعيلها.</small></div></div><div className="mcf-shell mcf-footer-bottom"><span>© 2026 Money Coder. جميع الحقوق محفوظة.</span><span>Commercial Accounting · Cairo, Egypt</span></div></footer>;
+  return <footer className="mcf-footer"><div className="mcf-shell mcf-footer-grid"><div className="mcf-footer-brand"><Brand /><p>مساحات عمل آمنة للشركات ومكاتب المحاسبة، مع رؤية Financial Twin مالية مترابطة.</p></div><nav aria-label="روابط المنتج"><strong>المنتج</strong><a href="#financial-twin">Financial Twin</a><a href="#offices">مكاتب المحاسبة</a><a href="#mobile-reporting">تقارير الهاتف</a></nav><nav aria-label="روابط الموارد"><strong>الموارد</strong><a href="#workflow">رحلة المستند</a><a href="#security">الأمان والتفويضات</a><a href="#faq">الأسئلة الشائعة</a></nav><nav aria-label="روابط الحساب"><strong>الحساب</strong><Link href={signedIn ? "/dashboard" : "/auth/register"}>{signedIn ? "لوحة التحكم" : "إنشاء حساب"}</Link><Link href={signedIn ? "/dashboard" : "/auth/login"}>{signedIn ? "مساحة العمل" : "تسجيل الدخول"}</Link><a href="#plans">مسارات البداية</a></nav><div className="mcf-footer-social"><strong>القنوات الرسمية</strong><small>لا توجد حسابات تواصل اجتماعي رسمية منشورة أو موثقة في المشروع حاليًا.</small></div></div><div className="mcf-shell mcf-footer-bottom"><span>© 2026 Money Coder. جميع الحقوق محفوظة.</span><span>Commercial Accounting · Cairo, Egypt</span></div></footer>;
 }
 
 export function FinalLanding({ signedIn }: { signedIn: boolean }) {
-  return <div className="mcf" dir="rtl"><Header signedIn={signedIn} /><main><Hero signedIn={signedIn} /><Offices /><Workflow /><Industries /><Roles /><Benefits /><FinalCta signedIn={signedIn} /></main><Footer signedIn={signedIn} /></div>;
+  return <div className="mcf" dir="rtl"><Header signedIn={signedIn} /><main><Hero signedIn={signedIn} /><FinancialTwinShowcase /><Offices /><DocumentJourney /><MobileReportingShowcase /><Industries /><Roles /><Benefits /><SecurityApprovals /><StartPaths signedIn={signedIn} /><ProductFaq /><FinalCta signedIn={signedIn} /></main><Footer signedIn={signedIn} /></div>;
 }
