@@ -10,9 +10,11 @@
 | Journal entry | Balanced minor-unit posting | Journal entries/posting | No equivalent complete production core | Exact decimal engine, approvals, locks, periods and reversals |
 | Ledger/trial balance | Derived from posted demo entries | Ledger/trial balance | Demo only | Server calculation and reconciliation tests |
 | Financial statements | Derived demo figures | Financial reports | Demo only | Accounting policy, periods, comparison and authorization |
-| Bank statement | Preloaded simulated extraction | Imports, rows and mappings | n8n integration remains separate | Upload, extraction provider, review, duplicate control |
+| Bank statement | Preloaded extraction → mapping → DRAFT → human review → guarded posting → reports | Typed imports, rows, mappings and draft suggestion | n8n integration remains separate | Upload, extraction provider, secure review, idempotency and duplicate control |
 | Billing | Preview only; no charging | Plans/subscriptions/usage/invoices | Not enabled | Provider selection, webhooks, tax and reconciliation |
 | CSV report | Real local synthetic CSV | Export job contract can be added | Demo only | Signed export jobs with tenant authorization |
+| Async operation feedback | Global loading, success, error and manual retry | Stable error envelope, revisions and idempotency | Existing production UI unchanged | Implement transport error mapping and cancellation |
+| Guided scenarios | Company, office and bank journeys with connected completion state | Covered by the documented endpoint/state transitions | Demo only | Contract-server E2E and role/permission enforcement |
 
 ## Readiness labels
 

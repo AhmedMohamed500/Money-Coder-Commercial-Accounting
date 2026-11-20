@@ -347,15 +347,17 @@ paths:
       summary: List extracted rows after safe processing
       parameters: [ { $ref: '#/components/parameters/ImportId' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' } ]
       responses:
-        '200': { description: Row page, content: { application/json: { schema: { $ref: '#/components/schemas/GenericPage' } } } }
+        '200': { description: Row page, content: { application/json: { schema: { $ref: '#/components/schemas/BankStatementRowPage' } } } }
   /bank-statement-imports/{importId}/rows/{rowId}/mapping:
     patch:
       tags: [BankImports]
       summary: Map an extracted row to an account
-      parameters: [ { $ref: '#/components/parameters/ImportId' }, { name: rowId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }, { $ref: '#/components/parameters/IfMatch' } ]
+      parameters: [ { $ref: '#/components/parameters/ImportId' }, { name: rowId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/IfMatch' } ]
       requestBody: { required: true, content: { application/json: { schema: { type: object, required: [accountId], properties: { accountId: { $ref: '#/components/schemas/Id' }, note: { type: string } } } } } }
       responses:
-        '200': { description: Mapping saved }
+        '200': { description: Mapping saved, content: { application/json: { schema: { $ref: '#/components/schemas/BankStatementRow' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /bank-statement-imports/{importId}/journal-suggestion:
     post:
       tags: [BankImports]
@@ -514,3 +516,11 @@ components:
       type: object
       required: [organizationId, currency, from, to, rows, generatedAt]
       properties: { organizationId: { $ref: '#/components/schemas/Id' }, currency: { type: string }, from: { type: [string, 'null'], format: date }, to: { type: string, format: date }, rows: { type: array, items: { type: object, required: [code, label, amount], properties: { code: { type: string }, label: { type: string }, amount: { $ref: '#/components/schemas/Decimal' } } }, generatedAt: { type: string, format: date-time } }
+    BankStatementRow:
+      type: object
+      required: [id, importId, date, description, amount, direction, mappedAccountId, revision]
+      properties: { id: { $ref: '#/components/schemas/Id' }, importId: { $ref: '#/components/schemas/Id' }, date: { type: string, format: date }, description: { type: string }, amount: { $ref: '#/components/schemas/Decimal' }, direction: { enum: [IN, OUT] }, mappedAccountId: { type: [string, 'null'] }, revision: { type: integer, minimum: 1 } }
+    BankStatementRowPage:
+      type: object
+      required: [data, page]
+      properties: { data: { type: array, items: { $ref: '#/components/schemas/BankStatementRow' } }, page: { $ref: '#/components/schemas/PageInfo' } }

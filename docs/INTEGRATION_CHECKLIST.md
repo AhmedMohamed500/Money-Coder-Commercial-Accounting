@@ -4,10 +4,14 @@
 
 - [ ] Implement `/api/v1` exactly or publish a reviewed contract migration.
 - [ ] Map provider/database entities to contract DTOs; never return ORM records directly.
-- [ ] Implement an HTTP adapter behind `ProductDemoPort`/future production ports.
+- [x] Implement the inert async `HttpProductAdapter` boundary with injected transport.
+- [ ] Implement the real authenticated `HttpTransport`; do not add it to `/demo`.
 - [ ] Select the HTTP adapter only from trusted route/server configuration.
 - [ ] Keep `/demo` pinned to `InMemoryDemoAdapter`.
 - [ ] Validate every request and response against versioned schemas.
+- [ ] Preserve loading/success/error/retry semantics and cancellation on adapter replacement.
+- [ ] Reuse one idempotency key across retries of the same command.
+- [ ] Map `ApiErrorV1` codes to field, conflict, authorization and retryable failure states.
 
 ## Identity, tenants and permissions
 
@@ -54,3 +58,12 @@
 4. Pilot with fictional/staging data.
 5. Obtain security and accounting review.
 6. Request explicit production approval.
+
+## Demo-only deployment gate
+
+- [ ] Create a separate Vercel project; never attach the production project or domains.
+- [ ] Set only `DEMO_ONLY_DEPLOYMENT=1`; do not copy Production environment variables.
+- [ ] Run `npm run build:demo` so the secret denylist and route isolation checks execute.
+- [ ] Verify `/demo` works and production pages/APIs return 404 in the preview.
+- [ ] Confirm browser network traffic contains no production hosts.
+- [ ] Share the protected preview for visual review; obtain explicit approval before public access.

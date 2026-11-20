@@ -14,7 +14,7 @@ app/demo
     -> application/demo use cases and validation
       -> ProductDemoPort
         -> InMemoryDemoAdapter (current public demo)
-        -> HTTP adapter (future production implementation)
+        -> HttpProductAdapter (implemented async boundary; injected transport only)
 
 domain/demo       backend-neutral entities and exact minor-unit rules
 contracts/v1.ts   public DTO conventions
@@ -133,6 +133,31 @@ DRAFT -> PENDING_APPROVAL -> APPROVED -> POSTED -> REVERSED
 
 ## 8. HTTP adapter implementation
 
+`HttpProductAdapter` is now a real `ProductBackendV1` implementation, not a TypeScript alias. It accepts an injected `HttpTransport`, returns Promises for every operation, forwards `AbortSignal` on cancellable reads, URL-encodes resource IDs and sends idempotency/revision headers. It intentionally has no default `fetch` transport: constructing or importing it cannot contact any service.
+
+The demo-side `ProductDemoPort` is also asynchronous. `DemoProvider.execute()` owns the UI operation lifecycle (`loading`, `success`, `error`, `retry`) while `InMemoryDemoAdapter` resolves locally and stays network-free. A failed operation returns a discriminated `{ ok: false }`; UI code must not close a dialog or advance a guided flow unless `ok` is true.
+
+### Exact replacement plan
+
+1. Implement a transport that adds the real API origin, secure session credentials, request ID, JSON serialization, timeout/abort handling, and safe `ApiErrorV1` parsing.
+2. Run `HttpProductAdapter` contract tests against a disposable contract server; do not point `/demo` at it.
+3. Validate every response at the boundary before mapping it to view models.
+4. Add focused production providers (`OrganizationPort`, `DocumentPort`, `ReviewPort`, `AccountingPort`, `ReportingPort`, `BankImportPort`) behind authenticated product routes.
+5. Keep `DemoProvider` + `InMemoryDemoAdapter` pinned to the demo-only route. Select a production provider only from trusted server/route configuration, never a query string or browser local storage.
+6. Preserve UI operation semantics: reads may cancel; commands require idempotency; `409` exposes a refresh/retry path; validation errors map to fields; `401/403` are not retried blindly.
+7. Complete cross-tenant, permission, concurrency, accounting reconciliation and failure-mode tests before any cutover.
+
+### Error and retry policy
+
+| Condition | UI behavior | Retry rule |
+| --- | --- | --- |
+| Network timeout / 503 | Keep user input and show safe error | Manual retry with same idempotency key |
+| 409 revision conflict | Refresh aggregate and explain conflict | Retry only after user review |
+| 422 validation | Attach field/business errors | No automatic retry |
+| 401 | End invalid session | Re-authenticate, do not replay automatically |
+| 403/404 tenant-safe | Show unavailable/not found | No retry |
+| Abort | Silently replace stale read | Start only the newer read |
+
 The backend team should implement focused ports rather than one monolithic client, for example:
 
 ```text
@@ -193,3 +218,11 @@ Content-Type: application/json
 - Complete backup/restore testing and environment isolation.
 - Test every endpoint for cross-tenant access, object enumeration and stale revisions.
 - Keep the demo deployment secret-free if it is published separately.
+
+## 12. Demo accounting limits
+
+- Internal demo arithmetic uses safe integer minor units (piasters/cents), not floating point decimals.
+- Supported demo values must remain within `Number.isSafeInteger`; this is a demo constraint, not the future API representation.
+- The real HTTP contract uses decimal strings and must use an exact decimal type in the backend.
+- Each synthetic organization has one functional currency. Reports never aggregate EGP and USD.
+- Bank extraction is preloaded simulation. A suggestion always creates a `DRAFT`; only a separate human-review action can post it.
