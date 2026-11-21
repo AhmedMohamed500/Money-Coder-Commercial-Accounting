@@ -47,7 +47,11 @@ export class InMemoryDemoAdapter implements ProductDemoPort {
   async navigate(section: DemoSection) { this.commit(draft => { draft.currentSection = section; }); }
   async switchOrganization(organizationId: OrganizationId) {
     if (!this.state.organizations.some(item => item.id === organizationId)) throw new Error("الشركة التجريبية غير موجودة.");
-    this.commit(draft => { draft.currentOrganizationId = organizationId; draft.audit.unshift({ id: crypto.randomUUID(), organizationId, action: "DEMO_ORGANIZATION_SWITCHED", actor: "مستخدم العرض", at: fixedDemoTime() }); });
+    this.commit(draft => {
+      draft.currentOrganizationId = organizationId;
+      draft.selectedReviewId = draft.reviews.find(item => item.organizationId === organizationId)?.id;
+      draft.audit.unshift({ id: crypto.randomUUID(), organizationId, action: "DEMO_ORGANIZATION_SWITCHED", actor: "مستخدم العرض", at: fixedDemoTime() });
+    });
   }
   async switchRole(role: DemoRole) { this.commit(draft => { draft.currentRole = role; }); }
   async setPersistence(enabled: boolean) {
@@ -73,32 +77,65 @@ export class InMemoryDemoAdapter implements ProductDemoPort {
       createdId = id;
       const reviewId = `demo-review-${draft.reviews.length + 1}`;
       const organizationId = draft.currentOrganizationId;
-      draft.documents.unshift({ id, organizationId, title: input.title, category: input.category, status: "READY_FOR_REVIEW", updatedAt: fixedDemoTime(), versions: [{ id: `${id}-v1`, version: 1, createdAt: fixedDemoTime(), createdBy: "مستخدم العرض", note: "رفع محلي محاكى — لم يغادر أي ملف الجهاز", fileLabel: "sample-only.pdf" }] });
+      draft.documents.unshift({ id, organizationId, title: input.title.trim(), category: input.category, status: "READY_FOR_REVIEW", updatedAt: fixedDemoTime(), versions: [{ id: `${id}-v1`, version: 1, createdAt: fixedDemoTime(), createdBy: "مستخدم العرض", note: "رفع محلي محاكى — لا يوجد ملف حقيقي", fileLabel: "sample-only.pdf" }] });
       draft.reviews.unshift({ id: reviewId, organizationId, documentId: id, status: "READY_FOR_REVIEW", assignedTo: "غير معيّن", comments: [], timeline: [{ id: `${reviewId}-t1`, label: "إنشاء مستند تجريبي محلي", at: fixedDemoTime(), actor: "مستخدم العرض" }] });
+      draft.selectedReviewId = reviewId;
       draft.notifications.unshift({ id: crypto.randomUUID(), organizationId, text: "تمت إضافة عينة إلى قائمة المراجعة", read: false, createdAt: fixedDemoTime() });
       draft.audit.unshift({ id: crypto.randomUUID(), organizationId, action: "DEMO_DOCUMENT_STAGED", actor: "مستخدم العرض", at: fixedDemoTime() });
     });
     return createdId;
   }
 
+  async openReview(reviewId: string) {
+    const review = this.state.reviews.find(item => item.id === reviewId && item.organizationId === this.state.currentOrganizationId);
+    if (!review) throw new Error("حالة المراجعة لا تخص الشركة الحالية.");
+    this.commit(draft => {
+      draft.selectedReviewId = reviewId;
+      draft.currentSection = "reviews";
+    });
+  }
+
   async assignReview(reviewId: string, assignee: string) {
     this.commit(draft => {
-      const review = draft.reviews.find(item => item.id === reviewId);
-      if (!review) throw new Error("حالة المراجعة غير موجودة.");
+      const review = draft.reviews.find(item => item.id === reviewId && item.organizationId === draft.currentOrganizationId);
+      if (!review) throw new Error("حالة المراجعة لا تخص الشركة الحالية.");
+      const staffMember = draft.office.staff.find(item => item.name === assignee && item.assignedOrganizationIds.includes(review.organizationId));
+      if (!staffMember) throw new Error("المراجع المختار غير مكلّف بهذه الشركة.");
       review.assignedTo = assignee;
-      review.status = review.status === "READY_FOR_REVIEW" ? "IN_REVIEW" : review.status;
       const document = draft.documents.find(item => item.id === review.documentId);
-      if (document) { document.assignedTo = assignee; document.status = review.status; }
+      if (document) document.assignedTo = assignee;
       review.timeline.unshift({ id: crypto.randomUUID(), label: `تعيين إلى ${assignee}`, at: fixedDemoTime(), actor: "مالك المكتب التجريبي" });
       draft.audit.unshift({ id: crypto.randomUUID(), organizationId: review.organizationId, action: "DEMO_REVIEW_ASSIGNED", actor: "مالك المكتب التجريبي", at: fixedDemoTime() });
+    });
+  }
+
+  async beginReview(reviewId: string) {
+    this.commit(draft => {
+      const review = draft.reviews.find(item => item.id === reviewId && item.organizationId === draft.currentOrganizationId);
+      if (!review) throw new Error("حالة المراجعة لا تخص الشركة الحالية.");
+      if (!review.assignedTo || review.assignedTo === "غير معيّن") throw new Error("عيّن مراجعًا قبل بدء المراجعة.");
+      const staffMember = draft.office.staff.find(item => item.name === review.assignedTo && item.assignedOrganizationIds.includes(review.organizationId));
+      if (!staffMember) throw new Error("المراجع المعيّن غير مخول لهذه الشركة.");
+      if (!(["READY_FOR_REVIEW", "RESUBMITTED"] as ReviewStatus[]).includes(review.status)) throw new Error("لا يمكن بدء المراجعة من الحالة الحالية.");
+      review.status = "IN_REVIEW";
+      const document = draft.documents.find(item => item.id === review.documentId);
+      if (document) document.status = "IN_REVIEW";
+      review.timeline.unshift({ id: crypto.randomUUID(), label: "بدء المراجعة البشرية", at: fixedDemoTime(), actor: review.assignedTo });
+      draft.audit.unshift({ id: crypto.randomUUID(), organizationId: review.organizationId, action: "DEMO_REVIEW_STARTED", actor: review.assignedTo, at: fixedDemoTime() });
     });
   }
 
   async transitionReview(reviewId: string, status: Extract<ReviewStatus, "CORRECTION_REQUESTED" | "RESUBMITTED" | "APPROVED" | "REJECTED">, comment: string) {
     const command = demoReviewTransitionSchema.parse({ reviewId, status, comment });
     this.commit(draft => {
-      const review = draft.reviews.find(item => item.id === command.reviewId);
-      if (!review) throw new Error("حالة المراجعة غير موجودة.");
+      const review = draft.reviews.find(item => item.id === command.reviewId && item.organizationId === draft.currentOrganizationId);
+      if (!review) throw new Error("حالة المراجعة لا تخص الشركة الحالية.");
+      const allowed = review.status === "IN_REVIEW"
+        ? ["CORRECTION_REQUESTED", "APPROVED", "REJECTED"]
+        : review.status === "CORRECTION_REQUESTED"
+          ? ["RESUBMITTED"]
+          : [];
+      if (!allowed.includes(command.status)) throw new Error("الانتقال المطلوب غير متاح من حالة المراجعة الحالية.");
       const document = draft.documents.find(item => item.id === review.documentId);
       if (!document) throw new Error("المستند التجريبي غير موجود.");
       review.status = command.status;
@@ -115,8 +152,8 @@ export class InMemoryDemoAdapter implements ProductDemoPort {
   async addReviewComment(reviewId: string, body: string) {
     if (body.trim().length < 2) throw new Error("اكتب تعليقًا واضحًا.");
     this.commit(draft => {
-      const review = draft.reviews.find(item => item.id === reviewId);
-      if (!review) throw new Error("حالة المراجعة غير موجودة.");
+      const review = draft.reviews.find(item => item.id === reviewId && item.organizationId === draft.currentOrganizationId);
+      if (!review) throw new Error("حالة المراجعة لا تخص الشركة الحالية.");
       review.comments.unshift({ id: crypto.randomUUID(), author: "مستخدم العرض", body: body.trim(), createdAt: fixedDemoTime(), kind: "COMMENT" });
     });
   }
@@ -139,7 +176,9 @@ export class InMemoryDemoAdapter implements ProductDemoPort {
     this.commit(draft => {
       const row = draft.bankRows.find(item => item.id === rowId && item.organizationId === draft.currentOrganizationId);
       if (!row) throw new Error("حركة البنك غير موجودة لهذه الشركة.");
-      if (!draft.accounts.some(account => account.id === accountId && account.organizationId === draft.currentOrganizationId)) throw new Error("الحساب المختار لا يخص الشركة الحالية.");
+      const mappedAccount = draft.accounts.find(account => account.id === accountId && account.organizationId === draft.currentOrganizationId);
+      if (!mappedAccount) throw new Error("الحساب المختار لا يخص الشركة الحالية.");
+      if (mappedAccount.code === "1110") throw new Error("اختر حساب الطرف المقابل؛ حساب البنك يُضاف تلقائيًا.");
       row.mappedAccountId = accountId;
       row.state = "SUGGESTED";
       draft.audit.unshift({ id: crypto.randomUUID(), organizationId: row.organizationId, action: "DEMO_BANK_ROW_MAPPED", actor: "مستخدم العرض", at: fixedDemoTime() });
@@ -189,11 +228,14 @@ export class InMemoryDemoAdapter implements ProductDemoPort {
   }
 
   async saveCompanyProfile(input: { tradeName: string; industry: string; currency: "EGP" | "USD" }) {
+    if (input.tradeName.trim().length < 3) throw new Error("اكتب اسمًا تجاريًا من ثلاثة أحرف على الأقل.");
+    if (input.industry.trim().length < 3) throw new Error("اكتب نشاطًا واضحًا من ثلاثة أحرف على الأقل.");
+    if (!(["EGP", "USD"] as const).includes(input.currency)) throw new Error("العملة المختارة غير مدعومة في العرض.");
     this.commit(draft => {
       const organization = draft.organizations.find(item => item.id === draft.currentOrganizationId);
       if (!organization) throw new Error("الشركة غير موجودة.");
-      organization.tradeName = input.tradeName.trim() || organization.tradeName;
-      organization.industry = input.industry.trim() || organization.industry;
+      organization.tradeName = input.tradeName.trim();
+      organization.industry = input.industry.trim();
       organization.currency = input.currency;
       draft.audit.unshift({ id: crypto.randomUUID(), organizationId: organization.id, action: "DEMO_COMPANY_PROFILE_UPDATED", actor: "مستخدم العرض", at: fixedDemoTime() });
     });

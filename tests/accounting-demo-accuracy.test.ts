@@ -54,6 +54,10 @@ describe("demo accounting accuracy", () => {
     expect(adapter.snapshot().organizations.find(item => item.id === "org-nile")?.currency).toBe("EGP");
     expect(buildDemoReport(adapter.snapshot(), "org-nile")).toEqual(nileBefore);
     expect(buildDemoReport(adapter.snapshot(), "org-horizon").revenueMinor).toBe(12_050_000);
+    await expect(adapter.createAndPostJournal({ date: "2026-11-20", memo: "cross tenant", reference: "CROSS-ORG", lines: [
+      { id: "c1", accountId: "org-nile-1110", description: "", debitMinor: 1_000, creditMinor: 0 },
+      { id: "c2", accountId: "org-nile-4110", description: "", debitMinor: 0, creditMinor: 1_000 },
+    ] })).rejects.toThrow(/لا يخص الشركة الحالية/);
   });
 
   it("prevents duplicate manual references and repeated bank posting", async () => {
@@ -70,6 +74,7 @@ describe("demo accounting accuracy", () => {
     await adapter.postDraftJournal(draftId);
     await expect(adapter.postDraftJournal(draftId)).rejects.toThrow(/تم ترحيل/);
     expect(adapter.snapshot().journals.filter(item => item.id === draftId && item.status === "POSTED")).toHaveLength(1);
+    await expect(adapter.createBankSuggestion("bank-row-2", "org-nile-1110")).rejects.toThrow(/الطرف المقابل/);
   });
 
   it("restores the deterministic baseline on reset", async () => {

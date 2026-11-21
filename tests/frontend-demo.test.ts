@@ -18,12 +18,42 @@ describe("frontend-first demo adapter", () => {
     const document = adapter.snapshot().documents.find(item => item.id === review.documentId)!;
     const originalVersion = document.versions.length;
 
+    await adapter.assignReview(review.id, "كريم نبيل — مراجع افتراضي");
+    await adapter.beginReview(review.id);
     await adapter.transitionReview(review.id, "CORRECTION_REQUESTED", "أكمل المستند التجريبي");
     expect(adapter.snapshot().reviews.find(item => item.id === review.id)?.status).toBe("CORRECTION_REQUESTED");
     await adapter.transitionReview(review.id, "RESUBMITTED", "نسخة تجريبية مصححة");
     expect(adapter.snapshot().documents.find(item => item.id === document.id)?.versions).toHaveLength(originalVersion + 1);
+    await adapter.beginReview(review.id);
     await adapter.transitionReview(review.id, "APPROVED", "اعتماد تجريبي");
     expect(adapter.snapshot().documents.find(item => item.id === document.id)?.status).toBe("APPROVED");
+  });
+
+  it("enforces review transitions, reviewer scope and tenant context", async () => {
+    const adapter = new InMemoryDemoAdapter();
+    const nileReview = adapter.snapshot().reviews.find(item => item.organizationId === "org-nile")!;
+    const deltaReview = adapter.snapshot().reviews.find(item => item.organizationId === "org-delta")!;
+
+    await expect(adapter.transitionReview(nileReview.id, "APPROVED", "قفزة غير مسموحة")).rejects.toThrow(/غير متاح/);
+    await expect(adapter.assignReview(nileReview.id, "هبة يوسف — مراجع افتراضي")).rejects.toThrow(/غير مكلّف/);
+    await expect(adapter.openReview(deltaReview.id)).rejects.toThrow(/لا تخص الشركة الحالية/);
+    await expect(adapter.addReviewComment(deltaReview.id, "تعليق عابر للشركات")).rejects.toThrow(/لا تخص الشركة الحالية/);
+  });
+
+  it("opens the review created for a new synthetic document", async () => {
+    const adapter = new InMemoryDemoAdapter();
+    const documentId = await adapter.simulateUpload({ title: "فاتورة عميل افتراضي", category: "INVOICE" });
+    const review = adapter.snapshot().reviews.find(item => item.documentId === documentId)!;
+    await adapter.openReview(review.id);
+    expect(adapter.snapshot().currentSection).toBe("reviews");
+    expect(adapter.snapshot().selectedReviewId).toBe(review.id);
+  });
+
+  it("validates company profile fields inside the in-memory boundary", async () => {
+    const adapter = new InMemoryDemoAdapter();
+    await expect(adapter.saveCompanyProfile({ tradeName: "أ", industry: "تجارة", currency: "EGP" })).rejects.toThrow(/ثلاثة أحرف/);
+    await adapter.saveCompanyProfile({ tradeName: "شركة العرض", industry: "تجارة تجريبية", currency: "EGP" });
+    expect(adapter.snapshot().organizations.find(item => item.id === "org-nile")?.tradeName).toBe("شركة العرض");
   });
 
   it("rejects unbalanced journals and updates reports after a balanced posting", async () => {

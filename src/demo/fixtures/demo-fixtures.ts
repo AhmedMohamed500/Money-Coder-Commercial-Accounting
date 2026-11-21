@@ -99,12 +99,15 @@ const documents: DemoDocument[] = [
 }));
 
 function reviewFor(document: DemoDocument, index: number): ReviewCase {
+  const assignee = document.organizationId === "org-nile"
+    ? "كريم نبيل — مراجع افتراضي"
+    : "هبة يوسف — مراجع افتراضي";
   return {
     id: `review-${index + 1}`,
     organizationId: document.organizationId,
     documentId: document.id,
     status: document.status,
-    assignedTo: index % 2 ? "هبة يوسف — مراجع افتراضي" : "كريم نبيل — مراجع افتراضي",
+    assignedTo: assignee,
     comments: document.status === "CORRECTION_REQUESTED" ? [{ id: `comment-${index}`, author: "هبة يوسف — مراجع افتراضي", body: "يرجى إرفاق الصفحة الأخيرة وتوضيح تاريخ السريان.", createdAt: "2026-11-19T11:20:00.000Z", kind: "CORRECTION" }] : [],
     timeline: [
       { id: `timeline-${index}-1`, label: "إنشاء مستند تجريبي", at: "2026-11-18T08:30:00.000Z", actor: "مستخدم تجريبي" },
@@ -120,6 +123,7 @@ export function createDemoFixtures(): DemoState {
     currentRole: "OFFICE_OWNER",
     currentOrganizationId: "org-nile",
     currentSection: "overview",
+    selectedReviewId: "review-1",
     persistenceEnabled: false,
     organizations,
     office: {

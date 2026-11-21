@@ -10,6 +10,7 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:e2e:demo": "node scripts/test-demo-e2e.mjs",
     "test:db": "node scripts/test-database.mjs",
     "test:watch": "vitest",
     "test:visual": "node scripts/visual-smoke.mjs",

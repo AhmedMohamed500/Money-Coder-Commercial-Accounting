@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Activity, ArrowDownToLine, BadgeCheck, Banknote, BarChart3, Bell, BookOpenCheck,
-  BriefcaseBusiness, Building2, CheckCircle2, ChevronLeft, ClipboardCheck,
+  BriefcaseBusiness, Building2, CheckCircle2, ChevronLeft, CirclePlay, ClipboardCheck,
   FileCheck2, FileClock, FileText, Landmark, LayoutDashboard, Menu,
-  NotebookTabs, RefreshCcw, Save, Search, Settings, ShieldCheck, Upload, Users, WalletCards, X,
+  MessageSquarePlus, NotebookTabs, RefreshCcw, Save, Search, Settings, ShieldCheck,
+  Trash2, Upload, Users, WalletCards, X,
 } from "lucide-react";
 import { useDemo } from "@/demo/state/demo-provider";
-import { buildDemoReport } from "@/application/demo/reporting";
+import { buildAccountBalances, buildDemoReport } from "@/application/demo/reporting";
 import { isBalanced, sumJournalSide, type DemoReport, type DemoRole, type DemoSection, type JournalLine, type ReviewStatus } from "@/domain/demo/types";
 
 const sectionItems: Array<{ id: DemoSection; label: string; icon: typeof LayoutDashboard }> = [
@@ -34,6 +35,14 @@ const roleLabels: Record<DemoRole, string> = {
   FINANCE_MANAGER: "مدير مالية",
 };
 
+type DemoJourney = "owner" | "office" | "accountant";
+
+function journeyForRole(role: DemoRole): DemoJourney {
+  if (role === "COMPANY_ACCOUNTANT") return "accountant";
+  if ((["OFFICE_OWNER", "OFFICE_ACCOUNTANT", "REVIEWER"] as DemoRole[]).includes(role)) return "office";
+  return "owner";
+}
+
 const statusLabels: Record<ReviewStatus, string> = {
   READY_FOR_REVIEW: "جاهز للمراجعة",
   IN_REVIEW: "قيد المراجعة",
@@ -44,14 +53,44 @@ const statusLabels: Record<ReviewStatus, string> = {
 };
 
 function money(value: number, currency = "EGP") {
-  return new Intl.NumberFormat("ar-EG", { style: "currency", currency, maximumFractionDigits: 0 }).format(value / 100);
+  return new Intl.NumberFormat("ar-EG", { style: "currency", currency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(value / 100);
 }
+
+function decimalMoney(value: number) {
+  return (value / 100).toFixed(2);
+}
+
+const auditLabels: Record<string, string> = {
+  DEMO_BASELINE_CREATED: "تهيئة بيانات العرض",
+  DEMO_ORGANIZATION_SWITCHED: "تبديل الشركة الحالية",
+  DEMO_COMPANY_PROFILE_UPDATED: "تحديث ملف الشركة",
+  DEMO_DOCUMENT_STAGED: "إضافة مستند تجريبي",
+  DEMO_REVIEW_ASSIGNED: "تعيين المراجع",
+  DEMO_REVIEW_STARTED: "بدء المراجعة البشرية",
+  DEMO_REVIEW_CORRECTION_REQUESTED: "طلب تصحيح مستند",
+  DEMO_REVIEW_RESUBMITTED: "إعادة تقديم المستند",
+  DEMO_REVIEW_APPROVED: "اعتماد المستند",
+  DEMO_REVIEW_REJECTED: "رفض المستند",
+  DEMO_JOURNAL_POSTED: "ترحيل قيد تجريبي",
+  DEMO_BANK_ROW_MAPPED: "ربط حركة بنكية بحساب",
+  DEMO_BANK_DRAFT_CREATED: "إنشاء مسودة من كشف البنك",
+  DEMO_BANK_DRAFT_POSTED: "ترحيل مسودة كشف البنك",
+};
 
 export function DemoShell() {
   const { state, service, operation, execute, retry, clearFeedback } = useDemo();
   const [menuOpen, setMenuOpen] = useState(false);
   const organization = state.organizations.find(item => item.id === state.currentOrganizationId)!;
   const currentSection = sectionItems.find(item => item.id === state.currentSection)!;
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [menuOpen]);
 
   const navigate = (section: DemoSection) => {
     void execute("navigate", () => service.navigate(section));
@@ -72,8 +111,13 @@ export function DemoShell() {
         </div>
       </header>
 
+      {menuOpen && <button type="button" className="demo-menu-backdrop" aria-label="إغلاق قائمة العرض" onClick={() => setMenuOpen(false)} />}
       <aside className={`demo-sidebar ${menuOpen ? "is-open" : ""}`} aria-label="وحدات العرض">
-        <nav>{sectionItems.map(({ id, label, icon: Icon }) => <button type="button" key={id} className={state.currentSection === id ? "is-active" : ""} onClick={() => navigate(id)}><Icon /><span>{label}</span>{state.currentSection === id && <ChevronLeft />}</button>)}</nav>
+        <div className="demo-mobile-context">
+          <label>الدور التجريبي<select value={state.currentRole} onChange={event => void execute("switch-context", () => service.switchRole(event.target.value as DemoRole), "تم تبديل الدور التجريبي.")}>{Object.entries(roleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label>الشركة<select value={state.currentOrganizationId} onChange={event => void execute("switch-context", () => service.switchOrganization(event.target.value), "تم تبديل الشركة مع عزل بياناتها.")}>{state.organizations.map(item => <option value={item.id} key={item.id}>{item.tradeName}</option>)}</select></label>
+        </div>
+        <nav>{sectionItems.map(({ id, label, icon: Icon }) => <button type="button" key={id} aria-current={state.currentSection === id ? "page" : undefined} className={state.currentSection === id ? "is-active" : ""} onClick={() => navigate(id)}><Icon /><span>{label}</span>{state.currentSection === id && <ChevronLeft />}</button>)}</nav>
         <div className="demo-safety"><ShieldCheck /><div><strong>معزول عن الإنتاج</strong><small>لا قاعدة بيانات، لا رفع حقيقي، لا مدفوعات.</small></div></div>
         <Link href="/">العودة إلى الموقع</Link>
       </aside>
@@ -84,13 +128,13 @@ export function DemoShell() {
         {operation.status !== "idle" && <div className={`demo-operation is-${operation.status}`} role={operation.status === "error" ? "alert" : "status"} aria-live="polite"><span className="demo-operation-dot" /> <p>{operation.status === "loading" ? operation.message : operation.status === "error" ? operation.error : operation.message}</p>{operation.status === "error" && operation.retryable && <button type="button" onClick={() => void retry()}><RefreshCcw /> إعادة المحاولة</button>}<button type="button" aria-label="إغلاق الرسالة" onClick={clearFeedback}><X /></button></div>}
         <ScenarioGuide />
         {state.currentSection === "overview" && <Overview />}
-        {state.currentSection === "company" && <CompanySetup />}
+        {state.currentSection === "company" && <CompanySetup key={organization.id} />}
         {state.currentSection === "office" && <OfficeCenter />}
-        {state.currentSection === "documents" && <DocumentCenter />}
-        {state.currentSection === "reviews" && <ReviewCenter />}
-        {state.currentSection === "accounting" && <AccountingCore />}
-        {state.currentSection === "banking" && <BankWorkflow />}
-        {state.currentSection === "reports" && <Reports />}
+        {state.currentSection === "documents" && <DocumentCenter key={organization.id} />}
+        {state.currentSection === "reviews" && <ReviewCenter key={organization.id} />}
+        {state.currentSection === "accounting" && <AccountingCore key={organization.id} />}
+        {state.currentSection === "banking" && <BankWorkflow key={organization.id} />}
+        {state.currentSection === "reports" && <Reports key={organization.id} />}
         {state.currentSection === "plans" && <Plans />}
         {state.currentSection === "settings" && <SettingsHelp />}
       </main>
@@ -101,38 +145,43 @@ export function DemoShell() {
 
 function ScenarioGuide() {
   const { state, service, execute } = useDemo();
-  const [scenario, setScenario] = useState<"company" | "office" | "bank">("company");
+  const journey = journeyForRole(state.currentRole);
   const organizationId = state.currentOrganizationId;
-  const companySteps = [
-    { label: "إعداد الشركة", section: "company" as DemoSection, done: state.audit.some(item => item.organizationId === organizationId && item.action === "DEMO_COMPANY_PROFILE_UPDATED") },
-    { label: "إضافة مستند", section: "documents" as DemoSection, done: state.documents.some(item => item.organizationId === organizationId && item.id.startsWith("demo-doc-")) },
-    { label: "قيد وأستاذ", section: "accounting" as DemoSection, done: state.journals.some(item => item.organizationId === organizationId && item.source === "MANUAL" && item.reference.startsWith("DEMO-")) },
-    { label: "القوائم المالية", section: "reports" as DemoSection, done: state.journals.some(item => item.organizationId === organizationId && item.source === "MANUAL" && item.status === "POSTED") },
+
+  const ownerSteps = [
+    { label: "لوحة الأداء", detail: "راجع المؤشرات والمهام", section: "overview" as DemoSection, done: true },
+    { label: "بيانات الشركة", detail: "حدّث الملف التجريبي", section: "company" as DemoSection, done: state.audit.some(item => item.organizationId === organizationId && item.action === "DEMO_COMPANY_PROFILE_UPDATED") },
+    { label: "قرار الاعتماد", detail: "تابع نتيجة المراجعة", section: "reviews" as DemoSection, done: state.audit.some(item => item.organizationId === organizationId && item.action === "DEMO_REVIEW_APPROVED") },
+    { label: "القوائم المالية", detail: "اقرأ الأثر المالي", section: "reports" as DemoSection, done: state.audit.some(item => item.organizationId === organizationId && ["DEMO_JOURNAL_POSTED", "DEMO_BANK_DRAFT_POSTED"].includes(item.action)) },
   ];
   const officeSteps = [
-    { label: "محفظة المكتب", section: "office" as DemoSection, done: state.audit.some(item => item.action === "DEMO_ORGANIZATION_SWITCHED") },
-    { label: "تعيين المراجع", section: "reviews" as DemoSection, done: state.audit.some(item => item.organizationId === organizationId && item.action === "DEMO_REVIEW_ASSIGNED") },
-    { label: "طلب تصحيح", section: "reviews" as DemoSection, done: state.audit.some(item => item.organizationId === organizationId && item.action === "DEMO_REVIEW_CORRECTION_REQUESTED") },
-    { label: "الاعتماد والمتابعة", section: "reviews" as DemoSection, done: state.audit.some(item => item.organizationId === organizationId && item.action === "DEMO_REVIEW_APPROVED") },
+    { label: "محفظة العملاء", detail: "بدّل بين الشركات بأمان", section: "office" as DemoSection, done: state.audit.some(item => item.action === "DEMO_ORGANIZATION_SWITCHED") },
+    { label: "تعيين المراجع", detail: "اختر موظفًا مخولًا", section: "reviews" as DemoSection, done: state.audit.some(item => item.organizationId === organizationId && item.action === "DEMO_REVIEW_ASSIGNED") },
+    { label: "طلب التصحيح", detail: "سجّل سببًا واضحًا", section: "reviews" as DemoSection, done: state.audit.some(item => item.organizationId === organizationId && item.action === "DEMO_REVIEW_CORRECTION_REQUESTED") },
+    { label: "الاعتماد والمتابعة", detail: "أغلق دورة المراجعة", section: "reviews" as DemoSection, done: state.audit.some(item => item.organizationId === organizationId && item.action === "DEMO_REVIEW_APPROVED") },
   ];
-  const bankSteps = [
-    { label: "عينة الكشف", section: "banking" as DemoSection, done: true },
-    { label: "ربط الصف", section: "banking" as DemoSection, done: state.bankRows.some(item => item.organizationId === organizationId && item.state === "SUGGESTED") },
-    { label: "مسودة القيد", section: "banking" as DemoSection, done: state.journals.some(item => item.organizationId === organizationId && item.source === "BANK_DEMO") },
-    { label: "المراجعة والترحيل", section: "accounting" as DemoSection, done: state.journals.some(item => item.organizationId === organizationId && item.source === "BANK_DEMO" && item.status === "POSTED") },
-    { label: "تحديث التقارير", section: "reports" as DemoSection, done: state.journals.some(item => item.organizationId === organizationId && item.source === "BANK_DEMO" && item.status === "POSTED") },
+  const accountantSteps = [
+    { label: "دليل الحسابات", detail: "راجع التصنيف والأرصدة", section: "accounting" as DemoSection, done: state.accounts.some(item => item.organizationId === organizationId) },
+    { label: "قيد يومية", detail: "أنشئ قيدًا متوازنًا", section: "accounting" as DemoSection, done: state.audit.some(item => item.organizationId === organizationId && item.action === "DEMO_JOURNAL_POSTED") },
+    { label: "الأستاذ والميزان", detail: "تحقق من الترحيل والتوازن", section: "accounting" as DemoSection, done: state.audit.some(item => item.organizationId === organizationId && item.action === "DEMO_JOURNAL_POSTED") },
+    { label: "كشف البنك", detail: "راجع الاقتراح قبل الترحيل", section: "banking" as DemoSection, done: state.audit.some(item => item.organizationId === organizationId && item.action === "DEMO_BANK_DRAFT_POSTED") },
+    { label: "التقارير", detail: "شاهد الأثر النهائي", section: "reports" as DemoSection, done: state.audit.some(item => item.organizationId === organizationId && ["DEMO_JOURNAL_POSTED", "DEMO_BANK_DRAFT_POSTED"].includes(item.action)) },
   ];
-  const steps = scenario === "company" ? companySteps : scenario === "office" ? officeSteps : bankSteps;
+  const steps = journey === "owner" ? ownerSteps : journey === "office" ? officeSteps : accountantSteps;
   const completed = steps.filter(step => step.done).length;
+  const selectJourney = (nextJourney: DemoJourney) => {
+    const role: DemoRole = nextJourney === "owner" ? "COMPANY_OWNER" : nextJourney === "office" ? "OFFICE_OWNER" : "COMPANY_ACCOUNTANT";
+    void execute("switch-context", () => service.switchRole(role), `تم تجهيز رحلة ${nextJourney === "owner" ? "مالك الشركة" : nextJourney === "office" ? "مكتب المحاسبة" : "المحاسب"}.`);
+  };
   return <section className="demo-scenario" aria-labelledby="demo-scenario-title">
-    <div className="demo-scenario-copy"><span>رحلات إرشادية</span><h2 id="demo-scenario-title">جرّب قصة عمل كاملة</h2><p>اختر السيناريو، ثم انتقل بين خطواته. تتصل النتائج بباقي الشاشات تلقائيًا.</p></div>
+    <div className="demo-scenario-copy"><span>عرض موجّه للعميل</span><h2 id="demo-scenario-title">اختر دورك واتبع قصة العمل</h2><p>كل خطوة تشرح ما ينبغي فعله، وتنعكس نتائجها تلقائيًا على بقية الشاشات.</p></div>
     <div className="demo-scenario-tabs" role="tablist" aria-label="سيناريوهات العرض">
-      <button type="button" role="tab" aria-selected={scenario === "company"} className={scenario === "company" ? "is-active" : ""} onClick={() => setScenario("company")}>شركة تجارية</button>
-      <button type="button" role="tab" aria-selected={scenario === "office"} className={scenario === "office" ? "is-active" : ""} onClick={() => setScenario("office")}>مكتب محاسبة</button>
-      <button type="button" role="tab" aria-selected={scenario === "bank"} className={scenario === "bank" ? "is-active" : ""} onClick={() => setScenario("bank")}>كشف البنك</button>
+      <button type="button" role="tab" aria-selected={journey === "owner"} className={journey === "owner" ? "is-active" : ""} onClick={() => selectJourney("owner")}>مالك الشركة</button>
+      <button type="button" role="tab" aria-selected={journey === "office"} className={journey === "office" ? "is-active" : ""} onClick={() => selectJourney("office")}>مكتب المحاسبة</button>
+      <button type="button" role="tab" aria-selected={journey === "accountant"} className={journey === "accountant" ? "is-active" : ""} onClick={() => selectJourney("accountant")}>المحاسب</button>
     </div>
     <div className="demo-scenario-progress"><span style={{ width: `${completed / steps.length * 100}%` }} /><small>{completed} من {steps.length} مكتملة</small></div>
-    <ol>{steps.map((step, index) => <li key={step.label} className={step.done ? "is-done" : ""}><button type="button" onClick={() => void execute("navigate", () => service.navigate(step.section))}><span>{step.done ? <CheckCircle2 /> : index + 1}</span><strong>{step.label}</strong><ChevronLeft /></button></li>)}</ol>
+    <ol>{steps.map((step, index) => <li key={step.label} className={step.done ? "is-done" : ""}><button type="button" onClick={() => void execute("navigate", () => service.navigate(step.section))}><span>{step.done ? <CheckCircle2 /> : index + 1}</span><span className="demo-scenario-step"><strong>{step.label}</strong><small>{step.detail}</small></span><ChevronLeft /></button></li>)}</ol>
   </section>;
 }
 
@@ -167,7 +216,7 @@ function CompanySetup() {
 function OfficeCenter() {
   const { state, service, execute } = useDemo();
   const [mode, setMode] = useState<"portfolio" | "assignments">("portfolio");
-  return <div className="demo-stack"><div className="demo-callout"><BriefcaseBusiness /><div><strong>{state.office.name}</strong><p>مكتب واحد يدير ثلاث شركات افتراضية مع عزل كامل للسياق داخل العرض.</p></div><div className="demo-segment"><button className={mode === "portfolio" ? "is-active" : ""} onClick={() => setMode("portfolio")}>محفظة العملاء</button><button className={mode === "assignments" ? "is-active" : ""} onClick={() => setMode("assignments")}>التعيينات</button></div></div>
+  return <div className="demo-stack"><div className="demo-callout"><BriefcaseBusiness /><div><strong>{state.office.name}</strong><p>مكتب واحد يدير ثلاث شركات افتراضية مع عزل كامل للسياق داخل العرض.</p></div><div className="demo-segment" role="tablist" aria-label="شاشات مكتب المحاسبة"><button type="button" role="tab" aria-selected={mode === "portfolio"} className={mode === "portfolio" ? "is-active" : ""} onClick={() => setMode("portfolio")}>محفظة العملاء</button><button type="button" role="tab" aria-selected={mode === "assignments"} className={mode === "assignments" ? "is-active" : ""} onClick={() => setMode("assignments")}>التعيينات</button></div></div>
     {mode === "portfolio" ? <div className="demo-portfolio">{state.organizations.map(organization => { const reviews = state.reviews.filter(item => item.organizationId === organization.id); const active = organization.id === state.currentOrganizationId; return <button type="button" key={organization.id} className={active ? "is-active" : ""} onClick={() => void execute("switch-context", () => service.switchOrganization(organization.id), `تم فتح ${organization.tradeName} ببيانات معزولة.`)}><header><Building2 /><span className="demo-status is-approved">تفويض نشط</span></header><h2>{organization.tradeName}</h2><p>{organization.industry} · {organization.size}</p><dl><div><dt>قيد المراجعة</dt><dd>{reviews.filter(item => !["APPROVED", "REJECTED"].includes(item.status)).length}</dd></div><div><dt>الفريق</dt><dd>{organization.staff.length}</dd></div></dl><span className="demo-card-action">{active ? "الشركة الحالية" : "التبديل لهذه الشركة"}</span></button>; })}</div> : <div className="demo-grid-2"><Panel title="فريق المكتب"><div className="demo-people">{state.office.staff.map(member => <article key={member.id}><span>{member.name.slice(0, 1)}</span><div><strong>{member.name}</strong><small>{member.role}</small><p>{member.assignedOrganizationIds.map(id => state.organizations.find(item => item.id === id)?.tradeName).join("، ")}</p></div></article>)}</div></Panel><Panel title="نطاقات التفويض"><div className="demo-permissions">{state.office.engagements.map(engagement => <article key={engagement.organizationId}><div><strong>{state.organizations.find(item => item.id === engagement.organizationId)?.tradeName}</strong><small>{engagement.status === "ACTIVE" ? "نشط" : "معلق"}</small></div><p>{engagement.permissions.join(" · ")}</p></article>)}</div></Panel></div>}
     <Panel title="سجل نشاط المكتب"><ActivityFeed global /></Panel>
   </div>;
@@ -178,32 +227,79 @@ function DocumentCenter() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
   const [uploadOpen, setUploadOpen] = useState(false);
-  const documents = state.documents.filter(item => item.organizationId === state.currentOrganizationId).filter(item => (status === "ALL" || item.status === status) && item.title.includes(query));
-  return <div className="demo-stack"><div className="demo-toolbar"><label className="demo-search"><Search /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="ابحث في المستندات"/></label><select value={status} onChange={event => setStatus(event.target.value)} aria-label="تصفية حالة المستند"><option value="ALL">كل الحالات</option>{Object.entries(statusLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select><button className="demo-primary" type="button" onClick={() => setUploadOpen(value => !value)}><Upload /> إضافة عينة</button></div>
+  const normalizedQuery = query.trim().toLocaleLowerCase("ar");
+  const documents = state.documents.filter(item => item.organizationId === state.currentOrganizationId).filter(item => (status === "ALL" || item.status === status) && item.title.toLocaleLowerCase("ar").includes(normalizedQuery));
+  return <div className="demo-stack"><div className="demo-toolbar"><label className="demo-search"><span className="demo-visually-hidden">بحث المستندات</span><Search /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="ابحث في المستندات"/></label><select value={status} onChange={event => setStatus(event.target.value)} aria-label="تصفية حالة المستند"><option value="ALL">كل الحالات</option>{Object.entries(statusLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select><button className="demo-primary" type="button" aria-expanded={uploadOpen} onClick={() => setUploadOpen(value => !value)}><Upload /> إضافة عينة</button></div>
     {uploadOpen && <Panel title="إضافة مستند مصطنع" subtitle="لا يوجد حقل ملفات: العرض ينشئ سجلًا آمنًا من قوالب مصطنعة فقط"><form className="demo-inline-form" onSubmit={async event => { event.preventDefault(); const form = new FormData(event.currentTarget); const result = await execute("documents", () => service.simulateUpload({ title: String(form.get("title")), category: form.get("category") as "BANK_STATEMENT" | "INVOICE" | "CONTRACT" | "TAX" | "OTHER" }), "تمت إضافة عينة مصطنعة إلى مسار المراجعة."); if (result.ok) setUploadOpen(false); }}><Field label="عنوان العينة" name="title" minLength={3} required defaultValue="مستند جديد — عينة"/><label>التصنيف<select name="category"><option value="INVOICE">فاتورة</option><option value="BANK_STATEMENT">كشف حساب</option><option value="CONTRACT">عقد</option><option value="TAX">ضريبي</option><option value="OTHER">أخرى</option></select></label><label>قالب البيانات<select disabled><option>قالب مصطنع آمن — بدون رفع</option></select></label><p>لا تُدخل أسماء عملاء أو أرقامًا أو ملفات حقيقية.</p><button className="demo-primary">إنشاء سجل العينة</button></form></Panel>}
-    <div className="demo-table-wrap"><table className="demo-table"><thead><tr><th>المستند</th><th>التصنيف</th><th>الإصدار</th><th>الحالة</th><th>المسند إليه</th><th>إجراء</th></tr></thead><tbody>{documents.map(document => <tr key={document.id}><td><strong>{document.title}</strong><small>{document.versions.at(-1)?.fileLabel}</small></td><td>{categoryLabel(document.category)}</td><td>v{document.versions.at(-1)?.version}</td><td><span className={`demo-status is-${document.status.toLowerCase()}`}>{statusLabels[document.status]}</span></td><td>{document.assignedTo || "غير معيّن"}</td><td><button className="demo-text-button" onClick={() => service.navigate("reviews")}>فتح المراجعة</button></td></tr>)}</tbody></table>{!documents.length && <EmptyState icon={<FileText />} text="لا توجد نتائج مطابقة."/>}</div>
+    <div className="demo-table-wrap"><table className="demo-table"><thead><tr><th>المستند</th><th>التصنيف</th><th>الإصدار</th><th>الحالة</th><th>المسند إليه</th><th>إجراء</th></tr></thead><tbody>{documents.map(document => { const review = state.reviews.find(item => item.documentId === document.id); return <tr key={document.id}><td><strong>{document.title}</strong><small>{document.versions.at(-1)?.fileLabel}</small></td><td>{categoryLabel(document.category)}</td><td>v{document.versions.at(-1)?.version}</td><td><span className={`demo-status is-${document.status.toLowerCase()}`}>{statusLabels[document.status]}</span></td><td>{document.assignedTo || "غير معيّن"}</td><td><button className="demo-text-button" disabled={!review} onClick={() => review && void execute("navigate", () => service.openReview(review.id))}>فتح المراجعة</button></td></tr>; })}</tbody></table>{!documents.length && <EmptyState icon={<FileText />} text="لا توجد نتائج مطابقة."/>}</div>
   </div>;
 }
 
 function ReviewCenter() {
   const { state, service, execute } = useDemo();
   const reviews = state.reviews.filter(item => item.organizationId === state.currentOrganizationId);
-  const [selectedId, setSelectedId] = useState(reviews[0]?.id ?? "");
-  const selected = reviews.find(item => item.id === selectedId) ?? reviews[0];
+  const selected = reviews.find(item => item.id === state.selectedReviewId) ?? reviews[0];
   const document = selected && state.documents.find(item => item.id === selected.documentId);
   const [comment, setComment] = useState("");
   const [message, setMessage] = useState("");
+  const [validationError, setValidationError] = useState("");
+  const clearReviewFeedback = () => {
+    setComment("");
+    setMessage("");
+    setValidationError("");
+  };
   if (!selected || !document) return <EmptyState icon={<ClipboardCheck />} text="لا توجد حالات مراجعة لهذه الشركة."/>;
-  const transition = async (status: "CORRECTION_REQUESTED" | "RESUBMITTED" | "APPROVED" | "REJECTED", fallback: string) => { const result = await execute("reviews", () => service.transitionReview(selected.id, status, comment.trim() || fallback), `تم تنفيذ: ${statusLabels[status]}`); if (result.ok) { setComment(""); setMessage(`تم تنفيذ: ${statusLabels[status]}`); } };
-  return <div className="demo-review-layout"><aside className="demo-review-list" aria-label="قائمة المراجعات">{reviews.map(review => { const doc = state.documents.find(item => item.id === review.documentId)!; return <button key={review.id} className={selected.id === review.id ? "is-active" : ""} onClick={() => setSelectedId(review.id)}><span className={`demo-status is-${review.status.toLowerCase()}`}>{statusLabels[review.status]}</span><strong>{doc.title}</strong><small>{review.assignedTo}</small></button>; })}</aside><div className="demo-stack"><Panel title={document.title} subtitle={`نسخة ${document.versions.at(-1)?.version} · ${categoryLabel(document.category)}`}><div className="demo-review-summary"><div className="demo-document-preview"><FileCheck2 /><strong>معاينة مستند تجريبي</strong><span>{document.versions.at(-1)?.fileLabel}</span><small>لا يوجد ملف حقيقي أو رابط تخزين</small></div><div className="demo-review-controls"><label>إسناد المراجع<select value={selected.assignedTo} onChange={event => void execute("reviews", () => service.assignReview(selected.id, event.target.value), "تم تعيين المراجع داخل العرض.")}>{state.office.staff.map(member => <option key={member.id}>{member.name}</option>)}</select></label><label>تعليق أو سبب<textarea value={comment} onChange={event => setComment(event.target.value)} placeholder="اكتب ملاحظة واضحة"/></label><div className="demo-action-grid"><button onClick={() => void transition("CORRECTION_REQUESTED", "يرجى تصحيح المستند وإعادة تقديمه.")}>طلب تصحيح</button><button onClick={() => void transition("RESUBMITTED", "تم رفع نسخة تجريبية مصححة.")}>إعادة تقديم</button><button className="approve" onClick={() => void transition("APPROVED", "تمت مراجعة العينة واعتمادها تجريبيًا.")}>اعتماد</button><button className="reject" onClick={() => void transition("REJECTED", "رُفضت العينة في وضع العرض.")}>رفض</button></div>{message && <p className="demo-success" role="status">{message}</p>}</div></div></Panel><div className="demo-grid-2"><Panel title="التعليقات"><div className="demo-comments">{selected.comments.map(item => <article key={item.id}><span>{item.author.slice(0, 1)}</span><div><strong>{item.author}</strong><p>{item.body}</p><small>{new Date(item.createdAt).toLocaleString("ar-EG")}</small></div></article>)}{!selected.comments.length && <p>لا توجد تعليقات بعد.</p>}</div></Panel><Panel title="مسار الحالة"><ol className="demo-timeline">{selected.timeline.map(item => <li key={item.id}><span/><div><strong>{item.label}</strong><p>{item.actor}</p><small>{new Date(item.at).toLocaleString("ar-EG")}</small></div></li>)}</ol></Panel></div></div></div>;
+  const authorizedStaff = state.office.staff.filter(member => member.assignedOrganizationIds.includes(state.currentOrganizationId));
+  const canBegin = ["READY_FOR_REVIEW", "RESUBMITTED"].includes(selected.status);
+  const canDecide = selected.status === "IN_REVIEW";
+  const canResubmit = selected.status === "CORRECTION_REQUESTED";
+  const workflowHint = selected.status === "READY_FOR_REVIEW"
+    ? "عيّن مراجعًا ثم ابدأ المراجعة البشرية."
+    : selected.status === "IN_REVIEW"
+      ? "راجع المستند ثم اختر طلب تصحيح أو اعتماد أو رفض."
+      : selected.status === "CORRECTION_REQUESTED"
+        ? "أعد تقديم نسخة تجريبية مصححة للعودة إلى المراجعة."
+        : selected.status === "RESUBMITTED"
+          ? "ابدأ دورة المراجعة الجديدة للنسخة المصححة."
+          : "انتهت دورة المراجعة الحالية. أنشئ عينة جديدة لتجربة دورة أخرى.";
+  const transition = async (status: "CORRECTION_REQUESTED" | "RESUBMITTED" | "APPROVED" | "REJECTED", fallback: string) => {
+    const reasonRequired = status === "CORRECTION_REQUESTED" || status === "REJECTED";
+    if (reasonRequired && comment.trim().length < 2) {
+      setValidationError("اكتب سببًا واضحًا قبل طلب التصحيح أو الرفض.");
+      return;
+    }
+    setValidationError("");
+    const result = await execute("reviews", () => service.transitionReview(selected.id, status, comment.trim() || fallback), `تم تنفيذ: ${statusLabels[status]}`);
+    if (result.ok) {
+      setComment("");
+      setMessage(`تم تنفيذ: ${statusLabels[status]}`);
+    }
+  };
+  const addComment = async () => {
+    if (comment.trim().length < 2) {
+      setValidationError("اكتب تعليقًا من حرفين على الأقل.");
+      return;
+    }
+    setValidationError("");
+    const result = await execute("reviews", () => service.addReviewComment(selected.id, comment), "تمت إضافة التعليق إلى سجل المراجعة.");
+    if (result.ok) {
+      setComment("");
+      setMessage("تمت إضافة التعليق إلى سجل المراجعة.");
+    }
+  };
+  const assignedReviewerIsAuthorized = authorizedStaff.some(member => member.name === selected.assignedTo);
+  return <div className="demo-review-layout"><aside className="demo-review-list" aria-label="قائمة المراجعات">{reviews.map(review => { const doc = state.documents.find(item => item.id === review.documentId)!; return <button type="button" key={review.id} className={selected.id === review.id ? "is-active" : ""} aria-pressed={selected.id === review.id} onClick={() => { clearReviewFeedback(); void execute("navigate", () => service.openReview(review.id)); }}><span className={`demo-status is-${review.status.toLowerCase()}`}>{statusLabels[review.status]}</span><strong>{doc.title}</strong><small>{review.assignedTo}</small></button>; })}</aside><div className="demo-stack"><Panel title={document.title} subtitle={`نسخة ${document.versions.at(-1)?.version} · ${categoryLabel(document.category)}`}><div className="demo-review-summary"><div className="demo-document-preview"><FileCheck2 /><strong>معاينة مستند تجريبي</strong><span>{document.versions.at(-1)?.fileLabel}</span><small>لا يوجد ملف حقيقي أو رابط تخزين</small></div><div className="demo-review-controls"><div className={`demo-workflow-hint is-${selected.status.toLowerCase()}`}><ClipboardCheck /><div><strong>{statusLabels[selected.status]}</strong><p>{workflowHint}</p></div></div><label>إسناد المراجع<select value={selected.assignedTo} onChange={event => void execute("reviews", () => service.assignReview(selected.id, event.target.value), "تم تعيين المراجع داخل العرض.")}><option value="غير معيّن">غير معيّن</option>{!assignedReviewerIsAuthorized && selected.assignedTo !== "غير معيّن" && <option value={selected.assignedTo} disabled>{selected.assignedTo} — خارج نطاق الشركة</option>}{authorizedStaff.map(member => <option key={member.id} value={member.name}>{member.name}</option>)}</select></label><label>تعليق أو سبب<textarea value={comment} maxLength={500} onChange={event => { setComment(event.target.value); setValidationError(""); }} placeholder="اكتب ملاحظة واضحة"/></label><div className="demo-comment-action"><button type="button" className="demo-secondary" onClick={() => void addComment()}><MessageSquarePlus /> إضافة تعليق فقط</button><small>{comment.length}/500</small></div>{validationError && <p className="demo-validation-error" role="alert">{validationError}</p>}<div className="demo-action-grid"><button type="button" className="start" disabled={!canBegin || !assignedReviewerIsAuthorized} onClick={() => void execute("reviews", () => service.beginReview(selected.id), "بدأت المراجعة البشرية.")}><CirclePlay /> بدء المراجعة</button><button type="button" disabled={!canDecide} onClick={() => void transition("CORRECTION_REQUESTED", "يرجى تصحيح المستند وإعادة تقديمه.")}>طلب تصحيح</button><button type="button" disabled={!canResubmit} onClick={() => void transition("RESUBMITTED", "تم رفع نسخة تجريبية مصححة.")}>إعادة تقديم</button><button type="button" className="approve" disabled={!canDecide} onClick={() => void transition("APPROVED", "تمت مراجعة العينة واعتمادها تجريبيًا.")}>اعتماد</button><button type="button" className="reject" disabled={!canDecide} onClick={() => void transition("REJECTED", "رُفضت العينة في وضع العرض.")}>رفض</button></div>{message && <p className="demo-success" role="status">{message}</p>}</div></div></Panel><div className="demo-grid-2"><Panel title="التعليقات"><div className="demo-comments">{selected.comments.map(item => <article key={item.id}><span>{item.author.slice(0, 1)}</span><div><strong>{item.author}</strong><p>{item.body}</p><small>{new Date(item.createdAt).toLocaleString("ar-EG")}</small></div></article>)}{!selected.comments.length && <p>لا توجد تعليقات بعد.</p>}</div></Panel><Panel title="مسار الحالة"><ol className="demo-timeline">{selected.timeline.map(item => <li key={item.id}><span/><div><strong>{item.label}</strong><p>{item.actor}</p><small>{new Date(item.at).toLocaleString("ar-EG")}</small></div></li>)}</ol></Panel></div></div></div>;
 }
 
 function AccountingCore() {
   const { state, service, execute } = useDemo();
   const organization = state.organizations.find(item => item.id === state.currentOrganizationId)!;
   const accounts = state.accounts.filter(item => item.organizationId === organization.id);
+  const balances = buildAccountBalances(state, organization.id);
   const report = buildDemoReport(state, state.currentOrganizationId);
-  const [tab, setTab] = useState<"journal" | "ledger" | "trial">("journal");
+  const [tab, setTab] = useState<"chart" | "journal" | "ledger" | "trial">("chart");
+  const [ledgerAccountId, setLedgerAccountId] = useState(accounts[0]?.id ?? "");
+  const [journalMeta, setJournalMeta] = useState({ date: "2026-11-20", reference: `DEMO-${state.journals.length + 1}`, memo: "قيد يدوي تجريبي" });
   const [lines, setLines] = useState<JournalLine[]>([
     { id: "new-line-1", accountId: accounts[0]?.id ?? "", description: "", debitMinor: 0, creditMinor: 0 },
     { id: "new-line-2", accountId: accounts[5]?.id ?? "", description: "", debitMinor: 0, creditMinor: 0 },
@@ -212,16 +308,42 @@ function AccountingCore() {
   const bankDrafts = state.journals.filter(item => item.organizationId === organization.id && item.source === "BANK_DEMO" && item.status === "DRAFT");
   const debit = sumJournalSide(lines, "DEBIT"); const credit = sumJournalSide(lines, "CREDIT");
   const updateLine = (index: number, patch: Partial<JournalLine>) => setLines(current => current.map((line, lineIndex) => lineIndex === index ? { ...line, ...patch } : line));
-  return <div className="demo-stack">{bankDrafts.length > 0 && <Panel title="مسودات كشف البنك — مراجعة بشرية" subtitle="تحقق من طرفي كل قيد قبل الترحيل التجريبي"><div className="demo-bank-drafts">{bankDrafts.map(entry => <article key={entry.id}><div><span className="demo-status is-in_review">مسودة</span><strong>{entry.memo}</strong><small>{entry.reference} · {entry.date}</small></div><dl>{entry.lines.map(line => { const account = accounts.find(item => item.id === line.accountId); return <div key={line.id}><dt>{account?.code} — {account?.name}</dt><dd>{line.debitMinor ? `مدين ${money(line.debitMinor, organization.currency)}` : `دائن ${money(line.creditMinor, organization.currency)}`}</dd></div>; })}</dl><button className="demo-primary" onClick={() => void execute("accounting", () => service.postDraftJournal(entry.id), "تمت الموافقة البشرية وترحيل القيد التجريبي.")}><BookOpenCheck /> اعتماد وترحيل تجريبي</button></article>)}</div></Panel>}<div className="demo-tabs" role="tablist"><button className={tab === "journal" ? "is-active" : ""} onClick={() => setTab("journal")}>قيد جديد</button><button className={tab === "ledger" ? "is-active" : ""} onClick={() => setTab("ledger")}>دفتر الأستاذ</button><button className={tab === "trial" ? "is-active" : ""} onClick={() => setTab("trial")}>ميزان المراجعة</button></div>
-    {tab === "journal" && <Panel title="إنشاء وترحيل قيد تجريبي" subtitle="الحسابات بالأرقام الصحيحة بوحدة القرش — لا توجد كتابة في قاعدة بيانات"><form onSubmit={async event => { event.preventDefault(); const form = new FormData(event.currentTarget); const result = await execute("accounting", () => service.createAndPostJournal({ date: String(form.get("date")), reference: String(form.get("reference")), memo: String(form.get("memo")), lines }), "تم ترحيل القيد وتحديث الأستاذ والتقارير."); setNotice(result.ok ? "تم ترحيل القيد التجريبي وتحديث الأستاذ والتقارير." : "راجع رسالة الخطأ ثم أعد المحاولة."); }}><div className="demo-form-row"><Field name="date" label="التاريخ" type="date" defaultValue="2026-11-20"/><Field name="reference" label="المرجع" defaultValue={`DEMO-${state.journals.length + 1}`}/></div><Field name="memo" label="البيان" defaultValue="قيد يدوي تجريبي"/><div className="demo-journal-lines"><div className="demo-journal-head"><span>الحساب</span><span>الوصف</span><span>مدين</span><span>دائن</span></div>{lines.map((line, index) => <div className="demo-journal-row" key={line.id}><select value={line.accountId} onChange={event => updateLine(index, { accountId: event.target.value })}>{accounts.map(account => <option key={account.id} value={account.id}>{account.code} — {account.name}</option>)}</select><input value={line.description} onChange={event => updateLine(index, { description: event.target.value })} placeholder="وصف السطر"/><input type="number" min="0" step="0.01" value={line.debitMinor / 100 || ""} onChange={event => updateLine(index, { debitMinor: Math.round(Number(event.target.value || 0) * 100), creditMinor: 0 })}/><input type="number" min="0" step="0.01" value={line.creditMinor / 100 || ""} onChange={event => updateLine(index, { creditMinor: Math.round(Number(event.target.value || 0) * 100), debitMinor: 0 })}/></div>)}</div><button type="button" className="demo-secondary" onClick={() => setLines(current => [...current, { id: crypto.randomUUID(), accountId: accounts[0].id, description: "", debitMinor: 0, creditMinor: 0 }])}>إضافة سطر</button><div className={`demo-journal-total ${isBalanced(lines) ? "is-balanced" : ""}`}><span>إجمالي المدين: {money(debit, organization.currency)}</span><span>إجمالي الدائن: {money(credit, organization.currency)}</span><strong>{isBalanced(lines) ? "القيد متوازن" : `الفرق: ${money(Math.abs(debit - credit), organization.currency)}`}</strong></div><button className="demo-primary" disabled={!isBalanced(lines)}><BookOpenCheck /> ترحيل إلى الأستاذ التجريبي</button>{notice && <p className="demo-success" role="status">{notice}</p>}</form></Panel>}
-    {tab === "ledger" && <div className="demo-table-wrap"><table className="demo-table"><thead><tr><th>التاريخ</th><th>المرجع</th><th>البيان</th><th>الحساب</th><th>مدين</th><th>دائن</th></tr></thead><tbody>{state.journals.filter(item => item.organizationId === organization.id && item.status === "POSTED").flatMap(entry => entry.lines.map(line => { const account = accounts.find(item => item.id === line.accountId)!; return <tr key={line.id}><td>{entry.date}</td><td>{entry.reference}</td><td>{entry.memo}</td><td>{account?.code} — {account?.name}</td><td>{line.debitMinor ? money(line.debitMinor, organization.currency) : "—"}</td><td>{line.creditMinor ? money(line.creditMinor, organization.currency) : "—"}</td></tr>; }))}</tbody></table></div>}
+  const removeLine = (index: number) => setLines(current => current.length > 2 ? current.filter((_, lineIndex) => lineIndex !== index) : current);
+  const postedEntries = state.journals.filter(item => item.organizationId === organization.id && item.status === "POSTED").slice().sort((left, right) => left.date.localeCompare(right.date) || left.reference.localeCompare(right.reference));
+  const ledgerLines = postedEntries.flatMap(entry => entry.lines.filter(line => line.accountId === ledgerAccountId).map(line => ({ entry, line })));
+  const ledgerRows = ledgerLines.reduce<Array<(typeof ledgerLines)[number] & { runningMinor: number }>>((rows, item) => {
+    const previous = rows.at(-1)?.runningMinor ?? 0;
+    return [...rows, { ...item, runningMinor: previous + item.line.debitMinor - item.line.creditMinor }];
+  }, []);
+  const selectedAccount = accounts.find(item => item.id === ledgerAccountId);
+  const selectedBalance = balances.find(item => item.account.id === ledgerAccountId);
+  const postJournal = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const result = await execute("accounting", () => service.createAndPostJournal({ ...journalMeta, lines }), "تم ترحيل القيد وتحديث الأستاذ والتقارير.");
+    if (result.ok) {
+      setNotice("تم ترحيل القيد التجريبي وتحديث الأستاذ والتقارير.");
+      setJournalMeta(current => ({ ...current, reference: `DEMO-${state.journals.length + 2}`, memo: "قيد يدوي تجريبي" }));
+      setLines([
+        { id: crypto.randomUUID(), accountId: accounts[0]?.id ?? "", description: "", debitMinor: 0, creditMinor: 0 },
+        { id: crypto.randomUUID(), accountId: accounts[5]?.id ?? accounts[0]?.id ?? "", description: "", debitMinor: 0, creditMinor: 0 },
+      ]);
+    } else {
+      setNotice("");
+    }
+  };
+  return <div className="demo-stack">{bankDrafts.length > 0 && <Panel title="مسودات كشف البنك — مراجعة بشرية" subtitle="تحقق من طرفي كل قيد قبل الترحيل التجريبي"><div className="demo-bank-drafts">{bankDrafts.map(entry => <article key={entry.id}><div><span className="demo-status is-in_review">مسودة</span><strong>{entry.memo}</strong><small>{entry.reference} · {entry.date}</small></div><dl>{entry.lines.map(line => { const account = accounts.find(item => item.id === line.accountId); return <div key={line.id}><dt>{account?.code} — {account?.name}</dt><dd>{line.debitMinor ? `مدين ${money(line.debitMinor, organization.currency)}` : `دائن ${money(line.creditMinor, organization.currency)}`}</dd></div>; })}</dl><button type="button" className="demo-primary" onClick={() => void execute("accounting", () => service.postDraftJournal(entry.id), "تمت الموافقة البشرية وترحيل القيد التجريبي.")}><BookOpenCheck /> اعتماد وترحيل تجريبي</button></article>)}</div></Panel>}<div className="demo-tabs demo-accounting-tabs" role="tablist" aria-label="شاشات المحاسبة"><button type="button" role="tab" aria-selected={tab === "chart"} className={tab === "chart" ? "is-active" : ""} onClick={() => setTab("chart")}>دليل الحسابات</button><button type="button" role="tab" aria-selected={tab === "journal"} className={tab === "journal" ? "is-active" : ""} onClick={() => setTab("journal")}>قيد يومية</button><button type="button" role="tab" aria-selected={tab === "ledger"} className={tab === "ledger" ? "is-active" : ""} onClick={() => setTab("ledger")}>الأستاذ العام</button><button type="button" role="tab" aria-selected={tab === "trial"} className={tab === "trial" ? "is-active" : ""} onClick={() => setTab("trial")}>ميزان المراجعة</button></div>
+    {tab === "chart" && <Panel title="دليل الحسابات" subtitle="تصنيف وأرصدة الحسابات الخاصة بالشركة الحالية فقط"><div className="demo-table-wrap"><table className="demo-table"><thead><tr><th>الكود</th><th>اسم الحساب</th><th>التصنيف</th><th>الرصيد الحالي</th></tr></thead><tbody>{balances.map(balance => <tr key={balance.account.id}><td><strong>{balance.account.code}</strong></td><td>{balance.account.name}</td><td><span className={`demo-account-type is-${balance.account.type.toLowerCase()}`}>{accountTypeLabel(balance.account.type)}</span></td><td>{money(Math.abs(balance.balanceMinor), organization.currency)}</td></tr>)}</tbody></table></div></Panel>}
+    {tab === "journal" && <Panel title="إنشاء وترحيل قيد تجريبي" subtitle="القيم تحفظ كأعداد صحيحة بوحدة القرش داخل العرض، ولا توجد كتابة في قاعدة بيانات"><form className="demo-form" onSubmit={postJournal}><div className="demo-form-row"><Field name="date" label="التاريخ" type="date" required value={journalMeta.date} onChange={event => setJournalMeta(current => ({ ...current, date: event.target.value }))}/><Field name="reference" label="المرجع" required minLength={2} maxLength={40} value={journalMeta.reference} onChange={event => setJournalMeta(current => ({ ...current, reference: event.target.value }))}/></div><Field name="memo" label="البيان" required minLength={3} maxLength={240} value={journalMeta.memo} onChange={event => setJournalMeta(current => ({ ...current, memo: event.target.value }))}/><div className="demo-journal-lines"><div className="demo-journal-head"><span>الحساب</span><span>الوصف</span><span>مدين</span><span>دائن</span><span>إزالة</span></div>{lines.map((line, index) => <div className="demo-journal-row" key={line.id}><select aria-label={`حساب السطر ${index + 1}`} value={line.accountId} onChange={event => updateLine(index, { accountId: event.target.value })}>{accounts.map(account => <option key={account.id} value={account.id}>{account.code} — {account.name}</option>)}</select><input aria-label={`وصف السطر ${index + 1}`} maxLength={180} value={line.description} onChange={event => updateLine(index, { description: event.target.value })} placeholder="وصف السطر"/><input aria-label={`مدين السطر ${index + 1}`} type="number" min="0" step="0.01" value={line.debitMinor / 100 || ""} onChange={event => updateLine(index, { debitMinor: Math.round(Number(event.target.value || 0) * 100), creditMinor: 0 })}/><input aria-label={`دائن السطر ${index + 1}`} type="number" min="0" step="0.01" value={line.creditMinor / 100 || ""} onChange={event => updateLine(index, { creditMinor: Math.round(Number(event.target.value || 0) * 100), debitMinor: 0 })}/><button type="button" className="demo-line-remove" aria-label={`حذف السطر ${index + 1}`} disabled={lines.length <= 2} onClick={() => removeLine(index)}><Trash2 /></button></div>)}</div><button type="button" className="demo-secondary" onClick={() => setLines(current => [...current, { id: crypto.randomUUID(), accountId: accounts[0]?.id ?? "", description: "", debitMinor: 0, creditMinor: 0 }])}>إضافة سطر</button><div className={`demo-journal-total ${isBalanced(lines) ? "is-balanced" : ""}`}><span>إجمالي المدين: {money(debit, organization.currency)}</span><span>إجمالي الدائن: {money(credit, organization.currency)}</span><strong>{isBalanced(lines) ? "القيد متوازن وجاهز للترحيل" : `الفرق: ${money(Math.abs(debit - credit), organization.currency)}`}</strong></div><button type="submit" className="demo-primary" disabled={!isBalanced(lines)}><BookOpenCheck /> ترحيل إلى الأستاذ التجريبي</button>{notice && <p className="demo-success" role="status"><CheckCircle2 /> {notice}</p>}</form></Panel>}
+    {tab === "ledger" && <Panel title="الأستاذ العام" subtitle="حركات الحساب المحدد من القيود المرحلة فقط"><div className="demo-ledger-toolbar"><label>الحساب<select value={ledgerAccountId} onChange={event => setLedgerAccountId(event.target.value)}>{accounts.map(account => <option key={account.id} value={account.id}>{account.code} — {account.name}</option>)}</select></label><div><span>إجمالي المدين<strong>{money(selectedBalance?.debitTurnoverMinor ?? 0, organization.currency)}</strong></span><span>إجمالي الدائن<strong>{money(selectedBalance?.creditTurnoverMinor ?? 0, organization.currency)}</strong></span><span>الرصيد الختامي<strong>{money(Math.abs(selectedBalance?.balanceMinor ?? 0), organization.currency)}</strong></span></div></div><div className="demo-table-wrap"><table className="demo-table"><thead><tr><th>التاريخ</th><th>المرجع</th><th>البيان</th><th>مدين</th><th>دائن</th><th>الرصيد الجاري</th></tr></thead><tbody>{ledgerRows.map(({ entry, line, runningMinor: running }) => <tr key={line.id}><td>{entry.date}</td><td>{entry.reference}</td><td>{line.description || entry.memo}</td><td>{line.debitMinor ? money(line.debitMinor, organization.currency) : "—"}</td><td>{line.creditMinor ? money(line.creditMinor, organization.currency) : "—"}</td><td><strong>{money(Math.abs(running), organization.currency)} {running >= 0 ? "مدين" : "دائن"}</strong></td></tr>)}</tbody></table>{!ledgerRows.length && <EmptyState icon={<NotebookTabs />} text={`لا توجد حركات للحساب ${selectedAccount?.name ?? "المحدد"}.`}/>}</div></Panel>}
     {tab === "trial" && <TrialBalance report={report} currency={organization.currency}/>}
   </div>;
 }
 
 function BankWorkflow() {
   const { state, service, execute } = useDemo();
+  const organization = state.organizations.find(item => item.id === state.currentOrganizationId)!;
   const accounts = state.accounts.filter(item => item.organizationId === state.currentOrganizationId);
+  const mappableAccounts = accounts.filter(item => item.code !== "1110");
   const rows = state.bankRows.filter(item => item.organizationId === state.currentOrganizationId);
   const drafts = state.journals.filter(item => item.organizationId === state.currentOrganizationId && item.source === "BANK_DEMO");
   const step = drafts.some(item => item.status === "POSTED") ? 6 : drafts.length ? 5 : rows.some(row => row.state === "SUGGESTED") ? 3 : 2;
@@ -235,7 +357,7 @@ function BankWorkflow() {
     <Panel title="حركات كشف الحساب الافتراضي" subtitle="اربط الحركة بحساب، ثم حوّل الاقتراح إلى مسودة تحتاج موافقة بشرية">
       <div className="demo-table-wrap"><table className="demo-table"><thead><tr><th>التاريخ</th><th>الوصف</th><th>القيمة</th><th>الحساب المقترح</th><th>الحالة</th><th>الإجراء</th></tr></thead><tbody>{rows.map(row => {
         const draft = drafts.find(item => item.reference === `BANK-${row.id}`);
-        return <tr key={row.id}><td>{row.date}</td><td>{row.description}</td><td className={row.direction === "IN" ? "demo-positive" : "demo-negative"}>{row.direction === "IN" ? "+" : "-"}{money(row.amountMinor)}</td><td><select value={row.mappedAccountId || ""} onChange={event => { if (event.target.value) void execute("banking", () => service.createBankSuggestion(row.id, event.target.value), "تم ربط الصف وإنشاء اقتراح محلي."); }}><option value="">اختر الحساب</option>{accounts.map(account => <option value={account.id} key={account.id}>{account.code} — {account.name}</option>)}</select></td><td><span className={`demo-status ${draft?.status === "POSTED" ? "is-approved" : "is-in_review"}`}>{draft?.status === "POSTED" ? "مُرحّل" : draft ? "مسودة للمراجعة" : row.state === "SUGGESTED" ? "اقتراح جاهز" : "بانتظار الربط"}</span></td><td><button className="demo-text-button" disabled={row.state !== "SUGGESTED" || Boolean(draft)} onClick={() => void createDraft(row.id)}>{draft ? "تم إنشاء المسودة" : "إنشاء مسودة"}</button></td></tr>;
+        return <tr key={row.id}><td>{row.date}</td><td>{row.description}</td><td className={row.direction === "IN" ? "demo-positive" : "demo-negative"}>{row.direction === "IN" ? "+" : "-"}{money(row.amountMinor, organization.currency)}</td><td><select aria-label={`ربط ${row.description} بحساب`} value={row.mappedAccountId || ""} onChange={event => { if (event.target.value) void execute("banking", () => service.createBankSuggestion(row.id, event.target.value), "تم ربط الصف وإنشاء اقتراح محلي."); }}><option value="">اختر الحساب</option>{mappableAccounts.map(account => <option value={account.id} key={account.id}>{account.code} — {account.name}</option>)}</select></td><td><span className={`demo-status ${draft?.status === "POSTED" ? "is-approved" : "is-in_review"}`}>{draft?.status === "POSTED" ? "مُرحّل" : draft ? "مسودة للمراجعة" : row.state === "SUGGESTED" ? "اقتراح جاهز" : "بانتظار الربط"}</span></td><td><button type="button" className="demo-text-button" disabled={row.state !== "SUGGESTED" || Boolean(draft)} onClick={() => void createDraft(row.id)}>{draft ? "تم إنشاء المسودة" : "إنشاء مسودة"}</button></td></tr>;
       })}</tbody></table>{!rows.length && <EmptyState icon={<Landmark />} text="لا توجد عينة كشف حساب لهذه الشركة."/>}</div>
     </Panel>
     <Panel title="بوابة المراجعة البشرية" subtitle="لا يرحّل العرض أي اقتراح تلقائيًا"><div className="demo-suggestion"><NotebookTabs /><div><strong>{drafts.length ? `${drafts.length} مسودة مرتبطة بكشف البنك` : "اربط حركة وأنشئ مسودة أولًا"}</strong><p>افتح شاشة القيود لمراجعة طرفي القيد، ثم وافق على الترحيل التجريبي. التكرار محمي.</p></div><button className="demo-secondary" disabled={!drafts.length} onClick={() => void execute("navigate", () => service.navigate("accounting"))}>فتح المراجعة البشرية</button></div></Panel>
@@ -247,12 +369,15 @@ function Reports() {
   const organization = state.organizations.find(item => item.id === state.currentOrganizationId)!;
   const report = buildDemoReport(state, state.currentOrganizationId);
   const [view, setView] = useState<"income" | "position" | "trial">("income");
+  const [downloaded, setDownloaded] = useState(false);
   const download = () => {
-    const rows = [["Money Coder Demo Export"], ["Company", organization.tradeName], ["Currency", organization.currency], ["Revenue", String(report.revenueMinor)], ["Expenses", String(report.expenseMinor)], ["Profit", String(report.profitMinor)], ["Notice", "Synthetic demo data only"]];
-    const blob = new Blob(["\uFEFF" + rows.map(row => row.join(",")).join("\n")], { type: "text/csv;charset=utf-8" });
+    const rows = [["Money Coder Demo Export"], ["Company", organization.tradeName], ["Currency", organization.currency], ["Revenue", decimalMoney(report.revenueMinor)], ["Expenses", decimalMoney(report.expenseMinor)], ["Profit", decimalMoney(report.profitMinor)], ["Assets", decimalMoney(report.assetsMinor)], ["Liabilities", decimalMoney(report.liabilitiesMinor)], ["Equity including current profit", decimalMoney(report.equityMinor)], ["Notice", "Synthetic demo data only"]];
+    const escapeCsv = (value: string) => `"${value.replaceAll('"', '""')}"`;
+    const blob = new Blob(["\uFEFF" + rows.map(row => row.map(escapeCsv).join(",")).join("\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = "money-coder-demo-report.csv"; anchor.click(); URL.revokeObjectURL(url);
+    setDownloaded(true);
   };
-  return <div className="demo-stack"><div className="demo-toolbar"><div className="demo-tabs"><button className={view === "income" ? "is-active" : ""} onClick={() => setView("income")}>قائمة الدخل</button><button className={view === "position" ? "is-active" : ""} onClick={() => setView("position")}>المركز المالي</button><button className={view === "trial" ? "is-active" : ""} onClick={() => setView("trial")}>ميزان المراجعة</button></div><button className="demo-secondary" onClick={download}><ArrowDownToLine /> تنزيل CSV تجريبي</button></div>{view === "income" && <div className="demo-grid-3"><Kpi icon={<BarChart3/>} label="الإيرادات" value={money(report.revenueMinor, organization.currency)} tone="teal"/><Kpi icon={<Banknote/>} label="المصروفات" value={money(report.expenseMinor, organization.currency)} tone="blue"/><Kpi icon={<BadgeCheck/>} label="صافي الربح" value={money(report.profitMinor, organization.currency)} tone="gold"/><Panel title="قائمة دخل مختصرة"><dl className="demo-report-list"><div><dt>إيرادات النشاط</dt><dd>{money(report.revenueMinor, organization.currency)}</dd></div><div><dt>تكلفة ومصروفات النشاط</dt><dd>({money(report.expenseMinor, organization.currency)})</dd></div><div className="total"><dt>صافي الربح التجريبي</dt><dd>{money(report.profitMinor, organization.currency)}</dd></div></dl></Panel></div>}{view === "position" && <div className="demo-grid-3"><Kpi icon={<Building2/>} label="الأصول" value={money(report.assetsMinor, organization.currency)} tone="teal"/><Kpi icon={<WalletCards/>} label="الالتزامات" value={money(report.liabilitiesMinor, organization.currency)} tone="blue"/><Kpi icon={<ShieldCheck/>} label="حقوق الملكية + الربح" value={money(report.equityMinor, organization.currency)} tone="gold"/></div>}{view === "trial" && <TrialBalance report={report} currency={organization.currency}/>}<p className="demo-footnote">تقارير العرض مبنية فقط على القيود الاصطناعية المرحلة، وليست قوائم مالية معتمدة أو نصيحة مالية.</p></div>;
+  return <div className="demo-stack"><div className="demo-toolbar"><div className="demo-tabs" role="tablist" aria-label="التقارير المالية"><button type="button" role="tab" aria-selected={view === "income"} className={view === "income" ? "is-active" : ""} onClick={() => setView("income")}>قائمة الدخل</button><button type="button" role="tab" aria-selected={view === "position"} className={view === "position" ? "is-active" : ""} onClick={() => setView("position")}>المركز المالي</button><button type="button" role="tab" aria-selected={view === "trial"} className={view === "trial" ? "is-active" : ""} onClick={() => setView("trial")}>ميزان المراجعة</button></div><button type="button" className="demo-secondary" onClick={download}><ArrowDownToLine /> تنزيل CSV تجريبي</button></div>{downloaded && <p className="demo-success" role="status"><CheckCircle2 /> تم تجهيز ملف CSV بقيم عشرية وبيانات مصطنعة فقط.</p>}{view === "income" && <div className="demo-stack"><div className="demo-grid-3"><Kpi icon={<BarChart3/>} label="الإيرادات" value={money(report.revenueMinor, organization.currency)} tone="teal"/><Kpi icon={<Banknote/>} label="المصروفات" value={money(report.expenseMinor, organization.currency)} tone="blue"/><Kpi icon={<BadgeCheck/>} label="صافي الربح" value={money(report.profitMinor, organization.currency)} tone="gold"/></div><Panel title="قائمة دخل مختصرة" subtitle="من القيود المرحلة للشركة الحالية فقط"><dl className="demo-report-list"><div><dt>إيرادات النشاط</dt><dd>{money(report.revenueMinor, organization.currency)}</dd></div><div><dt>تكلفة ومصروفات النشاط</dt><dd>({money(report.expenseMinor, organization.currency)})</dd></div><div className="total"><dt>صافي الربح التجريبي</dt><dd>{money(report.profitMinor, organization.currency)}</dd></div></dl></Panel></div>}{view === "position" && <div className="demo-stack"><div className="demo-grid-3"><Kpi icon={<Building2/>} label="الأصول" value={money(report.assetsMinor, organization.currency)} tone="teal"/><Kpi icon={<WalletCards/>} label="الالتزامات" value={money(report.liabilitiesMinor, organization.currency)} tone="blue"/><Kpi icon={<ShieldCheck/>} label="حقوق الملكية + الربح" value={money(report.equityMinor, organization.currency)} tone="gold"/></div><Panel title="معادلة المركز المالي" subtitle="حقوق الملكية المعروضة تشمل نتيجة الفترة الحالية"><dl className="demo-report-list"><div><dt>إجمالي الأصول</dt><dd>{money(report.assetsMinor, organization.currency)}</dd></div><div><dt>إجمالي الالتزامات</dt><dd>{money(report.liabilitiesMinor, organization.currency)}</dd></div><div><dt>حقوق الملكية شاملة نتيجة الفترة</dt><dd>{money(report.equityMinor, organization.currency)}</dd></div><div className="total"><dt>الالتزامات + حقوق الملكية</dt><dd>{money(report.liabilitiesMinor + report.equityMinor, organization.currency)}</dd></div></dl><p className={`demo-equation ${report.assetsMinor === report.liabilitiesMinor + report.equityMinor ? "is-balanced" : "is-unbalanced"}`}><BadgeCheck /> {report.assetsMinor === report.liabilitiesMinor + report.equityMinor ? "المعادلة متوازنة" : "المعادلة تحتاج مراجعة"}</p></Panel></div>}{view === "trial" && <TrialBalance report={report} currency={organization.currency}/>}<p className="demo-footnote">تقارير العرض مبنية فقط على القيود الاصطناعية المرحلة، وليست قوائم مالية معتمدة أو نصيحة مالية.</p></div>;
 }
 
 function Plans() {
@@ -265,19 +390,20 @@ function Plans() {
 }
 
 function SettingsHelp() {
-  const { state, service } = useDemo();
-  return <div className="demo-grid-2 demo-align-start"><div className="demo-stack"><Panel title="إعدادات جلسة العرض"><label className="demo-toggle"><input type="checkbox" checked={state.persistenceEnabled} onChange={event => service.setPersistence(event.target.checked)}/><span/><div><strong>حفظ محلي اختياري</strong><p>يحفظ البيانات الاصطناعية فقط في هذا المتصفح. الوضع الافتراضي بلا حفظ.</p></div></label><button className="demo-danger" onClick={() => window.confirm("هل تريد حذف تغييرات العرض والعودة للبيانات الأساسية؟") && service.reset()}><RefreshCcw /> إعادة بيانات العرض</button></Panel><Panel title="الأدوار المتاحة"><div className="demo-role-list">{Object.entries(roleLabels).map(([role, label]) => <button key={role} className={state.currentRole === role ? "is-active" : ""} onClick={() => service.switchRole(role as DemoRole)}><Users /><span><strong>{label}</strong><small>تبديل محاكاة فقط — ليس تسجيل دخول</small></span></button>)}</div></Panel></div><div className="demo-stack"><Panel title="دليل التجربة"><ol className="demo-help-list"><li><span>1</span>بدّل بين الشركات الثلاث من أعلى الشاشة.</li><li><span>2</span>افتح مستندًا واطلب تصحيحًا ثم أعد تقديمه واعتمده.</li><li><span>3</span>أنشئ قيدًا متوازنًا وراقب تحديث التقارير.</li><li><span>4</span>نفّذ Reset للعودة إلى نقطة البداية.</li></ol></Panel><Panel title="حالة الوحدات"><div className="demo-readiness"><p><CheckCircle2 /> <strong>يعمل في العرض:</strong> البيانات، المستندات، المراجعة، القيود والتقارير.</p><p><FileClock /> <strong>محاكاة معلّمة:</strong> الرفع، استخراج كشف البنك، الإشعارات.</p><p><X /> <strong>غير متصل:</strong> Neon، SMTP، S3، n8n، الدفع.</p></div></Panel><Panel title="مساعدة"><p className="demo-copy">هذه التجربة مخصصة لشرح رحلة المنتج. راجع ملفات BACKEND_HANDOFF وINTEGRATION_CHECKLIST قبل توصيل أي خدمة حقيقية.</p><Link className="demo-secondary" href="/">العودة إلى الموقع</Link></Panel></div></div>;
+  const { state, service, execute } = useDemo();
+  return <div className="demo-grid-2 demo-align-start"><div className="demo-stack"><Panel title="إعدادات جلسة العرض"><label className="demo-toggle"><input type="checkbox" checked={state.persistenceEnabled} onChange={event => void execute("settings", () => service.setPersistence(event.target.checked), event.target.checked ? "تم تفعيل الحفظ المحلي للبيانات المصطنعة." : "تم إيقاف الحفظ المحلي وحذف نسخته.")}/><span/><div><strong>حفظ محلي اختياري</strong><p>يحفظ البيانات الاصطناعية فقط في هذا المتصفح. الوضع الافتراضي بلا حفظ.</p></div></label><button type="button" className="demo-danger" onClick={() => window.confirm("هل تريد حذف تغييرات العرض والعودة للبيانات الأساسية؟") && void execute("settings", () => service.reset(), "عادت بيانات العرض إلى نقطة البداية.")}><RefreshCcw /> إعادة بيانات العرض</button></Panel><Panel title="الأدوار المتاحة"><div className="demo-role-list">{Object.entries(roleLabels).map(([role, label]) => <button type="button" key={role} className={state.currentRole === role ? "is-active" : ""} onClick={() => void execute("switch-context", () => service.switchRole(role as DemoRole), `تم تبديل الدور إلى ${label}.`)}><Users /><span><strong>{label}</strong><small>تبديل محاكاة فقط — ليس تسجيل دخول</small></span></button>)}</div></Panel></div><div className="demo-stack"><Panel title="دليل التجربة"><ol className="demo-help-list"><li><span>1</span>اختر رحلة مالك الشركة أو مكتب المحاسبة أو المحاسب.</li><li><span>2</span>ابدأ المراجعة، واطلب تصحيحًا ثم أعد تقديم المستند واعتمده.</li><li><span>3</span>أنشئ قيدًا متوازنًا وراقب الأستاذ والميزان والتقارير.</li><li><span>4</span>نفّذ Reset للعودة إلى نقطة البداية.</li></ol></Panel><Panel title="حالة الوحدات"><div className="demo-readiness"><p><CheckCircle2 /> <strong>يعمل في العرض:</strong> البيانات، المستندات، المراجعة، القيود والتقارير.</p><p><FileClock /> <strong>محاكاة معلّمة:</strong> الرفع، استخراج كشف البنك، الإشعارات.</p><p><X /> <strong>غير متصل:</strong> Neon، SMTP، S3، n8n، الدفع.</p></div></Panel><Panel title="مساعدة"><p className="demo-copy">هذه التجربة مخصصة لشرح رحلة المنتج. راجع ملفات BACKEND_HANDOFF وINTEGRATION_CHECKLIST قبل توصيل أي خدمة حقيقية.</p><Link className="demo-secondary" href="/">العودة إلى الموقع</Link></Panel></div></div>;
 }
 
 function TrialBalance({ report, currency }: { report: DemoReport; currency: string }) {
   const debit = report.trialBalance.reduce((sum, row) => sum + row.debitMinor, 0); const credit = report.trialBalance.reduce((sum, row) => sum + row.creditMinor, 0);
-  return <div className="demo-table-wrap"><table className="demo-table"><thead><tr><th>الكود</th><th>الحساب</th><th>مدين</th><th>دائن</th></tr></thead><tbody>{report.trialBalance.map(row => <tr key={row.account.id}><td>{row.account.code}</td><td>{row.account.name}</td><td>{row.debitMinor ? money(row.debitMinor, currency) : "—"}</td><td>{row.creditMinor ? money(row.creditMinor, currency) : "—"}</td></tr>)}</tbody><tfoot><tr><th colSpan={2}>الإجمالي</th><th>{money(debit, currency)}</th><th>{money(credit, currency)}</th></tr></tfoot></table></div>;
+  const difference = debit - credit;
+  return <div className="demo-stack"><section className={`demo-trial-summary ${difference === 0 ? "is-balanced" : "is-unbalanced"}`} aria-label="حالة ميزان المراجعة"><div><span>إجمالي المدين</span><strong>{money(debit, currency)}</strong></div><div><span>إجمالي الدائن</span><strong>{money(credit, currency)}</strong></div><div><span>الفرق</span><strong>{money(Math.abs(difference), currency)}</strong></div><p><BadgeCheck /> {difference === 0 ? "ميزان المراجعة متساوٍ" : "يوجد فرق يحتاج مراجعة"}</p></section><div className="demo-table-wrap"><table className="demo-table"><thead><tr><th>الكود</th><th>الحساب</th><th>مدين</th><th>دائن</th></tr></thead><tbody>{report.trialBalance.map(row => <tr key={row.account.id}><td>{row.account.code}</td><td>{row.account.name}</td><td>{row.debitMinor ? money(row.debitMinor, currency) : "—"}</td><td>{row.creditMinor ? money(row.creditMinor, currency) : "—"}</td></tr>)}</tbody><tfoot><tr><th colSpan={2}>الإجمالي</th><th>{money(debit, currency)}</th><th>{money(credit, currency)}</th></tr></tfoot></table></div></div>;
 }
 
 function ActivityFeed({ global = false }: { global?: boolean }) {
   const { state } = useDemo();
   const items = state.audit.filter(item => global || !item.organizationId || item.organizationId === state.currentOrganizationId).slice(0, 6);
-  return <div className="demo-activity-list">{items.map(item => <article key={item.id}><span><Activity /></span><div><strong>{item.action.replaceAll("_", " ")}</strong><p>{item.actor}</p></div><small>{new Date(item.at).toLocaleString("ar-EG")}</small></article>)}</div>;
+  return <div className="demo-activity-list">{items.map(item => { const organization = state.organizations.find(organizationItem => organizationItem.id === item.organizationId); return <article key={item.id}><span><Activity /></span><div><strong>{auditLabels[item.action] ?? item.action.replaceAll("_", " ")}</strong><p>{item.actor}{global && organization ? ` · ${organization.tradeName}` : ""}</p></div><small>{new Date(item.at).toLocaleString("ar-EG")}</small></article>; })}</div>;
 }
 
 function Panel({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) { return <section className="demo-panel"><header><div><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div></header>{children}</section>; }
@@ -285,3 +411,4 @@ function Kpi({ icon, label, value, tone }: { icon: React.ReactNode; label: strin
 function Field({ label, name, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string; name: string }) { return <label>{label}<input name={name} {...props}/></label>; }
 function EmptyState({ icon, text }: { icon: React.ReactNode; text: string }) { return <div className="demo-empty">{icon}<strong>{text}</strong><small>جرّب تغيير المرشحات أو الشركة الحالية.</small></div>; }
 function categoryLabel(category: string) { return ({ BANK_STATEMENT: "كشف حساب", INVOICE: "فاتورة", CONTRACT: "عقد", TAX: "ضريبي", OTHER: "أخرى" } as Record<string, string>)[category] ?? category; }
+function accountTypeLabel(type: string) { return ({ ASSET: "أصل", LIABILITY: "التزام", EQUITY: "حقوق ملكية", REVENUE: "إيراد", EXPENSE: "مصروف" } as Record<string, string>)[type] ?? type; }

@@ -144,6 +144,7 @@ export interface DemoState {
   currentRole: DemoRole;
   currentOrganizationId: OrganizationId;
   currentSection: DemoSection;
+  selectedReviewId?: string;
   persistenceEnabled: boolean;
   organizations: DemoOrganization[];
   office: DemoOffice;

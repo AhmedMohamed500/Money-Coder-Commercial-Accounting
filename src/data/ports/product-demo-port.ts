@@ -30,7 +30,9 @@ export interface ProductDemoPort {
   setPersistence(enabled: boolean): Promise<void>;
   reset(): Promise<void>;
   simulateUpload(input: { title: string; category: "BANK_STATEMENT" | "INVOICE" | "CONTRACT" | "TAX" | "OTHER" }): Promise<string>;
+  openReview(reviewId: string): Promise<void>;
   assignReview(reviewId: string, assignee: string): Promise<void>;
+  beginReview(reviewId: string): Promise<void>;
   transitionReview(reviewId: string, status: Extract<ReviewStatus, "CORRECTION_REQUESTED" | "RESUBMITTED" | "APPROVED" | "REJECTED">, comment: string): Promise<void>;
   addReviewComment(reviewId: string, body: string): Promise<void>;
   createAndPostJournal(input: { date: string; memo: string; reference: string; lines: JournalLine[] }): Promise<string>;

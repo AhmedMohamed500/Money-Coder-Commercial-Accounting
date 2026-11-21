@@ -27,7 +27,9 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     setOperation({ status: "loading", key, message: "جارٍ تنفيذ الخطوة التجريبية…", retryable: false });
     try {
       const result = await action();
-      setOperation({ status: "success", key, message: successMessage ?? "تم تنفيذ الخطوة داخل العرض بنجاح.", retryable: false });
+      setOperation(key === "navigate"
+        ? { status: "idle", retryable: false }
+        : { status: "success", key, message: successMessage ?? "تم تنفيذ الخطوة داخل العرض بنجاح.", retryable: false });
       return { ok: true as const, data: result };
     } catch (cause) {
       setOperation({ status: "error", key, error: cause instanceof Error ? cause.message : "تعذر تنفيذ الخطوة التجريبية.", retryable: true });
