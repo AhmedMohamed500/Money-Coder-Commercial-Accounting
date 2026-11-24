@@ -1,6 +1,14 @@
+import type { AccountClass, FinancialPeriod, FinancialStatementGroup, JournalSource, JournalWorkflowStatus, NormalBalance } from "@/domain/accounting/types";
+import type { AgentRun } from "@/domain/agents/types";
+import type { ControlFinding, ControlRule, FinancialControlRun } from "@/domain/financial-control/types";
+import type { ForecastScenario } from "@/domain/forecasting/types";
+import type { FinancialSnapshot, ImportBatch, NormalizedFinancialTransaction, RawFinancialRecord } from "@/domain/financial-twin/types";
+import type { DemoIntegration, UsageMeteringPreview } from "@/domain/integrations/types";
+
 export type DemoRole =
   | "COMPANY_OWNER"
   | "COMPANY_ACCOUNTANT"
+  | "SENIOR_ACCOUNTANT"
   | "OFFICE_OWNER"
   | "OFFICE_ACCOUNTANT"
   | "REVIEWER"
@@ -15,14 +23,24 @@ export type DemoSection =
   | "accounting"
   | "banking"
   | "reports"
+  | "financial-close"
+  | "financial-twin"
+  | "data-quality"
+  | "guardian"
+  | "agents"
+  | "forecasting"
+  | "integrations"
+  | "roi"
   | "plans"
   | "settings";
+
+export type LanguageDisplayMode = "BILINGUAL" | "AR" | "EN";
 
 export type OrganizationId = string;
 export type MoneyMinor = number;
 export type DebitCredit = "DEBIT" | "CREDIT";
 export type ReviewStatus = "READY_FOR_REVIEW" | "IN_REVIEW" | "CORRECTION_REQUESTED" | "RESUBMITTED" | "APPROVED" | "REJECTED";
-export type JournalStatus = "DRAFT" | "POSTED";
+export type JournalStatus = JournalWorkflowStatus;
 
 export interface DemoUser {
   id: string;
@@ -97,7 +115,16 @@ export interface Account {
   organizationId: OrganizationId;
   code: string;
   name: string;
-  type: "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE";
+  type: AccountClass;
+  parentId?: string;
+  level: number;
+  normalBalance: NormalBalance;
+  contra: boolean;
+  statementGroup: FinancialStatementGroup;
+  statementSign: 1 | -1;
+  postingAllowed: boolean;
+  active: boolean;
+  openingBalanceMinor: MoneyMinor;
 }
 
 export interface JournalLine {
@@ -115,9 +142,21 @@ export interface JournalEntry {
   date: string;
   memo: string;
   status: JournalStatus;
-  source: "OPENING" | "MANUAL" | "BANK_DEMO";
+  source: JournalSource;
   lines: JournalLine[];
+  periodId: string;
+  revision: number;
+  createdAt: string;
+  createdByRole: DemoRole | "SYSTEM" | "AI_SIMULATION";
+  submittedAt?: string;
+  approvedAt?: string;
+  approvedByRole?: DemoRole;
   postedAt?: string;
+  reversedAt?: string;
+  reversalOfId?: string;
+  reversedById?: string;
+  sourceDocumentId?: string;
+  correctionFindingId?: string;
 }
 
 export interface BankStatementRow {
@@ -140,11 +179,13 @@ export interface DemoNotification {
 }
 
 export interface DemoState {
-  version: 1;
+  version: 2;
   currentRole: DemoRole;
   currentOrganizationId: OrganizationId;
   currentSection: DemoSection;
   selectedReviewId?: string;
+  selectedFindingId?: string;
+  displayMode: LanguageDisplayMode;
   persistenceEnabled: boolean;
   organizations: DemoOrganization[];
   office: DemoOffice;
@@ -152,8 +193,20 @@ export interface DemoState {
   documents: DemoDocument[];
   reviews: ReviewCase[];
   accounts: Account[];
+  financialPeriods: FinancialPeriod[];
   journals: JournalEntry[];
   bankRows: BankStatementRow[];
+  importBatches: ImportBatch[];
+  rawFinancialRecords: RawFinancialRecord[];
+  normalizedTransactions: NormalizedFinancialTransaction[];
+  financialSnapshots: FinancialSnapshot[];
+  controlRules: ControlRule[];
+  controlRuns: FinancialControlRun[];
+  findings: ControlFinding[];
+  agentRuns: AgentRun[];
+  forecastScenarios: ForecastScenario[];
+  integrations: DemoIntegration[];
+  usagePreview: UsageMeteringPreview;
   notifications: DemoNotification[];
   audit: Array<{ id: string; organizationId?: OrganizationId; action: string; actor: string; at: string }>;
 }

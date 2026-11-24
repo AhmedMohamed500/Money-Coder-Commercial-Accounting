@@ -1,0 +1,55 @@
+import type { ControlCategory, ControlRule, ControlSeverity } from "@/domain/financial-control/types";
+
+const definitions: Array<[string, string, string, ControlCategory, ControlSeverity, ControlRule["implementation"], string[]]> = [
+  ["BNK-001", "حركات بنكية غير مسجلة", "Unrecorded Bank Transactions", "BANKING", "HIGH", "EXECUTABLE", ["normalized bank records", "posted journals"]],
+  ["BNK-002", "حركات دفتر غير مطابقة", "Unmatched Ledger Transactions", "BANKING", "MEDIUM", "INSUFFICIENT_DATA", ["bank reconciliation references"]],
+  ["BNK-003", "استيراد بنكي مكرر", "Duplicate Bank Imports", "BANKING", "HIGH", "EXECUTABLE", ["import fingerprints"]],
+  ["BNK-004", "فروق التسوية البنكية", "Bank Reconciliation Differences", "BANKING", "HIGH", "EXECUTABLE", ["snapshot debit and credit totals"]],
+  ["BNK-005", "حركات معلقة طويلة", "Outstanding Clearing Transactions", "BANKING", "MEDIUM", "INSUFFICIENT_DATA", ["clearing dates"]],
+  ["ACC-001", "قيود غير متوازنة", "Unbalanced Journal Entries", "ACCOUNTING", "CRITICAL", "EXECUTABLE", ["normalized transaction groups"]],
+  ["ACC-002", "قيود مكررة محتملة", "Potential Duplicate Journals", "ACCOUNTING", "HIGH", "EXECUTABLE", ["transaction fingerprints"]],
+  ["ACC-003", "مستندات مؤيدة مفقودة", "Missing Required Supporting Documents", "ACCOUNTING", "MEDIUM", "EXECUTABLE", ["source document references"]],
+  ["ACC-004", "حسابات ترحيل غير صالحة", "Invalid Posting Accounts", "ACCOUNTING", "HIGH", "EXECUTABLE", ["account mappings", "chart of accounts"]],
+  ["ACC-005", "ترحيل في فترة مقفلة", "Closed Period Posting", "ACCOUNTING", "HIGH", "EXECUTABLE", ["transaction dates", "financial periods"]],
+  ["ACC-006", "اعتماد مطلوب مفقود", "Missing Required Approval", "ACCOUNTING", "HIGH", "EXECUTABLE", ["journal workflow history"]],
+  ["ACC-007", "أرصدة حسابات غير طبيعية", "Abnormal Account Balances", "ACCOUNTING", "MEDIUM", "EXECUTABLE", ["account balances", "normal balance"]],
+  ["ACC-008", "تغييرات غير مصرح بها", "Unauthorized Posted Entry Changes", "ACCOUNTING", "CRITICAL", "INSUFFICIENT_DATA", ["immutable audit hashes"]],
+  ["AR-001", "مديونيات متأخرة", "Overdue Receivables", "RECEIVABLES", "MEDIUM", "INSUFFICIENT_DATA", ["invoice due dates", "receipts"]],
+  ["AR-002", "تجاوز حد ائتماني", "Credit Limit Breach", "RECEIVABLES", "HIGH", "INSUFFICIENT_DATA", ["customer credit limits"]],
+  ["AR-003", "متحصلات عملاء غير موزعة", "Unallocated Customer Receipts", "RECEIVABLES", "MEDIUM", "INSUFFICIENT_DATA", ["customer allocation data"]],
+  ["AP-001", "فواتير موردين مكررة محتملة", "Potential Duplicate Supplier Invoices", "PAYABLES", "HIGH", "INSUFFICIENT_DATA", ["supplier invoice master"]],
+  ["AP-002", "مدفوعات موردين غير موزعة", "Unallocated Supplier Payments", "PAYABLES", "MEDIUM", "INSUFFICIENT_DATA", ["supplier allocations"]],
+  ["AP-003", "التزامات موردين قادمة", "Upcoming Supplier Obligations", "PAYABLES", "LOW", "INSUFFICIENT_DATA", ["supplier due dates"]],
+  ["EXP-001", "مصروفات غير معتادة", "Unusual Expenses", "EXPENSE", "MEDIUM", "INSUFFICIENT_DATA", ["historical expense series"]],
+  ["EXP-002", "تجاوز الموازنة", "Budget Overrun", "EXPENSE", "MEDIUM", "INSUFFICIENT_DATA", ["approved budget"]],
+  ["EXP-003", "مصروفات مقدمة تحتاج تسوية", "Required Prepaid Expense Adjustments", "EXPENSE", "MEDIUM", "INSUFFICIENT_DATA", ["prepayment schedules"]],
+  ["EXP-004", "استحقاقات مصروفات محتملة", "Potential Missing Expense Accruals", "EXPENSE", "MEDIUM", "INSUFFICIENT_DATA", ["contract and period data"]],
+  ["AST-001", "إهلاك مستحق", "Depreciation Due", "FIXED_ASSET", "MEDIUM", "INSUFFICIENT_DATA", ["asset register"]],
+  ["AST-002", "مجمع إهلاك زائد", "Excess Accumulated Depreciation", "FIXED_ASSET", "HIGH", "INSUFFICIENT_DATA", ["asset cost and depreciation"]],
+  ["INV-001", "مخزون سالب", "Negative Inventory", "INVENTORY", "HIGH", "INSUFFICIENT_DATA", ["inventory quantities"]],
+  ["INV-002", "فروق جرد", "Inventory Count Differences", "INVENTORY", "MEDIUM", "INSUFFICIENT_DATA", ["stock count data"]],
+  ["CLS-001", "قيود معلقة", "Pending Journal Entries", "FINANCIAL_CLOSE", "MEDIUM", "EXECUTABLE", ["journal workflow status"]],
+  ["CLS-002", "فروق دفاتر مساعدة", "Subsidiary Ledger Reconciliation Differences", "FINANCIAL_CLOSE", "HIGH", "INSUFFICIENT_DATA", ["subsidiary ledgers"]],
+  ["CLS-003", "حسابات معلقة غير محلولة", "Unresolved Suspense Accounts", "FINANCIAL_CLOSE", "HIGH", "INSUFFICIENT_DATA", ["suspense account policy"]],
+];
+
+export function createControlRegistry(): ControlRule[] {
+  return definitions.map(([id, nameAr, nameEn, category, severity, implementation, requiredData]) => ({
+    id,
+    version: "1.0.0",
+    nameAr,
+    nameEn,
+    descriptionAr: `قاعدة رقابية تجريبية: ${nameAr}.`,
+    descriptionEn: `Deterministic demo control: ${nameEn}.`,
+    category,
+    severity,
+    requiredData,
+    thresholdMinor: id === "ACC-007" ? 1 : undefined,
+    recommendedActionAr: "راجع الأدلة والمصدر، ثم وثّق القرار أو اقترح تصحيحًا يخضع للاعتماد البشري.",
+    recommendedActionEn: "Inspect the evidence and source, then document the decision or propose a correction subject to human approval.",
+    configurableParameters: {},
+    enabled: true,
+    implementation,
+  }));
+}
+

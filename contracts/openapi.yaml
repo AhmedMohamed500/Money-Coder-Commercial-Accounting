@@ -19,6 +19,9 @@ tags:
   - { name: Accounting }
   - { name: Reporting }
   - { name: BankImports }
+  - { name: FinancialTwin }
+  - { name: Controls }
+  - { name: AgentsFuture }
   - { name: BillingFuture }
 paths:
   /sessions:
@@ -366,6 +369,125 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { type: object, required: [rowIds], properties: { rowIds: { type: array, items: { $ref: '#/components/schemas/Id' } } } } } } }
       responses:
         '201': { description: Draft journal created, content: { application/json: { schema: { $ref: '#/components/schemas/JournalEntry' } } } }
+  /organizations/{organizationId}/financial-imports:
+    parameters: [ { $ref: '#/components/parameters/OrganizationId' } ]
+    get:
+      tags: [FinancialTwin]
+      summary: List tenant-scoped financial import batches
+      parameters: [ { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' } ]
+      responses:
+        '200': { description: Import batch page, content: { application/json: { schema: { $ref: '#/components/schemas/GenericPage' } } } }
+    post:
+      tags: [FinancialTwin]
+      summary: Create an import batch and a provider-specific upload or connector session
+      description: The server derives organization scope. Raw rows remain immutable after ingestion.
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sourceType, sourceLabel]
+              properties:
+                sourceType: { enum: [EXCEL, CSV, BANK_STATEMENT, DAFTRA, ODOO, QUICKBOOKS, OTHER_ERP, MONEY_CODER] }
+                sourceLabel: { type: string, minLength: 1, maxLength: 200 }
+      responses:
+        '202': { description: Import batch accepted }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /financial-imports/{importId}/mappings:
+    put:
+      tags: [FinancialTwin]
+      summary: Save a reviewed account mapping as a new version
+      parameters: [ { $ref: '#/components/parameters/ImportId' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountMappings]
+              properties:
+                accountMappings: { type: object, additionalProperties: { $ref: '#/components/schemas/Id' } }
+      responses:
+        '200': { description: Mapping version saved }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /financial-imports/{importId}/validate:
+    post:
+      tags: [FinancialTwin]
+      summary: Validate normalized records and return stable per-record errors
+      parameters: [ { $ref: '#/components/parameters/ImportId' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/IfMatch' } ]
+      responses:
+        '200': { description: Validation completed }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /financial-imports/{importId}/confirm:
+    post:
+      tags: [FinancialTwin]
+      summary: Confirm validated rows and create an immutable versioned snapshot
+      parameters: [ { $ref: '#/components/parameters/ImportId' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/IfMatch' } ]
+      responses:
+        '201': { description: Financial snapshot created }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /financial-imports/{importId}/rollback:
+    post:
+      tags: [FinancialTwin]
+      summary: Mark a confirmed import rolled back without deleting evidence
+      parameters: [ { $ref: '#/components/parameters/ImportId' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [reason], properties: { reason: { type: string, minLength: 3, maxLength: 1000 } } } } } }
+      responses:
+        '200': { description: Import marked rolled back }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /organizations/{organizationId}/financial-snapshots:
+    get:
+      tags: [FinancialTwin]
+      summary: List immutable financial snapshots
+      parameters: [ { $ref: '#/components/parameters/OrganizationId' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' } ]
+      responses:
+        '200': { description: Snapshot page, content: { application/json: { schema: { $ref: '#/components/schemas/GenericPage' } } } }
+  /financial-snapshots/{snapshotId}/control-runs:
+    post:
+      tags: [Controls]
+      summary: Execute enabled versioned controls against an immutable snapshot
+      parameters: [ { name: snapshotId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      responses:
+        '202': { description: Control run accepted }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /organizations/{organizationId}/findings:
+    get:
+      tags: [Controls]
+      summary: List tenant-scoped evidence-linked control findings
+      parameters: [ { $ref: '#/components/parameters/OrganizationId' }, { $ref: '#/components/parameters/Cursor' }, { name: status, in: query, schema: { type: string } }, { name: severity, in: query, schema: { type: string } } ]
+      responses:
+        '200': { description: Finding page, content: { application/json: { schema: { $ref: '#/components/schemas/GenericPage' } } } }
+  /findings/{findingId}/transitions:
+    post:
+      tags: [Controls]
+      summary: Apply an authorized revision-protected finding transition
+      parameters: [ { name: findingId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toStatus, reason]
+              properties:
+                toStatus: { enum: [ASSIGNED, UNDER_INVESTIGATION, CORRECTION_PROPOSED, PENDING_APPROVAL, APPROVED, REVALIDATION, RESOLVED, FALSE_POSITIVE, RISK_ACCEPTED, REOPENED, REJECTED, ESCALATED] }
+                reason: { type: string, minLength: 3, maxLength: 2000 }
+      responses:
+        '200': { description: Finding transitioned }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /findings/{findingId}/agent-runs:
+    post:
+      tags: [AgentsFuture]
+      summary: Request an advisory governed agent run; no approval or posting authority
+      parameters: [ { name: findingId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }, { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [agentType], properties: { agentType: { enum: [BANK_AGENT, ACCOUNTING_AGENT, RECEIVABLES_AGENT, EXPENSE_AGENT, FINANCIAL_CLOSE_AGENT, CFO_AGENT] } } } } } }
+      responses:
+        '202': { description: Agent run accepted }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /plans:
     get:
       tags: [BillingFuture]
@@ -419,6 +541,7 @@ components:
     ImportId: { name: importId, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
   responses:
     Unauthorized: { description: Authentication required, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+    Forbidden: { description: Authenticated caller lacks the required permission or the operation exceeds the actor authority boundary, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
     NotFound: { description: Missing or outside caller tenant scope, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
     Conflict: { description: Idempotency, state or revision conflict, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
     ValidationError: { description: Business validation failed, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
@@ -515,7 +638,21 @@ components:
     Report:
       type: object
       required: [organizationId, currency, from, to, rows, generatedAt]
-      properties: { organizationId: { $ref: '#/components/schemas/Id' }, currency: { type: string }, from: { type: [string, 'null'], format: date }, to: { type: string, format: date }, rows: { type: array, items: { type: object, required: [code, label, amount], properties: { code: { type: string }, label: { type: string }, amount: { $ref: '#/components/schemas/Decimal' } } }, generatedAt: { type: string, format: date-time } }
+      properties:
+        organizationId: { $ref: '#/components/schemas/Id' }
+        currency: { type: string }
+        from: { type: [string, 'null'], format: date }
+        to: { type: string, format: date }
+        rows:
+          type: array
+          items:
+            type: object
+            required: [code, label, amount]
+            properties:
+              code: { type: string }
+              label: { type: string }
+              amount: { $ref: '#/components/schemas/Decimal' }
+        generatedAt: { type: string, format: date-time }
     BankStatementRow:
       type: object
       required: [id, importId, date, description, amount, direction, mappedAccountId, revision]

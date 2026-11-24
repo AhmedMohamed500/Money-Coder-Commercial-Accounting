@@ -1,3 +1,5 @@
+import { createControlRegistry } from "@/application/control-engine/control-registry";
+import type { FinancialPeriod } from "@/domain/accounting/types";
 import type { Account, DemoDocument, DemoOrganization, DemoState, JournalEntry, OrganizationId, ReviewCase } from "@/domain/demo/types";
 
 const now = "2026-11-20T10:00:00.000Z";
@@ -51,19 +53,38 @@ const organizations: DemoOrganization[] = [
 ];
 
 function accountsFor(organizationId: OrganizationId): Account[] {
+  const rows: Array<Omit<Account, "id" | "organizationId"> & { parentCode?: string }> = [
+    { code: "1000", name: "الأصول", type: "ASSET", level: 1, normalBalance: "DEBIT", contra: false, statementGroup: "CURRENT_ASSET", statementSign: 1, postingAllowed: false, active: true, openingBalanceMinor: 0 },
+    { code: "1100", name: "الأصول المتداولة", type: "ASSET", parentCode: "1000", level: 2, normalBalance: "DEBIT", contra: false, statementGroup: "CURRENT_ASSET", statementSign: 1, postingAllowed: false, active: true, openingBalanceMinor: 0 },
+    { code: "1110", name: "النقدية والبنوك", type: "ASSET", parentCode: "1100", level: 3, normalBalance: "DEBIT", contra: false, statementGroup: "CURRENT_ASSET", statementSign: 1, postingAllowed: true, active: true, openingBalanceMinor: 0 },
+    { code: "1120", name: "العملاء", type: "ASSET", parentCode: "1100", level: 3, normalBalance: "DEBIT", contra: false, statementGroup: "CURRENT_ASSET", statementSign: 1, postingAllowed: true, active: true, openingBalanceMinor: 0 },
+    { code: "1210", name: "المخزون", type: "ASSET", parentCode: "1100", level: 3, normalBalance: "DEBIT", contra: false, statementGroup: "CURRENT_ASSET", statementSign: 1, postingAllowed: true, active: true, openingBalanceMinor: 0 },
+    { code: "1290", name: "مجمع إهلاك — حساب مقابل", type: "ASSET", parentCode: "1000", level: 2, normalBalance: "CREDIT", contra: true, statementGroup: "NON_CURRENT_ASSET", statementSign: -1, postingAllowed: true, active: true, openingBalanceMinor: 0 },
+    { code: "2000", name: "الالتزامات", type: "LIABILITY", level: 1, normalBalance: "CREDIT", contra: false, statementGroup: "CURRENT_LIABILITY", statementSign: 1, postingAllowed: false, active: true, openingBalanceMinor: 0 },
+    { code: "2110", name: "الموردون", type: "LIABILITY", parentCode: "2000", level: 2, normalBalance: "CREDIT", contra: false, statementGroup: "CURRENT_LIABILITY", statementSign: 1, postingAllowed: true, active: true, openingBalanceMinor: 0 },
+    { code: "3110", name: "رأس المال", type: "EQUITY", level: 1, normalBalance: "CREDIT", contra: false, statementGroup: "EQUITY", statementSign: 1, postingAllowed: true, active: true, openingBalanceMinor: 0 },
+    { code: "4110", name: "إيرادات النشاط", type: "REVENUE", level: 1, normalBalance: "CREDIT", contra: false, statementGroup: "REVENUE", statementSign: 1, postingAllowed: true, active: true, openingBalanceMinor: 0 },
+    { code: "5110", name: "تكلفة النشاط", type: "EXPENSE", level: 1, normalBalance: "DEBIT", contra: false, statementGroup: "COST_OF_SALES", statementSign: 1, postingAllowed: true, active: true, openingBalanceMinor: 0 },
+    { code: "6110", name: "مصروفات التشغيل", type: "EXPENSE", level: 1, normalBalance: "DEBIT", contra: false, statementGroup: "OPERATING_EXPENSE", statementSign: 1, postingAllowed: true, active: true, openingBalanceMinor: 0 },
+    { code: "6190", name: "مصروف متوقف — للاختبار", type: "EXPENSE", level: 1, normalBalance: "DEBIT", contra: false, statementGroup: "OPERATING_EXPENSE", statementSign: 1, postingAllowed: true, active: false, openingBalanceMinor: 0 },
+  ];
+  return rows.map(({ parentCode, ...row }) => ({
+    ...row,
+    id: `${organizationId}-${row.code}`,
+    organizationId,
+    parentId: parentCode ? `${organizationId}-${parentCode}` : undefined,
+  }));
+}
+
+function periodsFor(organizationId: OrganizationId): FinancialPeriod[] {
   return [
-    ["1110", "النقدية والبنوك", "ASSET"],
-    ["1120", "العملاء", "ASSET"],
-    ["1210", "المخزون", "ASSET"],
-    ["2110", "الموردون", "LIABILITY"],
-    ["3110", "رأس المال", "EQUITY"],
-    ["4110", "إيرادات النشاط", "REVENUE"],
-    ["5110", "تكلفة النشاط", "EXPENSE"],
-    ["6110", "مصروفات التشغيل", "EXPENSE"],
-  ].map(([code, name, type]) => ({ id: `${organizationId}-${code}`, organizationId, code, name, type: type as Account["type"] }));
+    { id: `${organizationId}-period-opening`, organizationId, name: "الفترة الافتتاحية 2026", startsAt: "2026-01-01", endsAt: "2026-09-30", status: "CLOSED", lockedAt: "2026-10-05T10:00:00.000Z", lockedBy: "FINANCE_MANAGER", reopeningRequiresApproval: true },
+    { id: `${organizationId}-period-current`, organizationId, name: "الربع الرابع 2026", startsAt: "2026-10-01", endsAt: "2026-12-31", status: "OPEN", reopeningRequiresApproval: true },
+  ];
 }
 
 function journal(organizationId: OrganizationId, id: string, reference: string, date: string, memo: string, pairs: Array<[string, number, number]>, source: JournalEntry["source"] = "MANUAL"): JournalEntry {
+  const periodId = date < "2026-10-01" ? `${organizationId}-period-opening` : `${organizationId}-period-current`;
   return {
     id: `${organizationId}-${id}`,
     organizationId,
@@ -72,6 +93,12 @@ function journal(organizationId: OrganizationId, id: string, reference: string, 
     memo,
     status: "POSTED",
     source,
+    periodId,
+    revision: 1,
+    createdAt: `${date}T08:00:00.000Z`,
+    createdByRole: source === "OPENING" ? "SYSTEM" : "COMPANY_ACCOUNTANT",
+    approvedAt: source === "OPENING" ? undefined : `${date}T08:45:00.000Z`,
+    approvedByRole: source === "OPENING" ? undefined : "FINANCE_MANAGER",
     postedAt: `${date}T09:00:00.000Z`,
     lines: pairs.map(([code, debitMinor, creditMinor], index) => ({ id: `${organizationId}-${id}-line-${index + 1}`, accountId: `${organizationId}-${code}`, description: memo, debitMinor, creditMinor })),
   };
@@ -119,11 +146,13 @@ function reviewFor(document: DemoDocument, index: number): ReviewCase {
 export function createDemoFixtures(): DemoState {
   const accounts = organizations.flatMap(organization => accountsFor(organization.id));
   return {
-    version: 1,
+    version: 2,
     currentRole: "OFFICE_OWNER",
     currentOrganizationId: "org-nile",
     currentSection: "overview",
     selectedReviewId: "review-1",
+    selectedFindingId: undefined,
+    displayMode: "BILINGUAL",
     persistenceEnabled: false,
     organizations,
     office: {
@@ -139,6 +168,7 @@ export function createDemoFixtures(): DemoState {
     users: [
       { id: "role-owner", name: "محمود فؤاد — افتراضي", role: "COMPANY_OWNER", title: "مالك شركة" },
       { id: "role-accountant", name: "عمر سمير — افتراضي", role: "COMPANY_ACCOUNTANT", title: "محاسب شركة" },
+      { id: "role-senior-accountant", name: "ندى شريف — افتراضي", role: "SENIOR_ACCOUNTANT", title: "محاسب أول" },
       { id: "role-office-owner", name: "أحمد سامي — افتراضي", role: "OFFICE_OWNER", title: "مالك مكتب محاسبة" },
       { id: "role-office-accountant", name: "كريم نبيل — افتراضي", role: "OFFICE_ACCOUNTANT", title: "محاسب مكتب" },
       { id: "role-reviewer", name: "هبة يوسف — افتراضي", role: "REVIEWER", title: "مراجع" },
@@ -147,6 +177,7 @@ export function createDemoFixtures(): DemoState {
     documents,
     reviews: documents.map(reviewFor),
     accounts,
+    financialPeriods: organizations.flatMap(organization => periodsFor(organization.id)),
     journals: [...journalsFor("org-nile", 1), ...journalsFor("org-delta", 2), ...journalsFor("org-horizon", 1)],
     bankRows: [
       { id: "bank-row-1", organizationId: "org-nile", date: "2026-10-27", description: "تحويل وارد — عميل تجريبي", amountMinor: 450_000, direction: "IN", state: "EXTRACTED" },
@@ -154,6 +185,24 @@ export function createDemoFixtures(): DemoState {
       { id: "bank-row-3", organizationId: "org-delta", date: "2026-10-29", description: "مورد مواد خام — عينة", amountMinor: 920_000, direction: "OUT", state: "EXTRACTED" },
       { id: "bank-row-4", organizationId: "org-horizon", date: "2026-10-30", description: "تحصيل أتعاب — عينة", amountMinor: 125_000, direction: "IN", state: "EXTRACTED" },
     ],
+    importBatches: [],
+    rawFinancialRecords: [],
+    normalizedTransactions: [],
+    financialSnapshots: [],
+    controlRules: createControlRegistry(),
+    controlRuns: [],
+    findings: [],
+    agentRuns: [],
+    forecastScenarios: organizations.flatMap(organization => ([
+      { id: `${organization.id}-forecast-base`, organizationId: organization.id, name: "السيناريو الأساسي", kind: "BASE" as const, expectedSalesMinor: organization.id === "org-delta" ? 40_000_000 : 20_000_000, costOfSalesPercent: 58, operatingExpensesMinor: 3_000_000, collectionDays: 35, supplierPaymentDays: 30, futureCapitalExpenditureMinor: 1_500_000, updatedAt: now },
+    ])),
+    integrations: [
+      { id: "integration-excel", sourceType: "EXCEL", name: "Excel — بيانات اصطناعية", status: "DEMO_AVAILABLE", description: "استيراد محلي محاكى بدون رفع ملف حقيقي.", mappingTemplateCount: 1, credentialMode: "NONE" },
+      { id: "integration-csv", sourceType: "CSV", name: "CSV — بيانات اصطناعية", status: "DEMO_AVAILABLE", description: "مصدر تجريبي حتمي داخل الذاكرة.", mappingTemplateCount: 1, credentialMode: "NONE" },
+      { id: "integration-odoo", sourceType: "ODOO", name: "Odoo", status: "SIMULATION", description: "قالب تكامل فقط؛ لا يوجد اتصال خارجي.", mappingTemplateCount: 1, credentialMode: "MOCK_ONLY" },
+      { id: "integration-n8n", sourceType: "N8N", name: "n8n", status: "NOT_CONNECTED", description: "مؤجل لتكامل خلفي مستقبلي؛ لا توجد بيانات اعتماد.", mappingTemplateCount: 0, credentialMode: "NONE" },
+    ],
+    usagePreview: { billingPeriod: "2026-11", companies: organizations.length, users: 7, importedTransactions: 0, controlExecutions: 0, agentRuns: 0, documentProcessing: documents.length, storageBytes: 0 },
     notifications: [
       { id: "note-1", organizationId: "org-delta", text: "مستند يحتاج تصحيحًا", read: false, createdAt: now },
       { id: "note-2", organizationId: "org-nile", text: "كشف حساب جاهز للمراجعة", read: false, createdAt: now },

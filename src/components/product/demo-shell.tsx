@@ -5,30 +5,41 @@ import { useEffect, useState } from "react";
 import {
   Activity, ArrowDownToLine, BadgeCheck, Banknote, BarChart3, Bell, BookOpenCheck,
   BriefcaseBusiness, Building2, CheckCircle2, ChevronLeft, CirclePlay, ClipboardCheck,
-  FileCheck2, FileClock, FileText, Landmark, LayoutDashboard, Menu,
+  Database, FileCheck2, FileClock, FileText, Gauge, Landmark, LayoutDashboard, Menu,
   MessageSquarePlus, NotebookTabs, RefreshCcw, Save, Search, Settings, ShieldCheck,
   Trash2, Upload, Users, WalletCards, X,
 } from "lucide-react";
 import { useDemo } from "@/demo/state/demo-provider";
 import { buildAccountBalances, buildDemoReport } from "@/application/demo/reporting";
 import { isBalanced, sumJournalSide, type DemoReport, type DemoRole, type DemoSection, type JournalLine, type ReviewStatus } from "@/domain/demo/types";
+import { formatFinancialTerm, type FinancialTermKey } from "@/i18n/terminology/registry";
+import { AgentCenter, CommercialValueCenter, DataQualityCenter, FinancialCloseCenter, FinancialTwinWorkspace, ForecastingWorkspace, GuardianControlCenter, IntegrationHub } from "@/components/product/financial-intelligence";
 
-const sectionItems: Array<{ id: DemoSection; label: string; icon: typeof LayoutDashboard }> = [
-  { id: "overview", label: "نظرة عامة", icon: LayoutDashboard },
-  { id: "company", label: "إعداد الشركة", icon: Building2 },
-  { id: "office", label: "مركز المكتب", icon: BriefcaseBusiness },
-  { id: "documents", label: "مركز المستندات", icon: FileText },
-  { id: "reviews", label: "المراجعة والاعتماد", icon: ClipboardCheck },
-  { id: "accounting", label: "المحاسبة التجريبية", icon: NotebookTabs },
-  { id: "banking", label: "كشف البنك", icon: Landmark },
-  { id: "reports", label: "التقارير المالية", icon: BarChart3 },
-  { id: "plans", label: "الخطط والفوترة", icon: WalletCards },
-  { id: "settings", label: "الإعدادات والمساعدة", icon: Settings },
+const sectionItems: Array<{ id: DemoSection; term: FinancialTermKey; icon: typeof LayoutDashboard }> = [
+  { id: "overview", term: "overview", icon: LayoutDashboard },
+  { id: "company", term: "companySetup", icon: Building2 },
+  { id: "office", term: "accountingOffice", icon: BriefcaseBusiness },
+  { id: "documents", term: "documents", icon: FileText },
+  { id: "reviews", term: "reviews", icon: ClipboardCheck },
+  { id: "accounting", term: "accounting", icon: NotebookTabs },
+  { id: "banking", term: "banking", icon: Landmark },
+  { id: "reports", term: "financialReports", icon: BarChart3 },
+  { id: "financial-close", term: "financialClose", icon: FileCheck2 },
+  { id: "financial-twin", term: "financialTwin", icon: Database },
+  { id: "data-quality", term: "dataQuality", icon: Gauge },
+  { id: "guardian", term: "guardian", icon: ShieldCheck },
+  { id: "agents", term: "aiAgents", icon: Activity },
+  { id: "forecasting", term: "forecasting", icon: BarChart3 },
+  { id: "integrations", term: "integrations", icon: ArrowDownToLine },
+  { id: "roi", term: "commercialValue", icon: WalletCards },
+  { id: "plans", term: "plans", icon: WalletCards },
+  { id: "settings", term: "settings", icon: Settings },
 ];
 
 const roleLabels: Record<DemoRole, string> = {
   COMPANY_OWNER: "مالك شركة",
   COMPANY_ACCOUNTANT: "محاسب شركة",
+  SENIOR_ACCOUNTANT: "محاسب أول",
   OFFICE_OWNER: "مالك مكتب محاسبة",
   OFFICE_ACCOUNTANT: "محاسب مكتب",
   REVIEWER: "مراجع",
@@ -98,12 +109,13 @@ export function DemoShell() {
   };
 
   return (
-    <div className="demo-app" dir="rtl">
+    <div className="demo-app" dir={state.displayMode === "EN" ? "ltr" : "rtl"}>
       <a href="#demo-main" className="demo-skip">انتقل إلى المحتوى</a>
       <header className="demo-topbar">
         <div className="demo-brand"><span className="demo-brand-mark">▥</span><span><strong>Money Coder</strong><small>Interactive Product Demo</small></span></div>
         <div className="demo-mode-badge"><span /> وضع تجريبي — بيانات افتراضية</div>
         <div className="demo-top-actions">
+          <label><span>لغة المصطلحات</span><select value={state.displayMode} onChange={event => void execute("settings", () => service.setDisplayMode(event.target.value as "BILINGUAL" | "AR" | "EN"), "تم تحديث لغة المصطلحات المالية.")}><option value="BILINGUAL">AR / EN</option><option value="AR">العربية</option><option value="EN">English</option></select></label>
           <label><span>الدور التجريبي</span><select value={state.currentRole} onChange={event => void execute("switch-context", () => service.switchRole(event.target.value as DemoRole), "تم تبديل الدور التجريبي.")}>{Object.entries(roleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           <label><span>الشركة</span><select value={state.currentOrganizationId} onChange={event => void execute("switch-context", () => service.switchOrganization(event.target.value), "تم تبديل الشركة مع عزل بياناتها.")}>{state.organizations.map(item => <option value={item.id} key={item.id}>{item.tradeName}</option>)}</select></label>
           <button className="demo-reset" type="button" onClick={() => { if (window.confirm("إعادة جميع بيانات العرض إلى خط البداية؟")) void execute("settings", () => service.reset(), "عادت بيانات العرض إلى نقطة البداية."); }}><RefreshCcw /> إعادة العرض</button>
@@ -117,13 +129,13 @@ export function DemoShell() {
           <label>الدور التجريبي<select value={state.currentRole} onChange={event => void execute("switch-context", () => service.switchRole(event.target.value as DemoRole), "تم تبديل الدور التجريبي.")}>{Object.entries(roleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           <label>الشركة<select value={state.currentOrganizationId} onChange={event => void execute("switch-context", () => service.switchOrganization(event.target.value), "تم تبديل الشركة مع عزل بياناتها.")}>{state.organizations.map(item => <option value={item.id} key={item.id}>{item.tradeName}</option>)}</select></label>
         </div>
-        <nav>{sectionItems.map(({ id, label, icon: Icon }) => <button type="button" key={id} aria-current={state.currentSection === id ? "page" : undefined} className={state.currentSection === id ? "is-active" : ""} onClick={() => navigate(id)}><Icon /><span>{label}</span>{state.currentSection === id && <ChevronLeft />}</button>)}</nav>
+        <nav>{sectionItems.map(({ id, term, icon: Icon }) => <button type="button" key={id} aria-current={state.currentSection === id ? "page" : undefined} className={state.currentSection === id ? "is-active" : ""} onClick={() => navigate(id)}><Icon /><span>{formatFinancialTerm(term, state.displayMode, true)}</span>{state.currentSection === id && <ChevronLeft />}</button>)}</nav>
         <div className="demo-safety"><ShieldCheck /><div><strong>معزول عن الإنتاج</strong><small>لا قاعدة بيانات، لا رفع حقيقي، لا مدفوعات.</small></div></div>
         <Link href="/">العودة إلى الموقع</Link>
       </aside>
 
       <main id="demo-main" className="demo-main">
-        <div className="demo-page-heading"><div><span>{currentSection.label}</span><h1>{organization.tradeName}</h1><p>أنت تستعرض دور: {roleLabels[state.currentRole]} — جميع الأسماء والأرقام افتراضية.</p></div><div className="demo-heading-actions"><span><Bell /> {state.notifications.filter(note => !note.read && (!note.organizationId || note.organizationId === organization.id)).length}</span><span><Activity /> {state.audit.filter(item => !item.organizationId || item.organizationId === organization.id).length} نشاط</span></div></div>
+        <div className="demo-page-heading"><div><span>{formatFinancialTerm(currentSection.term, state.displayMode)}</span><h1>{organization.tradeName}</h1><p>أنت تستعرض دور: {roleLabels[state.currentRole]} — جميع الأسماء والأرقام افتراضية.</p></div><div className="demo-heading-actions"><span><Bell /> {state.notifications.filter(note => !note.read && (!note.organizationId || note.organizationId === organization.id)).length}</span><span><Activity /> {state.audit.filter(item => !item.organizationId || item.organizationId === organization.id).length} نشاط</span></div></div>
         <div className="demo-data-warning" role="note"><ShieldCheck /><p><strong>بيئة محاكاة آمنة:</strong> استخدم بيانات العرض فقط. لا تُدخل معلومات مالية أو شخصية حقيقية.</p></div>
         {operation.status !== "idle" && <div className={`demo-operation is-${operation.status}`} role={operation.status === "error" ? "alert" : "status"} aria-live="polite"><span className="demo-operation-dot" /> <p>{operation.status === "loading" ? operation.message : operation.status === "error" ? operation.error : operation.message}</p>{operation.status === "error" && operation.retryable && <button type="button" onClick={() => void retry()}><RefreshCcw /> إعادة المحاولة</button>}<button type="button" aria-label="إغلاق الرسالة" onClick={clearFeedback}><X /></button></div>}
         <ScenarioGuide />
@@ -135,6 +147,14 @@ export function DemoShell() {
         {state.currentSection === "accounting" && <AccountingCore key={organization.id} />}
         {state.currentSection === "banking" && <BankWorkflow key={organization.id} />}
         {state.currentSection === "reports" && <Reports key={organization.id} />}
+        {state.currentSection === "financial-close" && <FinancialCloseCenter />}
+        {state.currentSection === "financial-twin" && <FinancialTwinWorkspace key={`${organization.id}-${state.importBatches.filter(item => item.organizationId === organization.id).length}`} />}
+        {state.currentSection === "data-quality" && <DataQualityCenter />}
+        {state.currentSection === "guardian" && <GuardianControlCenter />}
+        {state.currentSection === "agents" && <AgentCenter />}
+        {state.currentSection === "forecasting" && <ForecastingWorkspace />}
+        {state.currentSection === "integrations" && <IntegrationHub />}
+        {state.currentSection === "roi" && <CommercialValueCenter />}
         {state.currentSection === "plans" && <Plans />}
         {state.currentSection === "settings" && <SettingsHelp />}
       </main>

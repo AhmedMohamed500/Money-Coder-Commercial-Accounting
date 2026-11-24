@@ -62,7 +62,9 @@ describe("short-lived upload authorization", () => {
   });
   it("rejects a modified ticket", () => {
     const created = createDocumentUploadTicket({ ...input, now:100, ttlSeconds:60 });
-    expect(() => verifyDocumentUploadTicket(`${created.token.slice(0,-1)}x`,{now:120})).toThrow("غير صالح");
+    const [payload, signature] = created.token.split(".");
+    const replacement = signature.startsWith("x") ? "y" : "x";
+    expect(() => verifyDocumentUploadTicket(`${payload}.${replacement}${signature.slice(1)}`,{now:120})).toThrow("غير صالح");
   });
   it("rejects expiry unless cleanup explicitly allows it", () => {
     const created = createDocumentUploadTicket({ ...input, now:100, ttlSeconds:60 });

@@ -6,10 +6,13 @@ import { isBalanced, type JournalLine } from "@/domain/demo/types";
 describe("demo accounting accuracy", () => {
   it("classifies the chart of accounts consistently", () => {
     const accounts = new InMemoryDemoAdapter().snapshot().accounts.filter(item => item.organizationId === "org-nile");
-    expect(Object.fromEntries(accounts.map(item => [item.code, item.type]))).toEqual({
+    expect(Object.fromEntries(accounts.filter(item => item.postingAllowed && item.active).map(item => [item.code, item.type]))).toEqual({
       "1110": "ASSET", "1120": "ASSET", "1210": "ASSET", "2110": "LIABILITY",
-      "3110": "EQUITY", "4110": "REVENUE", "5110": "EXPENSE", "6110": "EXPENSE",
+      "1290": "ASSET", "3110": "EQUITY", "4110": "REVENUE", "5110": "EXPENSE", "6110": "EXPENSE",
     });
+    expect(accounts.find(item => item.code === "1100")).toMatchObject({ postingAllowed: false, level: 2 });
+    expect(accounts.find(item => item.code === "1290")).toMatchObject({ contra: true, normalBalance: "CREDIT", statementSign: -1 });
+    expect(accounts.find(item => item.code === "6190")).toMatchObject({ active: false });
   });
 
   it("accepts balanced lines and rejects an unbalanced journal", async () => {

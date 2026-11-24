@@ -17,6 +17,10 @@ app/demo
         -> HttpProductAdapter (implemented async boundary; injected transport only)
 
 domain/demo       backend-neutral entities and exact minor-unit rules
+domain/accounting explicit account, period and journal workflow policies
+domain/financial-twin raw/normalized imports, snapshots and quality metrics
+domain/financial-control versioned rules, runs, evidence and findings
+domain/agents     governed agent/tool execution records
 contracts/v1.ts   public DTO conventions
 contracts/openapi.yaml authoritative HTTP contract
 demo/fixtures     deterministic fictional dataset
@@ -98,6 +102,12 @@ The new product components do not import these coupled modules. Their behavior i
 | Bank rows | `GET /bank-statement-imports/{id}/rows`, `PATCH /rows/{rowId}/mapping` | import tenant and reviewer assignment |
 | Bank suggestion | `POST /bank-statement-imports/{id}/journal-suggestion` | creates DRAFT only; never auto-posts |
 | Billing future | `/plans`, `/subscriptions`, `/usage`, `/invoices` | explicit future scope; provider webhooks server-only |
+| Financial Twin | `/organizations/{id}/financial-imports`, `/mappings`, `/validate`, `/confirm`, `/rollback` | import permission, tenant scope, revisions and idempotency |
+| Snapshots | `/organizations/{id}/financial-snapshots`, `/financial-snapshots/{id}` | immutable versioned resources; reports/control reads |
+| Data quality | `/financial-snapshots/{id}/data-quality` | reports:view plus quality-policy version |
+| Controls | `/control-rules`, `/financial-snapshots/{id}/control-runs` | control:execute; async/idempotent for large runs |
+| Findings | `/organizations/{id}/findings`, `/findings/{id}/transitions`, `/comments`, `/assignments` | control:view/manage; revision-protected lifecycle |
+| Agent runs future | `/findings/{id}/agent-runs` | agent:run; advisory only; no approval/post authority |
 
 ## 6. Review workflow
 
@@ -226,3 +236,33 @@ Content-Type: application/json
 - The real HTTP contract uses decimal strings and must use an exact decimal type in the backend.
 - Each synthetic organization has one functional currency. Reports never aggregate EGP and USD.
 - Bank extraction is preloaded simulation. A suggestion always creates a `DRAFT`; only a separate human-review action can post it.
+
+## 13. Financial Twin and Guardian replacement plan
+
+The browser currently stores `RawFinancialRecord`, `NormalizedFinancialTransaction`, `ImportBatch`, `FinancialSnapshot`, `FinancialControlRun`, `ControlFinding` and `AgentRun`. A real service should expose equivalent versioned DTOs while preserving these invariants:
+
+1. The server derives `organizationId`; clients never choose a different tenant in a command body.
+2. Raw records and confirmed snapshots are immutable.
+3. Mapping changes create a new mapping version.
+4. Validation returns per-record stable codes and never discards rejected evidence.
+5. Confirmation requires the latest revision and an idempotency key.
+6. A control run pins snapshot and rule versions.
+7. Finding identity uses rule ID plus a stable duplicate fingerprint.
+8. Finding transitions require expected revision, permission and a reason where applicable.
+9. Agent runs receive evidence references through authorized tools, not arbitrary database access.
+10. Agent output may create a proposal; submit, approve and post remain separate human-authorized commands.
+11. Revalidation executes the same rule version and records whether the original fingerprint remains.
+
+Recommended service split:
+
+```text
+ImportPort          load/status/map/validate/confirm/rollback
+SnapshotPort        list/get/quality/lineage
+ControlPort         registry/run/results
+FindingPort         list/get/assign/comment/transition/revalidate
+AgentRunPort        create/status/cancel/tool audit
+ForecastPort        scenario CRUD/calculate
+IntegrationPort     catalogs/connections/sync status
+```
+
+See `FINANCIAL_TWIN_ARCHITECTURE.md`, `CONTROL_ENGINE.md`, `AGENTIC_SYSTEM.md`, `ACCOUNTING_MODEL.md` and `SECURITY_AND_DEMO_BOUNDARIES.md` for exact policies and deferred work.

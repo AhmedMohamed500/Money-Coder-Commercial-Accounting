@@ -35,7 +35,7 @@ function observe(page) {
 }
 
 async function navigate(page, label) {
-  await page.locator(".demo-sidebar nav").getByRole("button", { name: label, exact: true }).click();
+  await page.locator(".demo-sidebar nav").getByRole("button", { name: new RegExp(label) }).click();
   await page.waitForTimeout(80);
 }
 
@@ -57,12 +57,38 @@ try {
   }
 
   const screens = [
-    "نظرة عامة", "إعداد الشركة", "مركز المكتب", "مركز المستندات", "المراجعة والاعتماد",
-    "المحاسبة التجريبية", "كشف البنك", "التقارير المالية", "الخطط والفوترة", "الإعدادات والمساعدة",
+    "نظرة عامة", "إعداد الشركة", "مركز مكتب المحاسبة", "مركز المستندات", "المراجعة والاعتماد",
+    "المحاسبة التجريبية", "التسوية البنكية", "التقارير المالية", "مركز الإقفال المالي", "التوأم المالي",
+    "جودة البيانات", "المراقب المالي الذكي", "وكلاء الذكاء الاصطناعي", "التخطيط والتوقعات المالية",
+    "مركز التكاملات", "القيمة المالية", "الخطط والفوترة", "الإعدادات والمساعدة",
   ];
   for (const screen of screens) await navigate(page, screen);
   await navigate(page, "نظرة عامة");
   await page.screenshot({ path: path.join(output, "desktop-overview.png"), fullPage: true });
+
+  await navigate(page, "التوأم المالي");
+  await page.getByRole("button", { name: "تحميل بيانات اصطناعية", exact: true }).click();
+  await page.getByRole("button", { name: "اقتراح آمن", exact: true }).click();
+  await page.getByRole("button", { name: "تحقق من الدفعة", exact: true }).click();
+  await page.getByRole("button", { name: "تأكيد وإنشاء Snapshot", exact: true }).click();
+  await page.getByRole("button", { name: "تشغيل الضوابط", exact: true }).click();
+  await page.screenshot({ path: path.join(output, "desktop-financial-twin.png"), fullPage: true });
+
+  await navigate(page, "المراقب المالي الذكي");
+  await page.getByRole("button", { name: /BNK-001/ }).first().click();
+  await page.getByRole("button", { name: "تحليل Agent محاكى", exact: true }).click();
+  await page.getByRole("button", { name: "إنشاء اقتراح تصحيح", exact: true }).click();
+  const roleSelect = page.locator(".demo-top-actions label").filter({ hasText: "الدور التجريبي" }).locator("select");
+  await roleSelect.selectOption("COMPANY_ACCOUNTANT");
+  await page.getByRole("button", { name: "1. إرسال", exact: true }).click();
+  await roleSelect.selectOption("FINANCE_MANAGER");
+  await page.getByRole("button", { name: "2. اعتماد بشري", exact: true }).click();
+  await roleSelect.selectOption("SENIOR_ACCOUNTANT");
+  await page.getByRole("button", { name: "3. ترحيل", exact: true }).click();
+  await page.getByRole("button", { name: /4. إعادة تحقق/ }).click();
+  await page.getByText(/محلولة/).first().waitFor();
+  await page.screenshot({ path: path.join(output, "desktop-guardian-resolved.png"), fullPage: true });
+  await roleSelect.selectOption("OFFICE_OWNER");
 
   await navigate(page, "مركز المستندات");
   await page.getByRole("button", { name: "إضافة عينة", exact: true }).click();
@@ -123,7 +149,7 @@ try {
   await mobile.getByRole("button", { name: "فتح قائمة العرض", exact: true }).click();
   await mobile.locator(".demo-mobile-context").waitFor({ state: "visible" });
   await mobile.locator(".demo-mobile-context select").nth(0).selectOption("OFFICE_OWNER");
-  await mobile.locator(".demo-sidebar nav").getByRole("button", { name: "مركز المكتب", exact: true }).click();
+  await mobile.locator(".demo-sidebar nav").getByRole("button", { name: /مركز مكتب المحاسبة/ }).click();
   await mobile.waitForFunction(() => !document.querySelector(".demo-sidebar")?.classList.contains("is-open"));
   await mobile.waitForTimeout(250);
   await mobile.getByText("مكتب القاهرة للمراجعة — تجريبي", { exact: true }).waitFor();

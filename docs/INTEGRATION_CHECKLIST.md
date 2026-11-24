@@ -31,6 +31,35 @@
 - [ ] Make posted entries immutable; correct with reversal/adjustment entries.
 - [ ] Reconcile ledger, trial balance and financial statements in automated tests.
 
+## Financial Twin ingestion and snapshots
+
+- [ ] Implement versioned import batches, immutable raw rows and reviewed mapping versions.
+- [ ] Apply the same stable validation codes documented by the demo adapter.
+- [ ] Reject an entire source transaction group when one of its lines is invalid.
+- [ ] Detect duplicates inside the batch and against tenant-scoped persisted fingerprints.
+- [ ] Create immutable, tenant-scoped snapshots only from confirmed valid rows.
+- [ ] Make rollback an auditable state transition; never delete source evidence.
+- [ ] Add contract tests for concurrent mapping, validation and confirmation attempts.
+
+## Guardian controls and findings
+
+- [ ] Persist the control registry and rule version used by every run.
+- [ ] Execute controls against one immutable snapshot and retain evidence references.
+- [ ] Keep stable finding fingerprints so reruns update or reopen rather than duplicate exposure.
+- [ ] Enforce the documented finding state machine and optimistic concurrency.
+- [ ] Require reason, actor and timestamp for assignment, acceptance, rejection and resolution.
+- [ ] Revalidate corrected evidence before marking a finding resolved.
+- [ ] Return `INSUFFICIENT_DATA` honestly when a rule cannot be evaluated.
+
+## Governed agents
+
+- [ ] Implement `AiProvider` behind a server-only adapter; never expose provider credentials to the browser.
+- [ ] Enforce tool allowlists, tenant scope, timeouts, retry limits and immutable run traces.
+- [ ] Treat agent output as advisory evidence or a draft proposal only.
+- [ ] Prevent agents from approving, posting, changing permissions or bypassing accounting validation.
+- [ ] Require a different authorized human actor for approval and posting where policy requires it.
+- [ ] Record token/cost metrics without logging prompts or financial payloads containing sensitive data.
+
 ## Documents and reviews
 
 - [ ] Store immutable document versions and content hashes.
