@@ -85,5 +85,6 @@ export interface ControlFinding {
   correctionJournalId?: string;
   resolutionReason?: string;
   revalidationResult?: ControlResultStatus;
+  revalidationRunId?: string;
 }
 

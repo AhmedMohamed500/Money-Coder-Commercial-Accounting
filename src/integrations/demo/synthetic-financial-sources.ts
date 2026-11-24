@@ -102,6 +102,58 @@ export function suggestedAccountMappings(organizationId: string) {
   };
 }
 
+export function createSyntheticErpCorrection(
+  organization: DemoOrganization,
+  originalBatch: ImportBatch,
+  findingId: string,
+  records: NormalizedFinancialTransaction[],
+  sequence: number,
+) {
+  const generated = createSyntheticImport(organization, originalBatch.sourceType, sequence);
+  const { batch } = generated;
+  const postingReference = `ERP-POSTED-${records[0].reference}`;
+  const rawRecords: RawFinancialRecord[] = records.map((record, index) => ({
+    id: `${batch.id}-raw-${index + 1}`,
+    organizationId: organization.id,
+    batchId: batch.id,
+    rowNumber: index + 2,
+    sourceRecordId: record.sourceRecordId,
+    values: {
+      transaction_id: record.externalTransactionId,
+      date: record.transactionDate,
+      reference: record.reference,
+      description: record.description,
+      account: record.externalAccountId,
+      debit: minorToDecimal(record.debitMinor),
+      credit: minorToDecimal(record.creditMinor),
+      currency: record.currency,
+      external_posting_reference: postingReference,
+    },
+    fingerprint: `${record.fingerprint}|posted:${postingReference}`,
+  }));
+  const normalizedTransactions: NormalizedFinancialTransaction[] = records.map((record, index) => ({
+    ...record,
+    id: `${batch.id}-normalized-${index + 1}`,
+    batchId: batch.id,
+    mappedAccountId: undefined,
+    validationStatus: "PENDING",
+    validationErrors: [],
+    externalPostingReference: postingReference,
+    fingerprint: rawRecords[index].fingerprint,
+  }));
+  return {
+    batch: {
+      ...batch,
+      sourceLabel: `${batch.sourceLabel} — تحديث قيد خارجي`,
+      correctionOfFindingId: findingId,
+      rawRecordIds: rawRecords.map(item => item.id),
+      normalizedRecordIds: normalizedTransactions.map(item => item.id),
+    },
+    rawRecords,
+    normalizedTransactions,
+  };
+}
+
 function line(sourceRecordId: string, transactionId: string, date: string, reference: string, description: string, externalAccountId: string, debitMinor: number, creditMinor: number, document?: string): SyntheticLine {
   return { sourceRecordId, transactionId, date, reference, description, externalAccountId, debitMinor, creditMinor, document };
 }

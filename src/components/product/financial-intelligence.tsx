@@ -7,7 +7,7 @@ import { calculateDataQuality, latestOrganizationBatch, latestOrganizationSnapsh
 import { useDemo } from "@/demo/state/demo-provider";
 import type { AgentType } from "@/domain/agents/types";
 import type { FindingStatus } from "@/domain/financial-control/types";
-import type { FinancialSourceType } from "@/domain/financial-twin/types";
+import { isExternalErpSource, type FinancialSourceType } from "@/domain/financial-twin/types";
 import { suggestedAccountMappings } from "@/integrations/demo/synthetic-financial-sources";
 
 const sourceLabels: Record<FinancialSourceType, string> = {
@@ -19,7 +19,7 @@ const findingStatusLabels: Record<FindingStatus, string> = {
 };
 
 function money(value: number, currency = "EGP") {
-  return new Intl.NumberFormat("ar-EG", { style: "currency", currency, maximumFractionDigits: 0 }).format(value / 100);
+  return new Intl.NumberFormat("ar-EG", { style: "currency", currency }).format(value / 100);
 }
 
 export function FinancialTwinWorkspace() {
@@ -29,15 +29,18 @@ export function FinancialTwinWorkspace() {
   const snapshot = latestOrganizationSnapshot(state, state.currentOrganizationId);
   const batchTransactions = batch ? state.normalizedTransactions.filter(item => item.batchId === batch.id) : [];
   const externalAccounts = [...new Set(batchTransactions.map(item => item.externalAccountId))];
-  const [mappingDraft, setMappingDraft] = useState<Record<string, string>>({});
+  const [mappingDraft, setMappingDraft] = useState<{ batchId: string; values: Record<string, string> }>();
   const organization = state.organizations.find(item => item.id === state.currentOrganizationId)!;
-  const activeMappings = Object.keys(mappingDraft).length ? mappingDraft : batch?.accountMappings ?? {};
+  const activeMappings = mappingDraft && mappingDraft.batchId === batch?.id ? mappingDraft.values : batch?.accountMappings ?? {};
+  const mappingLocked = batch?.status === "CONFIRMED";
 
   const load = () => void execute("financial-twin", () => service.loadSyntheticImport(sourceType), "تم تحميل مصدر اصطناعي داخل الذاكرة فقط.");
   const mapSuggested = () => {
     const mappings = suggestedAccountMappings(state.currentOrganizationId);
-    setMappingDraft(mappings);
-    if (batch) void execute("financial-twin", () => service.applyImportMappings(batch.id, mappings), "تم تطبيق قالب ربط تجريبي قابل للمراجعة.");
+    if (batch) {
+      setMappingDraft({ batchId: batch.id, values: mappings });
+      void execute("financial-twin", () => service.applyImportMappings(batch.id, mappings), "تم تطبيق قالب ربط تجريبي قابل للمراجعة.");
+    }
   };
   const saveMappings = () => batch && void execute("financial-twin", () => service.applyImportMappings(batch.id, activeMappings), "تم حفظ ربط الحسابات داخل العرض.");
 
@@ -56,7 +59,7 @@ export function FinancialTwinWorkspace() {
 
     {!batch ? <section className="demo-empty-state"><Database /><h2>ابدأ بمصدر تجريبي آمن</h2><p>لن يُطلب ملف حقيقي أو بيانات اعتماد. سيُنشئ النظام 16 سجلًا اصطناعيًا مترابطًا لاختبار الجودة والضوابط.</p><button className="demo-primary" type="button" onClick={load}>تحميل العينة</button></section> : <>
       <div className="demo-grid-2 demo-align-start">
-        <section className="demo-panel"><header><div><h2>ربط الحسابات الخارجية</h2><p>راجع الاقتراحات؛ الحساب غير المربوط يبقى ظاهرًا كاستثناء ولا يُخفى.</p></div><button className="demo-secondary" type="button" onClick={mapSuggested}><Sparkles /> اقتراح آمن</button></header><div className="demo-mapping-grid">{externalAccounts.map(external => <label key={external}><span>{external}</span><select value={activeMappings[external] ?? ""} onChange={event => setMappingDraft(value => ({ ...activeMappings, ...value, [external]: event.target.value }))}><option value="">غير مربوط</option>{state.accounts.filter(item => item.organizationId === state.currentOrganizationId && item.active && item.postingAllowed).map(account => <option key={account.id} value={account.id}>{account.code} — {account.name}</option>)}</select></label>)}</div><div className="demo-panel-actions"><button className="demo-primary" type="button" onClick={saveMappings} disabled={!externalAccounts.length}><Link2 /> حفظ الربط</button><button className="demo-secondary" type="button" disabled={!(["MAPPED", "VALIDATED"] as string[]).includes(batch.status)} onClick={() => void execute("financial-twin", () => service.validateImportBatch(batch.id), "اكتمل التحقق البنيوي والمحاسبي للدفعة.")}><FileSearch /> تحقق من الدفعة</button></div></section>
+        <section className="demo-panel"><header><div><h2>ربط الحسابات الخارجية</h2><p>راجع الاقتراحات؛ الحساب غير المربوط يبقى ظاهرًا كاستثناء ولا يُخفى.</p></div><button className="demo-secondary" type="button" disabled={mappingLocked} onClick={mapSuggested}><Sparkles /> اقتراح آمن</button></header><div className="demo-mapping-grid">{externalAccounts.map(external => <label key={external}><span>{external}</span><select disabled={mappingLocked} value={activeMappings[external] ?? ""} onChange={event => setMappingDraft({ batchId: batch.id, values: { ...activeMappings, [external]: event.target.value } })}><option value="">غير مربوط</option>{state.accounts.filter(item => item.organizationId === state.currentOrganizationId && item.active && item.postingAllowed).map(account => <option key={account.id} value={account.id}>{account.code} — {account.name}</option>)}</select></label>)}</div><div className="demo-panel-actions"><button className="demo-primary" type="button" onClick={saveMappings} disabled={mappingLocked || !externalAccounts.length}><Link2 /> حفظ الربط</button><button className="demo-secondary" type="button" disabled={!(["MAPPED", "VALIDATED"] as string[]).includes(batch.status)} onClick={() => void execute("financial-twin", () => service.validateImportBatch(batch.id), "اكتمل التحقق البنيوي والمحاسبي للدفعة.")}><FileSearch /> تحقق من الدفعة</button></div></section>
         <section className="demo-panel"><header><div><h2>ملخص الدفعة</h2><p>{batch.sourceLabel} · Mapping v{batch.mappingVersion}</p></div><span className={`demo-status is-${batch.status.toLowerCase()}`}>{batch.status}</span></header><div className="demo-stat-matrix"><div><span>الصفوف</span><strong>{batchTransactions.length}</strong></div><div><span>صالحة</span><strong>{batch.acceptedRows}</strong></div><div><span>مرفوضة</span><strong>{batch.rejectedRows}</strong></div><div><span>مكررة</span><strong>{batch.duplicateRows}</strong></div></div>{batch.status === "VALIDATED" && <button className="demo-primary demo-wide" type="button" onClick={() => void execute("financial-twin", () => service.confirmImportBatch(batch.id), "تم إنشاء Snapshot مالية غير قابلة للتعديل.")}><CheckCircle2 /> تأكيد وإنشاء Snapshot</button>}{snapshot && snapshot.batchId === batch.id && <div className="demo-snapshot-card"><ShieldCheck /><div><strong>Snapshot v{snapshot.version}</strong><small>{snapshot.validationStatus} · {snapshot.totals.records} سجل · {organization.currency}</small></div><button className="demo-primary" type="button" onClick={() => void execute("controls", () => service.runControlSnapshot(snapshot.id), "اكتمل تشغيل سجل الضوابط الحتمي.")}><Play /> تشغيل الضوابط</button></div>}</section>
       </div>
       <section className="demo-panel"><header><div><h2>خط النسب: Raw → Normalized</h2><p>العينة التالية توضّح مصدر كل قيمة وحالة قبولها.</p></div></header><div className="demo-table-wrap"><table className="demo-table twin-table"><thead><tr><th>صف المصدر</th><th>الحركة</th><th>التاريخ</th><th>الحساب الخارجي</th><th>الحساب الداخلي</th><th>مدين</th><th>دائن</th><th>التحقق</th></tr></thead><tbody>{batchTransactions.slice(0, 16).map(item => { const raw = state.rawFinancialRecords.find(record => record.sourceRecordId === item.sourceRecordId && record.batchId === item.batchId); return <tr key={item.id}><td>#{raw?.rowNumber ?? "—"}</td><td><strong>{item.reference || "مرجع مفقود"}</strong><small>{item.externalTransactionId}</small></td><td>{item.transactionDate}</td><td>{item.externalAccountId}</td><td>{state.accounts.find(account => account.id === item.mappedAccountId)?.code ?? "غير مربوط"}</td><td>{money(item.debitMinor, organization.currency)}</td><td>{money(item.creditMinor, organization.currency)}</td><td><span className={`demo-validation is-${item.validationStatus.toLowerCase()}`}>{item.validationStatus}</span>{item.validationErrors.length > 0 && <small>{item.validationErrors.join(" · ")}</small>}</td></tr>})}</tbody></table></div></section>
@@ -82,15 +85,37 @@ export function GuardianControlCenter() {
   const selected = findings.find(item => item.id === state.selectedFindingId) ?? findings[0];
   const rule = state.controlRules.find(item => item.id === selected?.ruleId);
   const correction = state.journals.find(item => item.id === selected?.correctionJournalId);
+  const sourceSnapshot = state.financialSnapshots.find(item => item.id === selected?.snapshotId);
+  const sourceBatch = state.importBatches.find(item => item.id === sourceSnapshot?.batchId);
+  const externalErp = sourceBatch && isExternalErpSource(sourceBatch.sourceType);
   const [comment, setComment] = useState("");
   const [assignee, setAssignee] = useState(state.users[1]?.id ?? "");
   if (!findings.length) return <div className="demo-stack"><section className="demo-empty-state"><ShieldCheck /><h2>لا توجد نتائج رقابية بعد</h2><p>أنشئ Snapshot من التوأم المالي ثم شغّل الضوابط الحتمية.</p><button className="demo-primary" type="button" onClick={() => void execute("navigate", () => service.navigate("financial-twin"))}>الانتقال إلى التوأم المالي</button></section></div>;
   return <div className="demo-stack guardian-center">
     <div className="demo-kpi-grid"><Kpi label="الضوابط المنفذة" value={`${metrics.executableControls}/${metrics.totalControls}`} /><Kpi label="ملاحظات مفتوحة" value={String(metrics.openFindings)} /><Kpi label="مبلغ تحت المراجعة" value={money(metrics.amountUnderReviewMinor, organization.currency)} /><Kpi label="تعافٍ متحقق" value={money(metrics.verifiedRecoveryMinor, organization.currency)} /></div>
     <div className="guardian-layout"><section className="demo-panel guardian-list"><header><div><h2>الملاحظات الرقابية</h2><p>الأثر المالي لا يتكرر عند تشابه البصمة.</p></div></header>{findings.map(item => <button key={item.id} type="button" className={selected?.id === item.id ? "is-active" : ""} onClick={() => void service.selectFinding(item.id)}><span className={`severity is-${item.severity.toLowerCase()}`}>{item.severity}</span><strong>{item.ruleId} · {state.controlRules.find(control => control.id === item.ruleId)?.nameAr}</strong><small>{findingStatusLabels[item.status]} · {money(item.amountUnderReviewMinor, item.currency)}</small></button>)}</section>
-      {selected && <section className="demo-panel guardian-detail"><header><div><span className={`severity is-${selected.severity.toLowerCase()}`}>{selected.severity}</span><h2>{rule?.nameAr} <small>{rule?.nameEn}</small></h2><p>Rule {selected.ruleId} · Version {selected.ruleVersion} · {findingStatusLabels[selected.status]}</p></div></header><div className="guardian-explanation"><AlertTriangle /><p>{selected.explanation}</p></div><h3>الأدلة</h3><div className="evidence-grid">{selected.evidence.map(evidence => <article key={evidence.id}><FileSearch /><div><strong>{evidence.label}</strong><small>{evidence.kind} · {evidence.referenceId}</small><code>{JSON.stringify(evidence.details)}</code></div></article>)}</div><div className="guardian-actions"><label>تعيين إلى<select value={assignee} onChange={event => setAssignee(event.target.value)}>{state.users.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}</select></label><button className="demo-secondary" type="button" onClick={() => void execute("controls", () => service.assignFinding(selected.id, assignee), "تم تعيين الملاحظة.")}><UserCheck /> تعيين</button><button className="demo-secondary" type="button" onClick={() => void execute("controls", () => service.transitionFinding(selected.id, "UNDER_INVESTIGATION", "بدأت مراجعة الأدلة البشرية."), "بدأ التحقيق البشري.")}><ClipboardCheck /> بدء التحقيق</button><button className="demo-primary" type="button" onClick={() => void execute("agents", () => service.runMockAgent(selected.id, agentForRule(selected.ruleId)), "اكتمل تحليل الوكيل المحاكى دون أي اتصال خارجي.")}><Bot /> تحليل Agent محاكى</button></div><div className="guardian-comment"><input value={comment} onChange={event => setComment(event.target.value)} placeholder="تعليق رقابي موثق" /><button className="demo-secondary" type="button" onClick={() => { void execute("controls", () => service.addFindingComment(selected.id, comment), "تم حفظ التعليق."); setComment(""); }}>إضافة تعليق</button></div>{selected.ruleId === "BNK-001" && !correction && <button className="demo-primary" type="button" onClick={() => void execute("controls", () => service.proposeFindingCorrection(selected.id), "تم إنشاء مسودة تصحيح فقط؛ لم تُعتمد أو تُرحّل.")}><Sparkles /> إنشاء اقتراح تصحيح</button>}{correction && <CorrectionWorkflow findingId={selected.id} journalId={correction.id} status={correction.status} role={state.currentRole} />}</section>}
+      {selected && <section className="demo-panel guardian-detail"><header><div><span className={`severity is-${selected.severity.toLowerCase()}`}>{selected.severity}</span><h2>{rule?.nameAr} <small>{rule?.nameEn}</small></h2><p>Rule {selected.ruleId} · Version {selected.ruleVersion} · {findingStatusLabels[selected.status]}</p></div></header><div className="guardian-explanation"><AlertTriangle /><p>{selected.explanation}</p></div><h3>الأدلة</h3><div className="evidence-grid">{selected.evidence.map(evidence => <article key={evidence.id}><FileSearch /><div><strong>{evidence.label}</strong><small>{evidence.kind} · {evidence.referenceId}</small><code>{JSON.stringify(evidence.details)}</code></div></article>)}</div><div className="guardian-actions"><label>تعيين إلى<select value={assignee} onChange={event => setAssignee(event.target.value)}>{state.users.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}</select></label><button className="demo-secondary" type="button" onClick={() => void execute("controls", () => service.assignFinding(selected.id, assignee), "تم تعيين الملاحظة.")}><UserCheck /> تعيين</button><button className="demo-secondary" type="button" onClick={() => void execute("controls", () => service.transitionFinding(selected.id, "UNDER_INVESTIGATION", "بدأت مراجعة الأدلة البشرية."), "بدأ التحقيق البشري.")}><ClipboardCheck /> بدء التحقيق</button><button className="demo-primary" type="button" onClick={() => void execute("agents", () => service.runMockAgent(selected.id, agentForRule(selected.ruleId)), "اكتمل تحليل الوكيل المحاكى دون أي اتصال خارجي.")}><Bot /> تحليل Agent محاكى</button></div><div className="guardian-comment"><input value={comment} onChange={event => setComment(event.target.value)} placeholder="تعليق رقابي موثق" /><button className="demo-secondary" type="button" onClick={() => { void execute("controls", () => service.addFindingComment(selected.id, comment), "تم حفظ التعليق."); setComment(""); }}>إضافة تعليق</button></div>{selected.ruleId === "BNK-001" && selected.status !== "RESOLVED" && (externalErp ? <ExternalCorrection findingId={selected.id} /> : correction ? <CorrectionWorkflow findingId={selected.id} journalId={correction.id} status={correction.status} role={state.currentRole} /> : <button className="demo-primary" type="button" onClick={() => void execute("controls", () => service.proposeFindingCorrection(selected.id), "تم إنشاء مسودة تصحيح فقط؛ لم تُعتمد أو تُرحّل.")}><Sparkles /> إنشاء اقتراح تصحيح</button>)}{selected.revalidationRunId && <p className="demo-copy">{selected.resolutionReason} <code>{selected.revalidationRunId}</code></p>}</section>}
     </div>
   </div>;
+}
+
+function ExternalCorrection({ findingId }: { findingId: string }) {
+  const { state, service, execute } = useDemo();
+  const batch = state.importBatches.find(item => item.correctionOfFindingId === findingId && item.status !== "ROLLED_BACK");
+  const ready = batch?.status === "CONFIRMED";
+  return (
+    <div className="correction-flow">
+      <h3>تصحيح في ERP خارجي — محاكاة</h3>
+      <p>حمّل عينة من النظام الخارجي بعد التصحيح. راجع الربط وأكّد اللقطة الجديدة في التوأم المالي قبل إعادة التحقق.</p>
+      <div>
+        <button className="demo-secondary" type="button" disabled={ready} onClick={() => void execute("controls", async () => {
+          await service.loadSyntheticErpCorrection(findingId);
+          await service.navigate("financial-twin");
+        })}>تحميل عينة تصحيح ERP</button>
+        <button className="demo-primary" type="button" disabled={!ready} onClick={() => void execute("controls", () => service.revalidateFinding(findingId), "اكتملت إعادة التحقق من العينة الخارجية.")}>إعادة تحقق ERP</button>
+      </div>
+    </div>
+  );
 }
 
 function CorrectionWorkflow({ findingId, journalId, status, role }: { findingId: string; journalId: string; status: string; role: string }) {

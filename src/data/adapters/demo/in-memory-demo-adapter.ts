@@ -1,6 +1,7 @@
 import { demoJournalCommandSchema, demoReviewTransitionSchema } from "@/application/demo/contracts";
 import { applyMappings, createSnapshot, validateImport } from "@/application/financial-twin/import-engine";
 import { runFinancialControls } from "@/application/control-engine/run-controls";
+import { createControlRegistry } from "@/application/control-engine/control-registry";
 import { assertOpenPeriod, assertPermission, assertPostingAccounts, assertUniqueJournalReference, assertValidJournalLines, canApproveEntry, financialPeriodForDate } from "@/application/accounting/rules";
 import { MockAIProvider } from "@/data/adapters/mock-ai/mock-ai-provider";
 import type { ProductDemoPort } from "@/data/ports/product-demo-port";
@@ -8,8 +9,8 @@ import { createDemoFixtures } from "@/demo/fixtures/demo-fixtures";
 import type { AgentType } from "@/domain/agents/types";
 import { isBalanced, type DemoRole, type DemoSection, type DemoState, type JournalLine, type LanguageDisplayMode, type OrganizationId, type ReviewStatus } from "@/domain/demo/types";
 import type { FindingStatus } from "@/domain/financial-control/types";
-import type { FinancialSourceType } from "@/domain/financial-twin/types";
-import { createSyntheticImport } from "@/integrations/demo/synthetic-financial-sources";
+import { isExternalErpSource, type FinancialSourceType } from "@/domain/financial-twin/types";
+import { createSyntheticErpCorrection, createSyntheticImport } from "@/integrations/demo/synthetic-financial-sources";
 
 const STORAGE_KEY = "money-coder-demo-state-v2";
 const fixedDemoTime = () => "2026-11-20T12:00:00.000Z";
@@ -45,6 +46,7 @@ export class InMemoryDemoAdapter implements ProductDemoPort {
     try {
       const parsed = JSON.parse(stored) as DemoState;
       if (parsed.version === 2 && parsed.persistenceEnabled) {
+        parsed.controlRules = createControlRegistry();
         this.state = parsed;
         this.listeners.forEach(listener => listener());
       }
@@ -58,6 +60,7 @@ export class InMemoryDemoAdapter implements ProductDemoPort {
     if (!this.state.organizations.some(item => item.id === organizationId)) throw new Error("الشركة التجريبية غير موجودة.");
     this.commit(draft => {
       draft.currentOrganizationId = organizationId;
+      draft.selectedFindingId = undefined;
       draft.selectedReviewId = draft.reviews.find(item => item.organizationId === organizationId)?.id;
       draft.audit.unshift({ id: crypto.randomUUID(), organizationId, action: "DEMO_ORGANIZATION_SWITCHED", actor: "مستخدم العرض", at: fixedDemoTime() });
     });
@@ -390,17 +393,42 @@ export class InMemoryDemoAdapter implements ProductDemoPort {
     if (!organization) throw new Error("الشركة التجريبية غير موجودة.");
     const sequence = this.state.importBatches.filter(item => item.organizationId === organization.id).length + 1;
     const generated = createSyntheticImport(organization, sourceType, sequence);
+    return this.storeSyntheticImport(generated);
+  }
+
+  async loadSyntheticErpCorrection(findingId: string) {
+    const finding = currentFinding(this.state, findingId);
+    const snapshot = this.state.financialSnapshots.find(item => item.id === finding.snapshotId);
+    const batch = snapshot && currentBatch(this.state, snapshot.batchId);
+    if (!batch || !isExternalErpSource(batch.sourceType) || finding.ruleId !== "BNK-001" || finding.status === "RESOLVED") {
+      throw new Error("لا تتوفر عينة تصحيح ERP لهذه الملاحظة.");
+    }
+    const organization = this.state.organizations.find(item => item.id === finding.organizationId)!;
+    const existing = this.state.importBatches.find(item => item.correctionOfFindingId === finding.id && item.status !== "ROLLED_BACK");
+    if (existing) return existing.id;
+    const records = this.state.normalizedTransactions.filter(item => item.batchId === batch.id && finding.relatedTransactionIds.includes(item.id));
+    const debit = records.reduce((sum, item) => sum + item.debitMinor, 0);
+    if (records.length < 2 || debit <= 0 || debit !== records.reduce((sum, item) => sum + item.creditMinor, 0)) {
+      throw new Error("عينة ERP تدعم فقط تصحيح حركة بنكية متوازنة.");
+    }
+    const sequence = this.state.importBatches.filter(item => item.organizationId === organization.id).length + 1;
+    return this.storeSyntheticImport(createSyntheticErpCorrection(organization, batch, finding.id, records, sequence));
+  }
+
+  private storeSyntheticImport(generated: ReturnType<typeof createSyntheticImport>) {
     this.commit(draft => {
       draft.importBatches.unshift(generated.batch);
       draft.rawFinancialRecords.push(...generated.rawRecords);
       draft.normalizedTransactions.push(...generated.normalizedTransactions);
-      draft.audit.unshift({ id: crypto.randomUUID(), organizationId: organization.id, action: "DEMO_SYNTHETIC_IMPORT_LOADED", actor: draft.currentRole, at: fixedDemoTime() });
+      draft.audit.unshift({ id: crypto.randomUUID(), organizationId: generated.batch.organizationId, action: "DEMO_SYNTHETIC_IMPORT_LOADED", actor: draft.currentRole, at: fixedDemoTime() });
     });
     return generated.batch.id;
   }
 
   async applyImportMappings(batchId: string, mappings: Record<string, string>) {
     const batch = currentBatch(this.state, batchId);
+    if (batch.status === "CONFIRMED") throw new Error("الدفعة مؤكدة. استخدم دفعة جديدة لتعديل الربط.");
+    mappings = Object.fromEntries(Object.entries(mappings).filter(([, accountId]) => accountId));
     Object.values(mappings).forEach(accountId => {
       const account = this.state.accounts.find(item => item.id === accountId && item.organizationId === batch.organizationId);
       if (!account || !account.active || !account.postingAllowed) throw new Error("أحد حسابات الربط غير صالح للترحيل في الشركة الحالية.");
@@ -521,6 +549,11 @@ export class InMemoryDemoAdapter implements ProductDemoPort {
 
   async proposeFindingCorrection(findingId: string) {
     const finding = currentFinding(this.state, findingId);
+    const snapshot = this.state.financialSnapshots.find(item => item.id === finding.snapshotId);
+    const batch = snapshot && currentBatch(this.state, snapshot.batchId);
+    if (!batch || isExternalErpSource(batch.sourceType) || finding.ruleId !== "BNK-001" || finding.status === "RESOLVED") {
+      throw new Error("الملاحظة تتطلب إعادة استيراد بيانات ERP أو لا تدعم اقتراح قيد داخلي.");
+    }
     const related = this.state.normalizedTransactions.filter(item => finding.relatedTransactionIds.includes(item.id));
     if (related.length < 2 || related.some(item => !item.mappedAccountId)) throw new Error("لا تتوفر أسطر مربوطة كافية لإنشاء تصحيح متوازن.");
     const debit = related.reduce((sum, item) => sum + item.debitMinor, 0);
@@ -542,18 +575,31 @@ export class InMemoryDemoAdapter implements ProductDemoPort {
 
   async revalidateFinding(findingId: string) {
     const finding = currentFinding(this.state, findingId);
-    if (finding.status !== "REVALIDATION") throw new Error("يجب ترحيل التصحيح قبل إعادة التحقق.");
-    const snapshot = this.state.financialSnapshots.find(item => item.id === finding.snapshotId && item.organizationId === finding.organizationId);
-    if (!snapshot) throw new Error("Snapshot المرتبطة غير موجودة.");
+    if (finding.status === "RESOLVED") throw new Error("تم حل الملاحظة بالفعل.");
+    const original = this.state.financialSnapshots.find(item => item.id === finding.snapshotId && item.organizationId === finding.organizationId);
+    if (!original) throw new Error("Snapshot المرتبطة غير موجودة.");
+    const originalBatch = currentBatch(this.state, original.batchId);
+    const external = isExternalErpSource(originalBatch.sourceType);
+    const correctionBatch = external && this.state.importBatches.find(item => item.organizationId === finding.organizationId
+      && item.sourceType === originalBatch.sourceType && item.correctionOfFindingId === finding.id && item.status === "CONFIRMED");
+    const snapshot = external
+      ? this.state.financialSnapshots.find(item => correctionBatch && item.batchId === correctionBatch.id && item.version > original.version)
+      : original;
+    if (!snapshot) throw new Error("أكّد دفعة تصحيح ERP الجديدة أولًا.");
+    if (!external && finding.status !== "REVALIDATION" && finding.status !== "REOPENED") throw new Error("يجب ترحيل التصحيح قبل إعادة التحقق.");
     const output = runFinancialControls(this.state, snapshot, this.state.findings);
     const repeated = output.findings.some(item => item.ruleId === finding.ruleId && item.duplicateFingerprint === finding.duplicateFingerprint);
+    const evaluated = output.run.results.some(item => item.ruleId === finding.ruleId && (item.status === "PASSED" || item.status === "FINDING"));
+    const result = output.run.results.find(item => item.ruleId === finding.ruleId);
+    const resolved = evaluated && !repeated;
     this.commit(draft => {
       draft.controlRuns.unshift(output.run);
-      mergeFindings(draft, output.findings.filter(item => item.id !== finding.id));
       const target = currentFinding(draft, findingId);
-      target.revalidationResult = repeated ? "FINDING" : "PASSED";
-      target.resolutionReason = repeated ? "ما زالت القاعدة تكتشف نفس البصمة بعد التصحيح." : "لم تعد القاعدة تكتشف المخالفة بعد الترحيل وإعادة التحقق.";
-      transitionFindingRecord(target, repeated ? "REOPENED" : "RESOLVED", "Financial Control Engine — Simulation", target.resolutionReason);
+      target.revalidationResult = resolved ? "PASSED" : repeated ? "FINDING" : result?.status ?? "DISABLED";
+      target.revalidationRunId = output.run.id;
+      target.resolutionReason = resolved ? "أكد تشغيل القاعدة أن المخالفة اختفت بعد التصحيح."
+        : repeated ? "ما زالت القاعدة تكتشف نفس البصمة بعد التصحيح." : "البيانات أو حالة القاعدة لا تكفي لإثبات حل الملاحظة.";
+      transitionFindingRecord(target, resolved ? "RESOLVED" : "REOPENED", "Financial Control Engine — Simulation", target.resolutionReason);
       draft.usagePreview.controlExecutions += output.run.results.length;
     });
   }

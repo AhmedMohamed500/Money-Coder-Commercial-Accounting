@@ -15,7 +15,8 @@ export function guardianMetrics(state: DemoState, organizationId: OrganizationId
     resolvedFindings: findings.filter(item => item.status === "RESOLVED").length,
     insufficientData: latestRun?.results.filter(item => item.status === "INSUFFICIENT_DATA").length ?? 0,
     amountUnderReviewMinor: [...exposureByFingerprint.values()].reduce((sum, amount) => sum + amount, 0),
-    verifiedRecoveryMinor: findings.filter(item => item.status === "RESOLVED" && item.revalidationResult === "PASSED").reduce((sum, item) => sum + item.amountUnderReviewMinor, 0),
+    // Confirmed corrections do not establish cash recovery in the demo.
+    verifiedRecoveryMinor: 0,
     lastControlRun: latestRun?.completedAt,
   };
 }

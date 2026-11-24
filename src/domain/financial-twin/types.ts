@@ -28,6 +28,7 @@ export interface NormalizedFinancialTransaction {
   creditMinor: number;
   currency: "EGP" | "USD";
   sourceDocument?: string;
+  externalPostingReference?: string;
   dataOrigin: FinancialSourceType;
   validationStatus: RecordValidationStatus;
   validationErrors: string[];
@@ -51,6 +52,11 @@ export interface ImportBatch {
   freshnessDate: string;
   errorReport: Array<{ recordId: string; errors: string[] }>;
   rollbackReason?: string;
+  correctionOfFindingId?: string;
+}
+
+export function isExternalErpSource(source: FinancialSourceType) {
+  return ["DAFTRA", "ODOO", "QUICKBOOKS", "OTHER_ERP"].includes(source);
 }
 
 export interface FinancialSnapshot {

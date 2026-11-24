@@ -251,7 +251,9 @@ The browser currently stores `RawFinancialRecord`, `NormalizedFinancialTransacti
 8. Finding transitions require expected revision, permission and a reason where applicable.
 9. Agent runs receive evidence references through authorized tools, not arbitrary database access.
 10. Agent output may create a proposal; submit, approve and post remain separate human-authorized commands.
-11. Revalidation executes the same rule version and records whether the original fingerprint remains.
+11. Revalidation reruns the rule, persists the new run and records its outcome. Preserve the original rule version and the revalidation rule version. Pin rule versions or record an explicit migration when behavior changes.
+12. Internal BNK-001 correction requires a posted, unreversed journal matching the original transaction date, amounts and mapped accounts. The ERP-only version must use affirmative posting evidence from a confirmed newer source snapshot linked to the finding. Corrections and external evidence each stay in their own dataset.
+13. Treat corrected exposure as distinct from recovered cash; verified recovery requires separate settlement evidence.
 
 Recommended service split:
 
@@ -266,3 +268,5 @@ IntegrationPort     catalogs/connections/sync status
 ```
 
 See `FINANCIAL_TWIN_ARCHITECTURE.md`, `CONTROL_ENGINE.md`, `AGENTIC_SYSTEM.md`, `ACCOUNTING_MODEL.md` and `SECURITY_AND_DEMO_BOUNDARIES.md` for exact policies and deferred work.
+
+The OpenAPI import and run endpoints are an integration draft. The backend team still needs concrete typed DTOs for batch results, snapshot evidence, ERP corrections and revalidation responses, along with end-to-end contract tests. The current HTTP adapter does not implement this Guardian extension.

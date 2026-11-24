@@ -13,6 +13,10 @@ const permissions: Record<AgentType, DemoAgentToolName[]> = {
   CFO_AGENT: ["read_finding_evidence", "read_snapshot_summary", "read_account_balances", "read_journal_workflow"],
 };
 
+export function toolsForAgent(agentType: AgentType): readonly DemoAgentToolName[] {
+  return permissions[agentType];
+}
+
 export function executeAgentTool(state: DemoState, organizationId: string, findingId: string, agentType: AgentType, tool: DemoAgentToolName): AgentToolCall {
   const id = `tool-${findingId}-${tool}`;
   if (!permissions[agentType].includes(tool)) return { id, tool, inputSummary: "طلب قراءة مقيد", outputSummary: "تم رفض الأداة وفق صلاحيات الوكيل.", status: "DENIED", permission: `${agentType}:${tool}`, durationMs: 0 };

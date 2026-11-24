@@ -25,7 +25,8 @@
 | Mock agents | Governed local tools, tenant checks, zero external tokens and no posting authority | `AIProvider` boundary documented | Not implemented | Provider governance, redaction, budgets, tool sandbox and approvals |
 | Forecasting | Deterministic read-only base scenario | Forecast resource planned | Not implemented | Scenario CRUD, permissions, assumptions and versioning |
 | Integration hub | Status/contract preview only; no credentials | Connector contract planned | Existing n8n remains separate and untouched | Connector runtime, secret vault, sync jobs and observability |
-| Commercial value | Usage and verified-recovery preview; no pricing or savings claim | Usage events planned | Not implemented | Billing policy, metering integrity and approved pricing |
+| ERP-only Guardian | Simulated BNK-001 initial import and confirmed ERP correction snapshot; no write to the internal ledger | Import/snapshot/control commands documented; target-specific ERP proof DTO pending | Not implemented | Source identifiers, revised balances, provenance and replay policy |
+| Commercial value | Synthetic activity and observed exposure; cash recovery is zero in the absence of settlement evidence | Usage events planned | Not implemented | Metering and settlement evidence |
 
 ## Readiness labels
 

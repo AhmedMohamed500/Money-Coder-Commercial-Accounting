@@ -54,6 +54,7 @@ export interface ProductDemoPort {
   createBankDraft(rowId: string): Promise<string>;
   postDraftJournal(journalId: string): Promise<void>;
   loadSyntheticImport(sourceType: FinancialSourceType): Promise<string>;
+  loadSyntheticErpCorrection(findingId: string): Promise<string>;
   applyImportMappings(batchId: string, mappings: Record<string, string>): Promise<void>;
   validateImportBatch(batchId: string): Promise<void>;
   confirmImportBatch(batchId: string): Promise<string>;

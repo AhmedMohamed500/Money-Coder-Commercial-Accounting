@@ -41,9 +41,14 @@ export function buildDemoReport(state: DemoState, organizationId: OrganizationId
   const revenueMinor = sumType("REVENUE");
   const expenseMinor = sumType("EXPENSE");
   const profitMinor = revenueMinor - expenseMinor;
-  const assetsMinor = sumType("ASSET");
-  const liabilitiesMinor = sumType("LIABILITY");
-  const equityMinor = sumType("EQUITY") + profitMinor;
+  const positionBalances = range?.from ? buildAccountBalances(state, organizationId, { to: range.to }) : balances;
+  const positionTotal = (type: Account["type"]) => positionBalances
+    .filter(({ account }) => account.type === type && account.postingAllowed)
+    .reduce((sum, { account, balanceMinor }) => sum + balanceMinor * account.statementSign, 0);
+  const assetsMinor = positionTotal("ASSET");
+  const liabilitiesMinor = positionTotal("LIABILITY");
+  const cumulativeProfit = range?.from ? positionTotal("REVENUE") - positionTotal("EXPENSE") : profitMinor;
+  const equityMinor = positionTotal("EQUITY") + cumulativeProfit;
   return { revenueMinor, expenseMinor, profitMinor, assetsMinor, liabilitiesMinor, equityMinor, trialBalance };
 }
 

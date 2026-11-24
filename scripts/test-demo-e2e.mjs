@@ -88,6 +88,24 @@ try {
   await page.getByRole("button", { name: /4. إعادة تحقق/ }).click();
   await page.getByText(/محلولة/).first().waitFor();
   await page.screenshot({ path: path.join(output, "desktop-guardian-resolved.png"), fullPage: true });
+  await navigate(page, "التوأم المالي");
+  await page.getByLabel("المصدر التجريبي").selectOption("ODOO");
+  await page.getByRole("button", { name: "تحميل بيانات اصطناعية", exact: true }).click();
+  await page.getByRole("button", { name: "اقتراح آمن", exact: true }).click();
+  await page.getByRole("button", { name: "تحقق من الدفعة", exact: true }).click();
+  await page.getByRole("button", { name: "تأكيد وإنشاء Snapshot", exact: true }).click();
+  await page.getByRole("button", { name: "تشغيل الضوابط", exact: true }).click();
+  await navigate(page, "المراقب المالي الذكي");
+  await page.getByRole("button", { name: /BNK-001/ }).first().click();
+  await page.getByRole("button", { name: "تحميل عينة تصحيح ERP", exact: true }).click();
+  await page.getByRole("button", { name: "اقتراح آمن", exact: true }).click();
+  await page.getByRole("button", { name: "تحقق من الدفعة", exact: true }).click();
+  await page.getByRole("button", { name: "تأكيد وإنشاء Snapshot", exact: true }).click();
+  await navigate(page, "المراقب المالي الذكي");
+  await page.getByRole("button", { name: "إعادة تحقق ERP", exact: true }).click();
+  await page.getByText(/أكد تشغيل القاعدة أن المخالفة اختفت/).waitFor();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: path.join(output, "desktop-erp-verified.png"), fullPage: true });
   await roleSelect.selectOption("OFFICE_OWNER");
 
   await navigate(page, "مركز المستندات");
@@ -133,9 +151,16 @@ try {
   await companySelect.selectOption("org-nile");
   await page.getByRole("heading", { name: "النيل التجارية — تجريبي", exact: true }).waitFor();
 
-  for (const route of ["/api/health", "/dashboard", "/auth/login"]) {
+  for (const route of ["/api/health", "/api/auth/login", "/dashboard", "/auth/login", "/company/demo", "/office/demo"]) {
     const blocked = await context.request.get(`${baseUrl}${route}`, { maxRedirects: 0 });
     assert.equal(blocked.status(), 404, `${route} must return 404 in demo-only mode`);
+  }
+
+  const languageSelect = page.getByLabel("لغة المصطلحات");
+  for (const [mode, direction, overview] of [["EN", "ltr", "Overview"], ["AR", "rtl", "نظرة عامة"], ["BILINGUAL", "rtl", "نظرة عامة — Overview"]]) {
+    await languageSelect.selectOption(mode);
+    assert.equal(await page.locator(".demo-app").getAttribute("dir"), direction);
+    await page.locator(".demo-sidebar nav").getByRole("button", { name: overview, exact: true }).waitFor();
   }
 
   const dimensions = await page.evaluate(() => ({ viewport: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));

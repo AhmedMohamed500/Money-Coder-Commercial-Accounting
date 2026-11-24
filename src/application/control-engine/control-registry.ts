@@ -36,7 +36,7 @@ const definitions: Array<[string, string, string, ControlCategory, ControlSeveri
 export function createControlRegistry(): ControlRule[] {
   return definitions.map(([id, nameAr, nameEn, category, severity, implementation, requiredData]) => ({
     id,
-    version: "1.0.0",
+    version: ["BNK-001", "ACC-006", "ACC-007", "CLS-001"].includes(id) ? "1.1.0" : "1.0.0",
     nameAr,
     nameEn,
     descriptionAr: `قاعدة رقابية تجريبية: ${nameAr}.`,

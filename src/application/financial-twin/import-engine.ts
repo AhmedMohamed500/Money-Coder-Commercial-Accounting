@@ -16,7 +16,13 @@ export function applyMappings(transactions: NormalizedFinancialTransaction[], ma
 export function validateImport(batch: ImportBatch, rawRecords: RawFinancialRecord[], transactions: NormalizedFinancialTransaction[], state: DemoState) {
   const organization = state.organizations.find(item => item.id === batch.organizationId);
   if (!organization) throw new Error("الشركة التجريبية غير موجودة.");
-  const confirmedFingerprints = new Set(state.importBatches.filter(item => item.organizationId === batch.organizationId && item.status === "CONFIRMED" && item.id !== batch.id).flatMap(item => state.normalizedTransactions.filter(transaction => transaction.batchId === item.id).map(transaction => transaction.fingerprint)));
+  const confirmedBatches = new Set(state.importBatches.filter(item =>
+    item.organizationId === batch.organizationId && item.sourceType === batch.sourceType
+    && item.status === "CONFIRMED" && item.id !== batch.id,
+  ).map(item => item.id));
+  const confirmedFingerprints = new Set(state.normalizedTransactions
+    .filter(transaction => confirmedBatches.has(transaction.batchId) && transaction.validationStatus === "VALID")
+    .map(transaction => transaction.fingerprint));
   const fingerprintCounts = new Map<string, number>();
   transactions.forEach(item => fingerprintCounts.set(item.fingerprint, (fingerprintCounts.get(item.fingerprint) ?? 0) + 1));
   const individuallyValidated = transactions.map(transaction => {
@@ -33,7 +39,7 @@ export function validateImport(batch: ImportBatch, rawRecords: RawFinancialRecor
     const validationStatus = duplicate ? "DUPLICATE" as const : errors.includes("UNMAPPED_ACCOUNT") ? "UNMAPPED" as const : errors.length ? "REJECTED" as const : "VALID" as const;
     return { ...transaction, validationStatus, validationErrors: [...new Set(errors)] };
   });
-  const invalidGroups = new Set(individuallyValidated.filter(item => ["REJECTED", "UNMAPPED"].includes(item.validationStatus)).map(item => item.externalTransactionId));
+  const invalidGroups = new Set(individuallyValidated.filter(item => item.validationStatus !== "VALID").map(item => item.externalTransactionId));
   const validated = individuallyValidated.map(transaction => invalidGroups.has(transaction.externalTransactionId) && transaction.validationStatus === "VALID"
     ? { ...transaction, validationStatus: "REJECTED" as const, validationErrors: [...transaction.validationErrors, "GROUP_HAS_INVALID_LINE"] }
     : transaction);
@@ -110,7 +116,11 @@ export function latestOrganizationBatch(state: DemoState, organizationId: Organi
 }
 
 export function latestOrganizationSnapshot(state: DemoState, organizationId: OrganizationId) {
-  return state.financialSnapshots.filter(item => item.organizationId === organizationId).sort((a, b) => b.version - a.version)[0];
+  const confirmed = new Set(state.importBatches
+    .filter(item => item.organizationId === organizationId && item.status === "CONFIRMED").map(item => item.id));
+  return state.financialSnapshots
+    .filter(item => item.organizationId === organizationId && confirmed.has(item.batchId))
+    .sort((a, b) => b.version - a.version)[0];
 }
 
 function percent(numerator: number, denominator: number) {

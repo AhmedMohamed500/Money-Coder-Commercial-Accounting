@@ -20,6 +20,17 @@ describe("hardened accounting workflow", () => {
     await adapter.switchRole("COMPANY_ACCOUNTANT");
     await adapter.postJournal(id);
     expect(adapter.snapshot().journals.find(item => item.id === id)?.status).toBe("POSTED");
+    await expect(adapter.postJournal(id)).rejects.toThrow();
+  });
+
+  it("separates period profit from cumulative financial position", () => {
+    const state = new InMemoryDemoAdapter().snapshot();
+    const current = buildDemoReport(state, "org-nile", { from: "2026-11-30", to: "2026-11-30" });
+    const cumulative = buildDemoReport(state, "org-nile", { to: "2026-11-30" });
+    expect(current.profitMinor).toBe(0);
+    expect(current.assetsMinor).toBeGreaterThan(0);
+    expect(current.equityMinor).toBe(cumulative.equityMinor);
+    expect(current.assetsMinor).toBe(current.liabilitiesMinor + current.equityMinor);
   });
 
   it("rejects inactive and summary accounts and blocks posting into a closed period", async () => {
